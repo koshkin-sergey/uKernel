@@ -739,7 +739,6 @@ void set_current_priority(TN_TCB * task, int priority)
 static void task_set_dormant_state(TN_TCB* task)
 {
 	queue_reset(&(task->task_queue));
-	queue_reset(&(task->create_queue));
 	queue_reset(&(task->wtmeb.queue));
 #ifdef USE_MUTEXES
 	queue_reset(&(task->mutex_queue));
