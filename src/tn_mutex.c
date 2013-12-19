@@ -272,7 +272,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 	//-- Check for the task(s) that want to lock the mutex
 	if (is_queue_empty(&(mutex->wait_queue))) {
 		mutex->holder = NULL;
-		return TRUE;
+		return true;
 	}
 
 	//--- Now lock the mutex by the first task in the mutex queue
@@ -289,7 +289,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 	task_wait_complete(task);
 	queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
 
-	return TRUE;
+	return true;
 }
 
 //----------------------------------------------------------------------------

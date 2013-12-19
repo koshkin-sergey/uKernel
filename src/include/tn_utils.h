@@ -59,9 +59,9 @@ INLINE_FORCED void queue_reset(CDLL_QUEUE *que)
  * Параметры: que - Указатель на очередь
  * Результат: Возвращает TRUE если очередь пуста, в противном случае FALSE
  *-----------------------------------------------------------------------------*/
-INLINE_FORCED BOOL is_queue_empty(CDLL_QUEUE *que)
+INLINE_FORCED bool is_queue_empty(CDLL_QUEUE *que)
 {
-	return ((que->next == que) ? TRUE : FALSE);
+	return ((que->next == que) ? true : false);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -167,10 +167,10 @@ extern void queue_remove_entry(CDLL_QUEUE *entry);
 #endif
 
 extern void idle_task_func(void *par);
-extern BOOL queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry);
-extern int dque_fifo_write(TN_DQUE *dque, void *data_ptr, BOOL send_to_first);
+extern bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry);
+extern int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first);
 extern int dque_fifo_read(TN_DQUE * dque, void ** data_ptr);
-extern int mbf_fifo_write(TN_MBF *mbf, void *msg, BOOL send_to_first);
+extern int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first);
 extern int mbf_fifo_read(TN_MBF *mbf, void *msg);
 
 #ifdef __cplusplus

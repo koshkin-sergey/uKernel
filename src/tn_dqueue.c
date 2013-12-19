@@ -123,7 +123,7 @@ int tn_queue_delete(TN_DQUE *dque)
  *							TERR_TIMEOUT	-	ѕревышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
 static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
-												 BOOL send_to_first)
+												 bool send_to_first)
 {
 	int rc = TERR_NO_ERR;
 	CDLL_QUEUE * que;
@@ -183,7 +183,7 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
  *----------------------------------------------------------------------------*/
 int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
-	return do_queue_send(dque, data_ptr, timeout, FALSE);
+	return do_queue_send(dque, data_ptr, timeout, false);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -201,7 +201,7 @@ int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
  *----------------------------------------------------------------------------*/
 int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
-	return do_queue_send(dque, data_ptr, timeout, TRUE);
+	return do_queue_send(dque, data_ptr, timeout, true);
 }
 
 /*-----------------------------------------------------------------------------*

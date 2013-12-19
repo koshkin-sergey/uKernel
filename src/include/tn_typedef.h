@@ -11,32 +11,20 @@
 
 #ifndef TN_TYPEDEF_H_
 #define TN_TYPEDEF_H_
+#define __TNKERNEL_VERSION	3000000
 
 /*******************************************************************************
  *  includes
  ******************************************************************************/
 
+#include <stdbool.h>
+
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
-#ifndef BOOL
-  #ifndef __cplusplus /* In C++, 'bool', 'true' and 'false' and keywords */
-    #define BOOL    _Bool
-    #define TRUE    1
-    #define FALSE   0
-  #else
-    #ifdef __GNUC__
-      /* GNU C++ supports direct inclusion of stdbool.h to provide C99
-         compatibility by defining _Bool */
-      #define _Bool bool
-    #endif
-  #endif
-#endif
 
-#ifdef NULL
 #undef NULL
-#endif
-#define NULL                  ((void*)0)
+#define NULL	((void*)0)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)

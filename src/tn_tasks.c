@@ -579,7 +579,7 @@ int task_wait_complete(TN_TCB *task)
  *-----------------------------------------------------------------------------*/
 static int task_wait_release(TN_TCB *task)
 {
-	int rc = FALSE;
+	int rc = false;
 #ifdef USE_MUTEXES
 	int fmutex;
 	int curr_priority;
@@ -590,18 +590,18 @@ static int task_wait_release(TN_TCB *task)
 	t_que = NULL;
 	if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I
 		|| task->task_wait_reason == TSK_WAIT_REASON_MUTEX_C) {
-		fmutex = TRUE;
+		fmutex = true;
 		t_que = task->pwait_queue;
 	}
 	else
-		fmutex = FALSE;
+		fmutex = false;
 #endif
 
 	task->pwait_queue = NULL;
 
 	if (!(task->task_state & TSK_STATE_SUSPEND)) {
 		task_to_runnable(task);
-		rc = TRUE;
+		rc = true;
 	}
 	else
 		//-- remove WAIT state
@@ -623,7 +623,7 @@ static int task_wait_release(TN_TCB *task)
 					mutex, mt_holder_task->base_priority);
 
 				set_current_priority(mt_holder_task, curr_priority);
-				rc = TRUE;
+				rc = true;
 			}
 		}
 	}
@@ -685,7 +685,7 @@ int change_running_task_priority(TN_TCB * task, int new_priority)
 	tn_ready_to_run_bmp |= 1 << new_priority;
 	find_next_task_to_run();
 
-	return TRUE;
+	return true;
 }
 
 #ifdef USE_MUTEXES

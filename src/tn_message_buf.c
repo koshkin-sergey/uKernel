@@ -60,7 +60,7 @@
  *							TERR_TIMEOUT	-	ѕревышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
 static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
-											 BOOL send_to_first)
+											 bool send_to_first)
 {
 	int rc = TERR_NO_ERR;
 	CDLL_QUEUE *que;
@@ -194,7 +194,7 @@ int tn_mbf_delete(TN_MBF *mbf)
  *----------------------------------------------------------------------------*/
 int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
-	return do_mbf_send(mbf, msg, timeout, FALSE);
+	return do_mbf_send(mbf, msg, timeout, false);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -213,7 +213,7 @@ int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
  *----------------------------------------------------------------------------*/
 int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
-	return do_mbf_send(mbf, msg, timeout, TRUE);
+	return do_mbf_send(mbf, msg, timeout, true);
 }
 
 /*-----------------------------------------------------------------------------*

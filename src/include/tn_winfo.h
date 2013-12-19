@@ -30,7 +30,7 @@ typedef struct {
 
 typedef struct {
 	void *data_elem;
-	BOOL send_to_first;
+	bool send_to_first;
 } WINFO_SDQUE;
 
 typedef struct {
@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
 	void *msg; /* Send message head address */
-	BOOL send_to_first;
+	bool send_to_first;
 } WINFO_SMBF;
 
 typedef struct {

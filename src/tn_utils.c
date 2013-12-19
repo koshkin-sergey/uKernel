@@ -150,7 +150,7 @@ void queue_remove_entry(CDLL_QUEUE *entry)
 #endif
 
 //----------------------------------------------------------------------------
-BOOL queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
 	//-- The entry in the queue ???
 
@@ -159,12 +159,12 @@ BOOL queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 	curr_que = que->next;
 	while (curr_que != que) {
 		if (curr_que == entry)
-			return TRUE;   //-- Found
+			return true;   //-- Found
 
 		curr_que = curr_que->next;
 	}
 
-	return FALSE;
+	return false;
 }
 
 //---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ BOOL queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry)
  *							TERR_WRONG_PARAM  - некорректно заданы параметры;
  *							TERR_OUT_OF_MEM - Емкость очереди данных равна нулю.
  *-----------------------------------------------------------------------------*/
-int dque_fifo_write(TN_DQUE *dque, void *data_ptr, BOOL send_to_first)
+int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
 {
 #if TN_CHECK_PARAM
 	if (dque == NULL)
@@ -258,7 +258,7 @@ int dque_fifo_read(TN_DQUE *dque, void **data_ptr)
  *							TERR_WRONG_PARAM  - некорректно заданы параметры;
  *							TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
-int mbf_fifo_write(TN_MBF *mbf, void *msg, BOOL send_to_first)
+int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
 {
 	int bufsz, msz;
 

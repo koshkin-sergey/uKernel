@@ -88,7 +88,7 @@ static TASK_FUNC timer_task_func(void *par)
   //-- Enable interrupt here ( include tick int)
   tn_cpu_int_enable(HZ);
   calibrate_delay();
-  tn_system_state = TRUE;
+  tn_system_state = true;
 
   for (;;) {
     BEGIN_CRITICAL_SECTION
@@ -167,7 +167,7 @@ void tn_timer(void)
 	BEGIN_CRITICAL_SECTION
 
   jiffies += os_period;
-  if (tn_system_state == TRUE) {
+  if (tn_system_state == true) {
     tn_curr_run_task->time += os_period;
     tick_int_processing();
   }

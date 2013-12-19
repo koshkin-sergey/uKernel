@@ -58,7 +58,7 @@ unsigned char L_ffs_table[] = {
 30,  0, 23, 19, 29, 18, 17,  0
 };
 
-BOOL switch_context_request;
+bool switch_context_request;
 
 /*-----------------------------------------------------------------------------*
   Название :  tn_start_exe
@@ -387,7 +387,7 @@ __asm int ffs_asm(unsigned int val)
 *-----------------------------------------------------------------------------*/
 void tn_switch_context_request(void)
 {
-  switch_context_request = TRUE;
+  switch_context_request = true;
 }
 
 #else
