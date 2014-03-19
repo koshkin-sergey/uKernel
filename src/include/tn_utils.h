@@ -57,7 +57,7 @@ INLINE_FORCED void queue_reset(CDLL_QUEUE *que)
  * Название : is_queue_empty
  * Описание : Проверяет очередь на пустоту
  * Параметры: que - Указатель на очередь
- * Результат: Возвращает TRUE если очередь пуста, в противном случае FALSE
+ * Результат: Возвращает true если очередь пуста, в противном случае false
  *-----------------------------------------------------------------------------*/
 INLINE_FORCED bool is_queue_empty(CDLL_QUEUE *que)
 {
@@ -157,7 +157,7 @@ INLINE_FORCED void queue_remove_entry(CDLL_QUEUE *entry)
 #else
 
 extern void queue_reset(CDLL_QUEUE *que);
-extern BOOL is_queue_empty(CDLL_QUEUE *que);
+extern bool is_queue_empty(CDLL_QUEUE *que);
 extern void queue_add_head(CDLL_QUEUE *que, CDLL_QUEUE *entry);
 extern void queue_add_tail(CDLL_QUEUE *que, CDLL_QUEUE *entry);
 extern CDLL_QUEUE *queue_remove_head(CDLL_QUEUE *que);
