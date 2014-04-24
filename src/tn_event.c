@@ -73,9 +73,12 @@ static int scan_event_waitqueue(TN_EVENT *evf)
 {
 	CDLL_QUEUE * que;
 	TN_TCB * task;
-	int fCond;
+	int fCond, rc = 0;
 
 	que = evf->wait_queue.next;
+  /*	checking ALL of the tasks waiting on the event.
+			for the event with attr TN_EVENT_ATTR_SINGLE the only one task
+			may be in the queue */
 	while (que != &evf->wait_queue) {
 		task = get_task_by_tsk_queue(que);
 		que = que->next;
@@ -90,13 +93,11 @@ static int scan_event_waitqueue(TN_EVENT *evf)
 			queue_remove_entry(&task->task_queue);
 			*task->winfo.event.flags_pattern = evf->pattern;
 			if (task_wait_complete(task))
-				return 1;
-			else
-				return 0;
+				rc = 1;
 		}
 	}
 
-	return 0;
+	return rc;
 }
 
 /*******************************************************************************
@@ -230,7 +231,7 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
 		if (fCond) {
 			*p_flags_pattern = evf->pattern;
 			if (evf->attr & TN_EVENT_ATTR_CLR)
-				evf->pattern = 0;
+				evf->pattern &= ~wait_pattern;
 			rc = TERR_NO_ERR;
 		}
 		else {
@@ -279,7 +280,7 @@ int tn_event_set(TN_EVENT *evf, unsigned int pattern)
 
 	if (scan_event_waitqueue(evf)) { //-- There are task(s) that waiting state is complete
 		if (evf->attr & TN_EVENT_ATTR_CLR)
-			evf->pattern = 0;
+			evf->pattern &= ~pattern;
 	}
 
 	END_CRITICAL_SECTION

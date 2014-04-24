@@ -99,7 +99,7 @@ int tn_mutex_delete(TN_MUTEX *mutex)
 
 	BEGIN_CRITICAL_SECTION
 
-	if (tn_curr_run_task != mutex->holder) {
+	if (mutex->holder != NULL && mutex->holder != tn_curr_run_task) {
 		END_DISABLE_INTERRUPT
 		return TERR_ILUSE;
 	}
