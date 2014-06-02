@@ -33,6 +33,7 @@
 
 #include "tn_port.h"
 #include "tn_winfo.h"
+#include "tn_typedef.h"
 
 #define TASK_FUNC __declspec(noreturn) void
 
