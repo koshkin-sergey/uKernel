@@ -174,13 +174,13 @@
 			<resource resourceType="PROJECT" workspacePath="/TNKernel"/>
 		</configuration>
 		<configuration configurationName="ARM7">
-			<resource resourceType="PROJECT" workspacePath="/TNKernel"/>
+			<resource resourceType="PROJECT" workspacePath="/tnkernel"/>
 		</configuration>
 		<configuration configurationName="Cortex-M3">
-			<resource resourceType="PROJECT" workspacePath="/TNKernel"/>
+			<resource resourceType="PROJECT" workspacePath="/tnkernel"/>
 		</configuration>
 		<configuration configurationName="Cortex-M4_no_FPU">
-			<resource resourceType="PROJECT" workspacePath="/TNKernel"/>
+			<resource resourceType="PROJECT" workspacePath="/tnkernel"/>
 		</configuration>
 	</storageModule>
 	<storageModule moduleId="scannerConfiguration">
