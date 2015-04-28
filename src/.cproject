@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602" moduleId="org.eclipse.cdt.core.settings" name="Default">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="com.arm.eclipse.builder.armcc.error" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildProperties="" description="" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602.1725634437" name="/" resourcePath="">
+						<toolChain id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1766472243" name="ARM Compiler 5" superClass="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5">
+							<targetPlatform binaryParser="org.eclipse.cdt.core.ELF" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602.1421581258" name=""/>
+							<builder id="com.arm.toolchain.baremetal.builder.347471552" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.arm.toolchain.baremetal.builder"/>
+							<tool id="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1818757311" name="ARM C Compiler 5" superClass="com.arm.tool.c.compiler.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.464225412" name="ARM C++ Compiler 5" superClass="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5">
+								<inputType id="com.arm.tool.c.compiler.input.1943205028" superClass="com.arm.tool.c.compiler.input"/>
+								<inputType id="com.arm.tool.cpp.compiler.input.449869605" superClass="com.arm.tool.cpp.compiler.input"/>
+							</tool>
+							<tool id="com.arm.tool.assembler.base.var.arm_compiler_5-5.427171713" name="ARM Assembler 5" superClass="com.arm.tool.assembler.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.c.linker.base.var.arm_compiler_5-5.350072044" name="ARM Linker 5" superClass="com.arm.tool.c.linker.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.librarian.base.var.arm_compiler_5-5.84706489" name="ARM Librarian 5" superClass="com.arm.tool.librarian.base.var.arm_compiler_5-5"/>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="tnkernel.null.71005138" name="tnkernel"/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Default">
+			<resource resourceType="PROJECT" workspacePath="/tnkernel"/>
+		</configuration>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602.1725634437;com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.464225412;com.arm.tool.cpp.compiler.input.449869605">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1383728602.1725634437;com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.464225412;com.arm.tool.c.compiler.input.1943205028">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
+		<buildTargets>
+			<target name="Собрать библиотеку для Cortex-M3" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>make</buildCommand>
+				<buildArguments>-j4</buildArguments>
+				<buildTarget>ARCH=cortex-m3 all</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+			<target name="Очистить библиотеку" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>make</buildCommand>
+				<buildArguments>-j4</buildArguments>
+				<buildTarget>ARCH=cortex-m3 clean</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+			<target name="Собрать библиотеку для ARM7TDMI" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>make</buildCommand>
+				<buildArguments>-j4</buildArguments>
+				<buildTarget>ARCH=ARM7TDMI all</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+		</buildTargets>
+	</storageModule>
+</cproject>
