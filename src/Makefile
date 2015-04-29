@@ -3,29 +3,32 @@
 #  ARCH: the following values are valid:
 # 
 #     ARM7TDMI
-#     cortex-m0
-#     cortex-m1
-#     cortex-m3
-#     cortex-m4
+#     CORTEX-M0
+#     CORTEX-M1
+#     CORTEX-M3
+#     CORTEX-M4
 #
 #  Example invocation:
 #
-#     $ make ARCH=cortex-m3
+#     $ make ARCH=CORTEX-M3
 #
 
-ifneq ($(strip $(ARCH)),)
+ifeq ("$(origin ARCH)", "command line")
   CPU := --cpu=$(ARCH)
-else
-  $(error ARCH is undefined. See comments in the Makefile-single for usage notes)
-endif
-
-ifeq ($(ARCH), $(filter $(ARCH), cortex-m0 cortex-m1 cortex-m3 cortex-m4))
+  
+ifeq ($(ARCH), $(filter CORTEX%, $(ARCH)))
   ARCH_DIR = arch/cortex_m3
   ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
 endif
 
-ifeq ($(ARCH), $(filter $(ARCH), ARM7TDMI))
+ifeq ($(ARCH), $(filter ARM7%, $(ARCH)))
   ARCH_DIR = arch/arm
+endif
+  
+endif
+
+ifndef ARCH_DIR
+  $(error ARCH is undefined. See comments in the Makefile-single for usage notes)
 endif
 
 LIB = tnkernel.lib

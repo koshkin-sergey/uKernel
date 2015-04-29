@@ -56,7 +56,7 @@
 			<target name="Собрать библиотеку для Cortex-M3" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j4</buildArguments>
-				<buildTarget>ARCH=cortex-m3 all</buildTarget>
+				<buildTarget>ARCH=CORTEX-M3 all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
@@ -64,7 +64,7 @@
 			<target name="Очистить библиотеку" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j4</buildArguments>
-				<buildTarget>ARCH=cortex-m3 clean</buildTarget>
+				<buildTarget>ARCH=CORTEX-M3 clean</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
