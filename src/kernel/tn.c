@@ -29,8 +29,8 @@
 /* ver 2.7 */
 
 #include "tn_tasks.h"
-#include <tn_utils.h>
-#include <tn_timer.h>
+#include "tn_utils.h"
+#include "tn_timer.h"
 
 //  The System uses two levels of priorities for the own purpose:
 //

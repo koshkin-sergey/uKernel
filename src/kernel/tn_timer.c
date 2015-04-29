@@ -27,9 +27,9 @@
 
 *******************************************************************************/
 #include "tn_tasks.h"
-#include <tn_utils.h>
-#include <tn_delay.h>
-#include <tn_timer.h>
+#include "tn_utils.h"
+#include "tn_delay.h"
+#include "tn_timer.h"
 
 volatile unsigned long  jiffies;
 unsigned long           os_period;
