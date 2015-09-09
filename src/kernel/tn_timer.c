@@ -34,6 +34,7 @@
 volatile unsigned long  jiffies;
 unsigned long           os_period;
 unsigned short          tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
+__attribute__((weak)) align_attr_start unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] align_attr_end;
 
 /* - System tasks ------------------------------------------------------------*/
 
@@ -59,12 +60,14 @@ static unsigned long cyc_next_time(TN_CYCLIC *cyc);
 *-----------------------------------------------------------------------------*/
 void create_timer_task(void)
 {
+  unsigned int stack_size = sizeof(timer_task_stack)/sizeof(timer_task_stack[0]);
+
   tn_task_create(
     &timer_task,                              // task TCB
     timer_task_func,                          // task function
     0,                                        // task priority
-    &(timer_task_stack[timer_stack_size-1]),  // task stack first addr in memory
-    timer_stack_size,                         // task stack size (in int,not bytes)
+    &(timer_task_stack[stack_size-1]),        // task stack first addr in memory
+    stack_size,                               // task stack size (in int,not bytes)
     NULL,                                     // task function parameter
     TN_TASK_TIMER                             // Creation option
   );

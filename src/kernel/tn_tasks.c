@@ -57,7 +57,7 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
 		return TERR_WRONG_PARAM;
 
 	if ((priority < 0 || priority > TN_NUM_PRIORITY - 1)
-		|| task_stack_size < tn_min_stack_size || task_func == NULL || task == NULL
+		|| task_stack_size < TN_MIN_STACK_SIZE || task_func == NULL || task == NULL
 		|| task_stack_start == NULL || task->id_task != 0)  //-- recreation
 		return TERR_WRONG_PARAM;
 

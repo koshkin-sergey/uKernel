@@ -45,8 +45,6 @@ extern unsigned long    os_period;
 extern TN_TCB           timer_task;
 extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
 extern unsigned long    HZ;               // Частота системного таймера.
-extern unsigned int     timer_task_stack[];
-extern const unsigned int timer_stack_size;
 
 void create_timer_task(void);
 void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);

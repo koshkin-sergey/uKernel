@@ -33,10 +33,6 @@
 
 #include "tn.h"
 
-extern unsigned int idle_task_stack[];
-extern const unsigned int idle_stack_size;
-extern const unsigned int tn_min_stack_size;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -166,7 +162,7 @@ extern void queue_remove_entry(CDLL_QUEUE *entry);
 
 #endif
 
-extern void idle_task_func(void *par);
+extern void idle_task_func(void *par) __attribute__((weak));
 extern bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry);
 extern int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first);
 extern int dque_fifo_read(TN_DQUE * dque, void ** data_ptr);

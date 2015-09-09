@@ -51,6 +51,8 @@ volatile int            tn_created_tasks_qty;     //-- num of created tasks
 volatile int            tn_system_state;          //-- System state -(running/not running/etc.)
 volatile unsigned int   tn_ready_to_run_bmp;
 
+__attribute__((weak)) align_attr_start unsigned int idle_task_stack[TN_IDLE_STACK_SIZE] align_attr_end;
+
 /* - System tasks ------------------------------------------------------------*/
 
 /* - idle task - priority (TN_NUM_PRIORITY-1) - lowest */
@@ -86,13 +88,14 @@ void tn_start_system(TN_OPTIONS *opt)
   //--- Timer task
   create_timer_task();
 
+  unsigned int stack_size = sizeof(idle_task_stack)/sizeof(idle_task_stack[0]);
   //--- Idle task
   tn_task_create(
     &idle_task,                             // task TCB
     idle_task_func,                         // task function
     TN_NUM_PRIORITY-1,                      // task priority
-    &(idle_task_stack[idle_stack_size-1]),  // task stack first addr in memory
-    idle_stack_size,                        // task stack size (in int,not bytes)
+    &(idle_task_stack[stack_size-1]),       // task stack first addr in memory
+    stack_size,                             // task stack size (in int,not bytes)
     NULL,                                   // task function parameter
     TN_TASK_IDLE                            // Creation option
   );
@@ -105,6 +108,19 @@ void tn_start_system(TN_OPTIONS *opt)
 
   //-- Run OS - first context switch
   tn_start_exe();
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : idle_task_func
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+__attribute__((weak)) void idle_task_func(void *par)
+{
+  for (;;) {
+    ;
+  }
 }
 
 //--- Set time slice ticks value for priority for round-robin scheduling

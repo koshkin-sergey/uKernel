@@ -65,6 +65,10 @@
 	#define INLINE_FORCED
 #endif
 
+#define TN_TIMER_STACK_SIZE           64
+#define TN_IDLE_STACK_SIZE            48
+#define TN_MIN_STACK_SIZE             40      //--  +20 for exit func when ver GCC > 4
+
 #define TN_BITS_IN_INT                32
 #define TN_ALIG                       sizeof(void*)
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
