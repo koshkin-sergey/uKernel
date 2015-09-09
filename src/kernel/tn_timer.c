@@ -34,7 +34,6 @@
 volatile unsigned long  jiffies;
 unsigned long           os_period;
 unsigned short          tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
-__attribute__((weak)) align_attr_start unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] align_attr_end;
 
 /* - System tasks ------------------------------------------------------------*/
 
@@ -43,6 +42,8 @@ __attribute__((weak)) align_attr_start unsigned int timer_task_stack[TN_TIMER_ST
 #if defined (__ICCARM__)    // IAR ARM
 #pragma data_alignment=8
 #endif
+
+unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("STACK"), zero_init));
 
 TN_TCB      timer_task;
 CDLL_QUEUE  timer_queue;
