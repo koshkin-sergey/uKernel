@@ -43,7 +43,7 @@ unsigned short          tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 #pragma data_alignment=8
 #endif
 
-unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("STACK"), zero_init));
+unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK"), zero_init));
 
 TN_TCB      timer_task;
 CDLL_QUEUE  timer_queue;

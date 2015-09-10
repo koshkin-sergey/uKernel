@@ -51,8 +51,6 @@ volatile int            tn_created_tasks_qty;     //-- num of created tasks
 volatile int            tn_system_state;          //-- System state -(running/not running/etc.)
 volatile unsigned int   tn_ready_to_run_bmp;
 
-__attribute__((weak)) align_attr_start unsigned int idle_task_stack[TN_IDLE_STACK_SIZE] align_attr_end;
-
 /* - System tasks ------------------------------------------------------------*/
 
 /* - idle task - priority (TN_NUM_PRIORITY-1) - lowest */
@@ -62,6 +60,7 @@ __attribute__((weak)) align_attr_start unsigned int idle_task_stack[TN_IDLE_STAC
 #endif
 
 TN_TCB  idle_task;
+unsigned int idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK"), zero_init));
 
 //----------------------------------------------------------------------------
 // TN main function (never return)

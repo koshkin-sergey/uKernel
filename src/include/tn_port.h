@@ -44,6 +44,7 @@
 
   #define align_attr_start
   #define align_attr_end     __attribute__((aligned(0x8)))
+  #define TN_STACK_TYPE     __attribute__((aligned(8))) unsigned int
   
 #ifndef INLINE_FORCED
   #define INLINE_FORCED   static inline __attribute__ ((always_inline))
@@ -53,6 +54,7 @@
 
   #define align_attr_start   __align(8)
   #define align_attr_end
+  #define TN_STACK_TYPE     __attribute__((aligned(8))) unsigned int
   
 #ifndef INLINE_FORCED
   #define INLINE_FORCED   __forceinline
@@ -63,6 +65,7 @@
   #define align_attr_start
   #define align_attr_end
 	#define INLINE_FORCED
+  #define TN_STACK_TYPE     unsigned int
 #endif
 
 #define TN_TIMER_STACK_SIZE           64
