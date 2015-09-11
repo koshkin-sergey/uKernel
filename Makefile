@@ -15,14 +15,16 @@
 
 ifeq ("$(origin ARCH)", "command line")
   CPU := --cpu=$(ARCH)
-  
+
+SRC = ./src
+
 ifeq ($(ARCH), $(filter CORTEX%, $(ARCH)))
-  ARCH_DIR = arch/cortex_m3
+  ARCH_DIR = $(SRC)/arch/cortex_m3
   ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
 endif
 
 ifeq ($(ARCH), $(filter ARM7%, $(ARCH)))
-  ARCH_DIR = arch/arm
+  ARCH_DIR = $(SRC)/arch/arm
 endif
   
 endif
@@ -40,13 +42,13 @@ LD = armlink
 AR = armar
 RM = rm
 
-INC := -I $(CURDIR)/include
+INC := -I $(SRC)/include
 
 DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
 CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
 ASFLAGS = $(CPU) $(DEPFLAGS)
 
-dirs := kernel \
+dirs := $(SRC)/kernel \
         $(ARCH_DIR)
 
 FILES := $(foreach dir,$(dirs),$(wildcard $(dir)/*.c))

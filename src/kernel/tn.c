@@ -27,6 +27,7 @@
 */
 
 #include <tn.h>
+#include <tn_port.h>
 #include <tn_tasks.h>
 #include <tn_timer.h>
 #include <tn_utils.h>
