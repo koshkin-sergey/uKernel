@@ -31,6 +31,8 @@
 #include "tn_utils.h"
 #include "tn_timer.h"
 
+CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) tasks
+
 static int task_wait_release(TN_TCB *task);
 static void task_set_dormant_state(TN_TCB* task);
 static void find_next_task_to_run(void);

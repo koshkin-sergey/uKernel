@@ -31,7 +31,6 @@
 #ifndef _TH_H_
 #define _TH_H_
 
-#include "tn_port.h"
 #include "tn_winfo.h"
 
 #define TASK_FUNC __declspec(noreturn) void
@@ -259,8 +258,6 @@ typedef struct {
 } TN_OPTIONS;
 
 /* - Global vars -------------------------------------------------------------*/
-extern volatile unsigned long jiffies;
-extern CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY]; //-- all ready to run(RUNNABLE) tasks
 extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
 extern volatile int tn_created_tasks_qty;           //-- num of created tasks
 
@@ -271,7 +268,6 @@ extern TN_TCB * tn_next_task_to_run;    //-- Task to be run after switch context
 
 extern volatile unsigned int tn_ready_to_run_bmp;
 extern TN_USER_FUNC tn_app_init;
-extern void tn_cpu_int_enable(unsigned int hz);
 
 //-- Thanks to Vyacheslav Ovsiyenko - for his highly optimized code
 

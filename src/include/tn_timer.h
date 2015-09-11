@@ -30,6 +30,7 @@
 #ifndef _TN_TIMER_H_
 #define _TN_TIMER_H_
 
+#include "tn.h"
 #include "tn_port.h"
 
 #define ALARM_STOP      0U

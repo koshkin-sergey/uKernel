@@ -31,7 +31,10 @@
 #ifndef _TN_UTILS_H_
 #define _TN_UTILS_H_
 
+#include <stddef.h>
+
 #include "tn.h"
+#include "tn_port.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -26,11 +26,13 @@
 
 */
 
+#include <tn.h>
+#include <tn_tasks.h>
+#include <tn_timer.h>
+#include <tn_utils.h>
+
 /* ver 2.7 */
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
-#include "tn_timer.h"
 
 //  The System uses two levels of priorities for the own purpose:
 //
@@ -40,7 +42,6 @@
 
 
 /* - System's  global variables ----------------------------------------------*/
-CDLL_QUEUE    tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) tasks
 CDLL_QUEUE    tn_create_queue;                    //-- all created tasks
 TN_TCB        *tn_next_task_to_run;               //-- Task to be run after switch context
 TN_TCB        *tn_curr_run_task;                  //-- Task that is running now
@@ -59,8 +60,8 @@ volatile unsigned int   tn_ready_to_run_bmp;
 #pragma data_alignment=8
 #endif
 
-TN_TCB  idle_task;
-unsigned int idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK"), zero_init));
+static TN_TCB  idle_task;
+unsigned int tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK"), zero_init));
 
 //----------------------------------------------------------------------------
 // TN main function (never return)
@@ -87,13 +88,13 @@ void tn_start_system(TN_OPTIONS *opt)
   //--- Timer task
   create_timer_task();
 
-  unsigned int stack_size = sizeof(idle_task_stack)/sizeof(idle_task_stack[0]);
+  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(tn_idle_task_stack[0]);
   //--- Idle task
   tn_task_create(
     &idle_task,                             // task TCB
     idle_task_func,                         // task function
     TN_NUM_PRIORITY-1,                      // task priority
-    &(idle_task_stack[stack_size-1]),       // task stack first addr in memory
+    &(tn_idle_task_stack[stack_size-1]),       // task stack first addr in memory
     stack_size,                             // task stack size (in int,not bytes)
     NULL,                                   // task function parameter
     TN_TASK_IDLE                            // Creation option
@@ -115,7 +116,7 @@ void tn_start_system(TN_OPTIONS *opt)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-__attribute__((weak)) void idle_task_func(void *par)
+__attribute__((weak)) void tn_idle_task_func(void *par)
 {
   for (;;) {
     ;

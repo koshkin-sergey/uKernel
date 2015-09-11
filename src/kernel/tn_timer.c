@@ -26,14 +26,16 @@
   SUCH DAMAGE.
 
 *******************************************************************************/
-#include "tn_tasks.h"
-#include "tn_utils.h"
-#include "tn_delay.h"
-#include "tn_timer.h"
 
-volatile unsigned long  jiffies;
-unsigned long           os_period;
-unsigned short          tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
+#include <stddef.h>
+#include <tn_delay.h>
+#include <tn_tasks.h>
+#include <tn_timer.h>
+#include <tn_utils.h>
+
+volatile TIME jiffies;
+unsigned long os_period;
+unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 
 /* - System tasks ------------------------------------------------------------*/
 
@@ -43,10 +45,10 @@ unsigned short          tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 #pragma data_alignment=8
 #endif
 
-unsigned int timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK"), zero_init));
+unsigned int tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK"), zero_init));
 
 TN_TCB      timer_task;
-CDLL_QUEUE  timer_queue;
+static CDLL_QUEUE  timer_queue;
 
 static void timer_task_func(void *par);
 static void alarm_handler(TN_ALARM *alarm);
@@ -61,18 +63,31 @@ static unsigned long cyc_next_time(TN_CYCLIC *cyc);
 *-----------------------------------------------------------------------------*/
 void create_timer_task(void)
 {
-  unsigned int stack_size = sizeof(timer_task_stack)/sizeof(timer_task_stack[0]);
+  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(tn_timer_task_stack[0]);
 
   tn_task_create(
     &timer_task,                              // task TCB
     timer_task_func,                          // task function
     0,                                        // task priority
-    &(timer_task_stack[stack_size-1]),        // task stack first addr in memory
+    &(tn_timer_task_stack[stack_size-1]),        // task stack first addr in memory
     stack_size,                               // task stack size (in int,not bytes)
     NULL,                                     // task function parameter
     TN_TASK_TIMER                             // Creation option
   );
   queue_reset(&timer_queue);
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_systick_init
+ * Описание : Функция заглушка для перекрытия в коде приложения если необходимо
+ *            сконфигурировать системный таймер.
+ * Параметры: hz  - частота в Гц. с которой системный таймер должен генерировать
+ *            прерывание, в котором необходимо вызывать функцию tn_timer().
+ * Результат: Нет.
+ *----------------------------------------------------------------------------*/
+__attribute__((weak)) void tn_systick_init(unsigned int hz)
+{
+  ;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -88,9 +103,11 @@ static TASK_FUNC timer_task_func(void *par)
   TMEB  *tm;
 
   //-- User application init - user's objects initial (tasks etc.) creation
-  tn_app_init();
+  if (tn_app_init)
+    tn_app_init();
+  tn_systick_init(HZ);
   //-- Enable interrupt here ( include tick int)
-  tn_cpu_int_enable(HZ);
+  tn_arm_enable_interrupts();
   calibrate_delay();
   tn_system_state = true;
 

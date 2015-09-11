@@ -7,8 +7,9 @@
 //  heavy and huge GCC standard C RTL
 //
 //----------------------------------------------------------------------------
+
+#include <stddef.h>
 #include <stdarg.h>
-#include "tn.h"
 
 #define  NO_OPTION       0x00   // No options specified.
 #define  MINUS_SIGN	     0x01   // Should we print a minus sign?

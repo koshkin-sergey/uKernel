@@ -28,9 +28,7 @@
 
 *******************************************************************************/
 
-#include "tn.h"
-#include "tn_utils.h"
-#include "tn_timer.h"
+#include "../include/tn_timer.h"
 
 #pragma Otime
 #pragma O2

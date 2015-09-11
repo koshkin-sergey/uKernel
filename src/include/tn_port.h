@@ -61,7 +61,7 @@
 #endif
 
 #else
-  #error "Unknown compiler"
+//  #error "Unknown compiler"
   #define align_attr_start
   #define align_attr_end
 	#define INLINE_FORCED
@@ -148,7 +148,7 @@ void  tn_cpu_fiq_isr(void);
   #define BEGIN_DISABLE_INTERRUPT
   #define END_DISABLE_INTERRUPT
 
-  #error "Wrong processor architecture"
+//  #error "Wrong processor architecture"
 #endif
 
 #endif
