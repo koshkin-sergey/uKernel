@@ -31,8 +31,6 @@
 #ifndef _TN_UTILS_H_
 #define _TN_UTILS_H_
 
-#include <stddef.h>
-
 #include "tn.h"
 #include "tn_port.h"
 
@@ -107,7 +105,7 @@ INLINE_FORCED CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
 
 	CDLL_QUEUE * entry;
 
-	if (que == NULL || que->next == que)
+	if (!que || que->next == que)
 		return (CDLL_QUEUE *)0;
 
 	entry = que->next;

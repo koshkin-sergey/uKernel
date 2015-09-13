@@ -130,7 +130,7 @@ static int scan_event_waitqueue(TN_EVENT *evf)
  *----------------------------------------------------------------------------*/
 int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
 {
-	if (evf == NULL)
+	if (!evf)
 		return TERR_WRONG_PARAM;
 	if (evf->id_event == TN_ID_EVENT
 		|| (((attr & TN_EVENT_ATTR_SINGLE) == 0)
@@ -160,7 +160,7 @@ int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
 int tn_event_delete(TN_EVENT *evf)
 {
 #if TN_CHECK_PARAM
-	if (evf == NULL)
+	if (!evf)
 		return TERR_WRONG_PARAM;
 	if (evf->id_event != TN_ID_EVENT)
 		return TERR_NOEXS;
@@ -207,7 +207,7 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
 	int fCond;
 
 #if TN_CHECK_PARAM
-	if (evf == NULL || wait_pattern == 0 || p_flags_pattern == NULL)
+	if (!evf || !wait_pattern || !p_flags_pattern)
 		return TERR_WRONG_PARAM;
 	if (evf->id_event != TN_ID_EVENT)
 		return TERR_NOEXS;
@@ -268,7 +268,7 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
 int tn_event_set(TN_EVENT *evf, unsigned int pattern)
 {
 #if TN_CHECK_PARAM
-	if (evf == NULL || pattern == 0)
+	if (!evf || !pattern)
 		return TERR_WRONG_PARAM;
 	if (evf->id_event != TN_ID_EVENT)
 		return TERR_NOEXS;
@@ -302,7 +302,7 @@ int tn_event_set(TN_EVENT *evf, unsigned int pattern)
 int tn_event_clear(TN_EVENT *evf, unsigned int pattern)
 {
 #if TN_CHECK_PARAM
-	if (evf == NULL || pattern == 0)
+	if (!evf || !pattern)
 		return TERR_WRONG_PARAM;
 	if (evf->id_event != TN_ID_EVENT)
 		return TERR_NOEXS;

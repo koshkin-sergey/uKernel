@@ -1,9 +1,9 @@
-/******************** Copyright (c) 2011-2013. All rights reserved *************
-  File Name  : tn_timer.c
-  Author     : Koshkin Sergey
-  Version    : 2.7
-  Date       : 23/04/2013
-  Description: TNKernel real-time kernel
+/*
+
+  TNKernel real-time kernel
+
+  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+  All rights reserved.
 
   All rights reserved.
 
@@ -25,7 +25,7 @@
   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
   SUCH DAMAGE.
 
-*******************************************************************************/
+*/
 
 #include <stddef.h>
 #include <tn_delay.h>
@@ -109,7 +109,7 @@ static TASK_FUNC timer_task_func(void *par)
   //-- Enable interrupt here ( include tick int)
   tn_arm_enable_interrupts();
   calibrate_delay();
-  tn_system_state = true;
+  tn_system_state = TN_ST_STATE_RUNNING;
 
   for (;;) {
     BEGIN_CRITICAL_SECTION
@@ -188,7 +188,7 @@ void tn_timer(void)
 	BEGIN_CRITICAL_SECTION
 
   jiffies += os_period;
-  if (tn_system_state == true) {
+  if (tn_system_state == TN_ST_STATE_RUNNING) {
     tn_curr_run_task->time += os_period;
     tick_int_processing();
   }

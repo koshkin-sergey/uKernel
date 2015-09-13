@@ -27,6 +27,7 @@
 
   /* ver 2.6  */
 
+#include <stddef.h>
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
@@ -45,13 +46,13 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
   unsigned long i,j;
 
 #if TN_CHECK_PARAM
-  if (fmp == NULL)
+  if (!fmp)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp == TN_ID_FSMEMORYPOOL)
     return TERR_WRONG_PARAM;
 #endif
 
-  if (start_addr == NULL || num_blocks < 2 || block_size < sizeof(int)) {
+  if (!start_addr || num_blocks < 2 || block_size < sizeof(int)) {
     fmp->fblkcnt = 0;
     fmp->num_blocks = 0;
     fmp->id_fmp = 0;
@@ -105,7 +106,7 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
 int tn_fmem_delete(TN_FMP *fmp)
 {
 #if TN_CHECK_PARAM
-  if (fmp == NULL)
+  if (!fmp)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
@@ -129,7 +130,7 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
   void * ptr;
 
 #if TN_CHECK_PARAM
-  if (fmp == NULL || p_data == NULL)
+  if (!fmp || !p_data)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
@@ -167,7 +168,7 @@ int tn_fmem_release(TN_FMP *fmp,void *p_data)
   TN_TCB * task;
 
 #if TN_CHECK_PARAM
-  if (fmp == NULL || p_data == NULL)
+  if (!fmp || !p_data)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;

@@ -26,6 +26,7 @@
 
 */
 
+#include <stddef.h>
 #include <tn.h>
 #include <tn_port.h>
 #include <tn_tasks.h>
@@ -50,7 +51,7 @@ TN_USER_FUNC  tn_app_init;
 
 unsigned long           HZ;                       // Частота системного таймера.
 volatile int            tn_created_tasks_qty;     //-- num of created tasks
-volatile int            tn_system_state;          //-- System state -(running/not running/etc.)
+int tn_system_state;          //-- System state -(running/not running/etc.)
 volatile unsigned int   tn_ready_to_run_bmp;
 
 /* - System tasks ------------------------------------------------------------*/

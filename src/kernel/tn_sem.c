@@ -36,7 +36,7 @@
 int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
 {
 #if TN_CHECK_PARAM
-  if (sem == NULL) //-- Thanks to Michael Fisher
+  if (!sem) //-- Thanks to Michael Fisher
     return  TERR_WRONG_PARAM;
   if (max_val <= 0 || start_value < 0 ||
          start_value > max_val || sem->id_sem != 0) //-- no recreation
@@ -59,7 +59,7 @@ int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
 int tn_sem_delete(TN_SEM *sem)
 {
 #if TN_CHECK_PARAM
-  if (sem == NULL)
+  if (!sem)
     return TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
@@ -86,7 +86,7 @@ int tn_sem_signal(TN_SEM *sem)
   TN_TCB * task;
 
 #if TN_CHECK_PARAM
-  if (sem == NULL)
+  if (!sem)
     return  TERR_WRONG_PARAM;
   if (sem->max_count == 0)
     return  TERR_WRONG_PARAM;
@@ -124,7 +124,7 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
   int rc; //-- return code
 
 #if TN_CHECK_PARAM
-  if (sem == NULL)
+  if (!sem)
     return  TERR_WRONG_PARAM;
   if (sem->max_count == 0)
     return  TERR_WRONG_PARAM;

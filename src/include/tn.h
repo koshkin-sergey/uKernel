@@ -261,7 +261,7 @@ typedef struct {
 extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
 extern volatile int tn_created_tasks_qty;           //-- num of created tasks
 
-extern volatile int tn_system_state; //-- System state -(running/not running,etc.)
+extern int tn_system_state; //-- System state -(running/not running,etc.)
 
 extern TN_TCB * tn_curr_run_task;       //-- Task that  run now
 extern TN_TCB * tn_next_task_to_run;    //-- Task to be run after switch context
@@ -723,15 +723,6 @@ int tn_mutex_create(TN_MUTEX *mutex, int attribute, int ceil_priority);
 int tn_mutex_delete(TN_MUTEX *mutex);
 int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout);
 int tn_mutex_unlock(TN_MUTEX *mutex);
-
-//-- Routines
-
-int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority);
-int try_lock_mutex(TN_TCB *task);
-int do_unlock_mutex(TN_MUTEX *mutex);
-
-/* - tn_port.c ---------------------------------------------------------------*/
-unsigned int *tn_stack_init(void *task_func, void *stack_start, void *param);
 
 /* - tn_delay.c --------------------------------------------------------------*/
 void tn_mdelay(unsigned long ms);

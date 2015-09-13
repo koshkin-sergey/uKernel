@@ -186,7 +186,7 @@ bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL)
+	if (!dque)
 		return TERR_WRONG_PARAM;
 	if (dque->num_entries <= 0)
 		return TERR_OUT_OF_MEM;
@@ -228,7 +228,7 @@ int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
 int dque_fifo_read(TN_DQUE *dque, void **data_ptr)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL || data_ptr == NULL)
+	if (!dque || !data_ptr)
 		return TERR_WRONG_PARAM;
 	if (dque->num_entries <= 0)
 		return TERR_OUT_OF_MEM;
@@ -263,7 +263,7 @@ int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
 	int bufsz, msz;
 
 #if TN_CHECK_PARAM
-	if (mbf == NULL)
+	if (!mbf)
 		return TERR_WRONG_PARAM;
 	if (mbf->num_entries <= 0)
 		return TERR_OUT_OF_MEM;
@@ -310,7 +310,7 @@ int mbf_fifo_read(TN_MBF *mbf, void *msg)
 	int bufsz, msz;
 
 #if TN_CHECK_PARAM
-	if (mbf == NULL || msg == NULL)
+	if (!mbf || !msg)
 		return TERR_WRONG_PARAM;
 	if (mbf->num_entries <= 0)
 		return TERR_OUT_OF_MEM;

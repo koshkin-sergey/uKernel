@@ -3,6 +3,7 @@
  TNKernel real-time kernel
 
  Copyright © 2004, 2010 Yuri Tiomkin
+ Copyright © 2011, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
  All rights reserved.
 
  Permission to use, copy, modify, and distribute this software in source
@@ -25,20 +26,231 @@
 
  */
 
-/* ver 2.7 */
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
 
+#include <stddef.h>
 #include "tn_tasks.h"
-#include "tn_utils.h"
 #include "tn_timer.h"
+#include "tn_utils.h"
+
+/*******************************************************************************
+ *  external declarations
+ ******************************************************************************/
+
+extern unsigned int* tn_stack_init(void *task_func, void *stack_start, void *param);
+extern int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority);
+extern int do_unlock_mutex(TN_MUTEX *mutex);
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions  (scope: module-exported)
+ ******************************************************************************/
 
 CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) tasks
 
-static int task_wait_release(TN_TCB *task);
-static void task_set_dormant_state(TN_TCB* task);
-static void find_next_task_to_run(void);
-static void task_wait_release_handler(TN_TCB *task);
+/*******************************************************************************
+ *  global variable definitions (scope: module-local)
+ ******************************************************************************/
 
-//-----------------------------------------------------------------------------
+/*******************************************************************************
+ *  function prototypes (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
+
+/*-----------------------------------------------------------------------------*
+ * Название : find_next_task_to_run
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+static void find_next_task_to_run(void)
+{
+	int tmp;
+
+#ifdef USE_ASM_FFS
+	tmp = ffs_asm(tn_ready_to_run_bmp);
+	tmp--;
+#else
+	int i;
+	unsigned int mask;
+
+	mask = 1;
+	tmp = 0;
+	for(i=0; i < TN_BITS_IN_INT; i++)  //-- for each bit in bmp
+	{
+		if(tn_ready_to_run_bmp & mask)
+		{
+			tmp = i;
+			break;
+		}
+		mask = mask<<1;
+	}
+#endif
+
+	tn_next_task_to_run = get_task_by_tsk_queue(tn_ready_list[tmp].next);
+	tn_switch_context_request();
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : task_to_non_runnable
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+static void task_to_non_runnable(TN_TCB *task)
+{
+	int priority;
+	CDLL_QUEUE *que;
+
+	priority = task->priority;
+	que = &(tn_ready_list[priority]);
+
+	//-- remove the curr task from any queue (now - from ready queue)
+	queue_remove_entry(&(task->task_queue));
+
+	if (is_queue_empty(que)) { //-- No ready tasks for the curr priority
+		//-- remove 'ready to run' from the curr priority
+		tn_ready_to_run_bmp &= ~(1 << priority);
+
+		//-- Find highest priority ready to run -
+		//-- at least, MSB bit must be set for the idle task
+		find_next_task_to_run();   //-- v.2.6
+	}
+	else { //-- There are 'ready to run' task(s) for the curr priority
+		if (tn_next_task_to_run == task) {
+			tn_next_task_to_run = get_task_by_tsk_queue(que->next);
+			tn_switch_context_request();
+		}
+	}
+}
+
+/*-----------------------------------------------------------------------------*
+ Название :  task_wait_release
+ Описание :
+ Параметры:
+ Результат:
+ *-----------------------------------------------------------------------------*/
+static int task_wait_release(TN_TCB *task)
+{
+	int rc = 0;
+#ifdef USE_MUTEXES
+	int fmutex;
+	int curr_priority;
+	TN_MUTEX * mutex;
+	TN_TCB * mt_holder_task;
+	CDLL_QUEUE * t_que;
+
+	t_que = NULL;
+	if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I
+		|| task->task_wait_reason == TSK_WAIT_REASON_MUTEX_C) {
+		fmutex = 1;
+		t_que = task->pwait_queue;
+	}
+	else
+		fmutex = 0;
+#endif
+
+	task->pwait_queue = NULL;
+
+	if (!(task->task_state & TSK_STATE_SUSPEND)) {
+		task_to_runnable(task);
+		rc = 1;
+	}
+	else
+		//-- remove WAIT state
+		task->task_state = TSK_STATE_SUSPEND;
+
+#ifdef USE_MUTEXES
+
+	if (fmutex) {
+		mutex = get_mutex_by_wait_queque(t_que);
+
+		mt_holder_task = mutex->holder;
+		if (mt_holder_task != NULL) {
+			//-- if task was blocked by another task and its pri was changed
+			//--  - recalc current priority
+
+			if (mt_holder_task->priority != mt_holder_task->base_priority
+				&& mt_holder_task->priority == task->priority) {
+				curr_priority = find_max_blocked_priority(
+					mutex, mt_holder_task->base_priority);
+
+				set_current_priority(mt_holder_task, curr_priority);
+				rc = 1;
+			}
+		}
+	}
+#endif
+
+	task->task_wait_reason = 0; //-- Clear wait reason
+
+	return rc;
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : task_set_dormant_state
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+static void task_set_dormant_state(TN_TCB* task)
+{
+	queue_reset(&(task->task_queue));
+	queue_reset(&(task->wtmeb.queue));
+#ifdef USE_MUTEXES
+	queue_reset(&(task->mutex_queue));
+#endif
+
+	task->pwait_queue = NULL;
+	task->priority = task->base_priority; //-- Task curr priority
+	task->task_state = TSK_STATE_DORMANT;   //-- Task state
+	task->task_wait_reason = 0;              //-- Reason for waiting
+	task->wercd = NULL;
+
+//	task->data_elem = NULL;      //-- Store data queue entry,if data queue is full
+	task->wakeup_count = 0;                 //-- Wakeup request count
+	task->tslice_count = 0;
+}
+
+/*-----------------------------------------------------------------------------*
+ Название :  task_wait_release_handler
+ Описание :
+ Параметры:
+ Результат:
+ *-----------------------------------------------------------------------------*/
+static void task_wait_release_handler(TN_TCB *task)
+{
+	if (task == NULL)
+		return;
+
+	queue_remove_entry(&(task->task_queue));
+	task_wait_release(task);
+	if (task->wercd != NULL)
+		*task->wercd = TERR_TIMEOUT;
+}
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_create
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_create(TN_TCB * task,                 //-- task TCB
 	void (*task_func)(void *param),  //-- task function
 	int priority,                    //-- task priority
@@ -106,10 +318,45 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
 	return rc;
 }
 
-//----------------------------------------------------------------------------
-//  If the task is runnable, it is moved to the SUSPENDED state. If the task
-//  is in the WAITING state, it is moved to the WAITING­SUSPENDED state.
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_delete
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+int tn_task_delete(TN_TCB *task)
+{
+	int rc = TERR_NO_ERR;
+
+#if TN_CHECK_PARAM
+	if (task == NULL)
+		return TERR_WRONG_PARAM;
+	if (task->id_task != TN_ID_TASK)
+		return TERR_NOEXS;
+#endif
+
+	BEGIN_DISABLE_INTERRUPT
+
+	if (task->task_state != TSK_STATE_DORMANT)
+		rc = TERR_WCONTEXT;  //-- Cannot delete not-terminated task
+	else {
+		queue_remove_entry(&(task->create_queue));
+		tn_created_tasks_qty--;
+		task->id_task = 0;
+	}
+
+	END_DISABLE_INTERRUPT
+	return rc;
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_suspend
+ * Описание : If the task is runnable, it is moved to the SUSPENDED state.
+ * 						If the task is in the WAITING state, it is moved to the
+ * 						WAITING­SUSPENDED state.
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_suspend(TN_TCB *task)
 {
 	int rc = TERR_NO_ERR;
@@ -143,7 +390,12 @@ int tn_task_suspend(TN_TCB *task)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_resume
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_resume(TN_TCB *task)
 {
 	int rc = TERR_NO_ERR;
@@ -171,7 +423,12 @@ int tn_task_resume(TN_TCB *task)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_sleep
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_sleep(unsigned long timeout)
 {
 	if (timeout == 0)
@@ -217,7 +474,12 @@ unsigned long tn_task_time(TN_TCB *task)
 	return time;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_wakeup
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_wakeup(TN_TCB *task)
 {
 	int rc = TERR_NO_ERR;
@@ -250,7 +512,12 @@ int tn_task_wakeup(TN_TCB *task)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_activate
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_activate(TN_TCB *task)
 {
 	int rc = TERR_NO_ERR;
@@ -274,7 +541,12 @@ int tn_task_activate(TN_TCB *task)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_release_wait
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_release_wait(TN_TCB *task)
 {
 	int rc = TERR_NO_ERR;
@@ -300,7 +572,12 @@ int tn_task_release_wait(TN_TCB *task)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_exit
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 void tn_task_exit(int attr)
 {
 #ifdef USE_MUTEXES
@@ -347,7 +624,12 @@ void tn_task_exit(int attr)
 	tn_switch_context_exit(); // interrupts will be enabled inside tn_switch_context_exit()
 }
 
-//-----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_terminate
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_terminate(TN_TCB *task)
 {
 	int rc;
@@ -412,33 +694,12 @@ int tn_task_terminate(TN_TCB *task)
 	return rc;
 }
 
-//-----------------------------------------------------------------------------
-int tn_task_delete(TN_TCB *task)
-{
-	int rc = TERR_NO_ERR;
-
-#if TN_CHECK_PARAM
-	if (task == NULL)
-		return TERR_WRONG_PARAM;
-	if (task->id_task != TN_ID_TASK)
-		return TERR_NOEXS;
-#endif
-
-	BEGIN_DISABLE_INTERRUPT
-
-	if (task->task_state != TSK_STATE_DORMANT)
-		rc = TERR_WCONTEXT;  //-- Cannot delete not-terminated task
-	else {
-		queue_remove_entry(&(task->create_queue));
-		tn_created_tasks_qty--;
-		task->id_task = 0;
-	}
-
-	END_DISABLE_INTERRUPT
-	return rc;
-}
-
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_change_priority
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_task_change_priority(TN_TCB * task, int new_priority)
 {
 	int rc = TERR_NO_ERR;
@@ -468,69 +729,13 @@ int tn_task_change_priority(TN_TCB * task, int new_priority)
 	return rc;
 }
 
-//----------------------------------------------------------------------------
-//  Utilities
-//----------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------
-static void find_next_task_to_run(void)
-{
-	int tmp;
-
-#ifdef USE_ASM_FFS
-	tmp = ffs_asm(tn_ready_to_run_bmp);
-	tmp--;
-#else
-	int i;
-	unsigned int mask;
-
-	mask = 1;
-	tmp = 0;
-	for(i=0; i < TN_BITS_IN_INT; i++)  //-- for each bit in bmp
-	{
-		if(tn_ready_to_run_bmp & mask)
-		{
-			tmp = i;
-			break;
-		}
-		mask = mask<<1;
-	}
-#endif
-
-	tn_next_task_to_run = get_task_by_tsk_queue(tn_ready_list[tmp].next);
-	tn_switch_context_request();
-}
-
-//-----------------------------------------------------------------------------
-void task_to_non_runnable(TN_TCB *task)
-{
-	int priority;
-	CDLL_QUEUE *que;
-
-	priority = task->priority;
-	que = &(tn_ready_list[priority]);
-
-	//-- remove the curr task from any queue (now - from ready queue)
-	queue_remove_entry(&(task->task_queue));
-
-	if (is_queue_empty(que)) { //-- No ready tasks for the curr priority
-		//-- remove 'ready to run' from the curr priority
-		tn_ready_to_run_bmp &= ~(1 << priority);
-
-		//-- Find highest priority ready to run -
-		//-- at least, MSB bit must be set for the idle task
-		find_next_task_to_run();   //-- v.2.6
-	}
-	else { //-- There are 'ready to run' task(s) for the curr priority
-		if (tn_next_task_to_run == task) {
-			tn_next_task_to_run = get_task_by_tsk_queue(que->next);
-			tn_switch_context_request();
-		}
-	}
-}
-
-//----------------------------------------------------------------------------
-void task_to_runnable(TN_TCB * task)
+/*-----------------------------------------------------------------------------*
+ * Название : task_to_runnable
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+void task_to_runnable(TN_TCB *task)
 {
 	int priority;
 
@@ -574,69 +779,6 @@ int task_wait_complete(TN_TCB *task)
 }
 
 /*-----------------------------------------------------------------------------*
- Название :  task_wait_release
- Описание :
- Параметры:
- Результат:
- *-----------------------------------------------------------------------------*/
-static int task_wait_release(TN_TCB *task)
-{
-	int rc = false;
-#ifdef USE_MUTEXES
-	int fmutex;
-	int curr_priority;
-	TN_MUTEX * mutex;
-	TN_TCB * mt_holder_task;
-	CDLL_QUEUE * t_que;
-
-	t_que = NULL;
-	if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I
-		|| task->task_wait_reason == TSK_WAIT_REASON_MUTEX_C) {
-		fmutex = true;
-		t_que = task->pwait_queue;
-	}
-	else
-		fmutex = false;
-#endif
-
-	task->pwait_queue = NULL;
-
-	if (!(task->task_state & TSK_STATE_SUSPEND)) {
-		task_to_runnable(task);
-		rc = true;
-	}
-	else
-		//-- remove WAIT state
-		task->task_state = TSK_STATE_SUSPEND;
-
-#ifdef USE_MUTEXES
-
-	if (fmutex) {
-		mutex = get_mutex_by_wait_queque(t_que);
-
-		mt_holder_task = mutex->holder;
-		if (mt_holder_task != NULL) {
-			//-- if task was blocked by another task and its pri was changed
-			//--  - recalc current priority
-
-			if (mt_holder_task->priority != mt_holder_task->base_priority
-				&& mt_holder_task->priority == task->priority) {
-				curr_priority = find_max_blocked_priority(
-					mutex, mt_holder_task->base_priority);
-
-				set_current_priority(mt_holder_task, curr_priority);
-				rc = true;
-			}
-		}
-	}
-#endif
-
-	task->task_wait_reason = 0; //-- Clear wait reason
-
-	return rc;
-}
-
-/*-----------------------------------------------------------------------------*
  Название :  task_curr_to_wait_action
  Описание :
  Параметры:
@@ -662,8 +804,13 @@ void task_curr_to_wait_action(CDLL_QUEUE * wait_que, int wait_reason,
 								 (CBACK)task_wait_release_handler, tn_curr_run_task);
 }
 
-//----------------------------------------------------------------------------
-int change_running_task_priority(TN_TCB * task, int new_priority)
+/*-----------------------------------------------------------------------------*
+ * Название : change_running_task_priority
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+void change_running_task_priority(TN_TCB * task, int new_priority)
 {
 	int old_priority;
 
@@ -686,13 +833,16 @@ int change_running_task_priority(TN_TCB * task, int new_priority)
 	queue_add_tail(&(tn_ready_list[new_priority]), &(task->task_queue));
 	tn_ready_to_run_bmp |= 1 << new_priority;
 	find_next_task_to_run();
-
-	return true;
 }
 
 #ifdef USE_MUTEXES
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : set_current_priority
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 void set_current_priority(TN_TCB * task, int priority)
 {
 	TN_MUTEX * mutex;
@@ -737,43 +887,6 @@ void set_current_priority(TN_TCB * task, int priority)
 
 #endif
 
-//----------------------------------------------------------------------------
-static void task_set_dormant_state(TN_TCB* task)
-{
-	queue_reset(&(task->task_queue));
-	queue_reset(&(task->wtmeb.queue));
-#ifdef USE_MUTEXES
-	queue_reset(&(task->mutex_queue));
-#endif
-
-	task->pwait_queue = NULL;
-	task->priority = task->base_priority; //-- Task curr priority
-	task->task_state = TSK_STATE_DORMANT;   //-- Task state
-	task->task_wait_reason = 0;              //-- Reason for waiting
-	task->wercd = NULL;
-
-//	task->data_elem = NULL;      //-- Store data queue entry,if data queue is full
-	task->wakeup_count = 0;                 //-- Wakeup request count
-	task->tslice_count = 0;
-}
-
-/*-----------------------------------------------------------------------------*
- Название :  task_wait_release_handler
- Описание :
- Параметры:
- Результат:
- *-----------------------------------------------------------------------------*/
-static void task_wait_release_handler(TN_TCB *task)
-{
-	if (task == NULL)
-		return;
-
-	queue_remove_entry(&(task->task_queue));
-	task_wait_release(task);
-	if (task->wercd != NULL)
-		*task->wercd = TERR_TIMEOUT;
-}
-
 /*-----------------------------------------------------------------------------*
  * Название : task_wait_delete
  * Описание : Удаляет задачу из очереди ожидания.
@@ -794,4 +907,4 @@ void task_wait_delete(CDLL_QUEUE *wait_que)
 	}
 }
 
-/*------------------------------ Конец файла ---------------------------------*/
+/* ----------------------------- End of file ---------------------------------*/
