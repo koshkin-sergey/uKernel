@@ -3,7 +3,7 @@
  TNKernel real-time kernel
 
  Copyright © 2004, 2010 Yuri Tiomkin
- Copyright © 2011 Koshkin Sergey
+ Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
  All rights reserved.
 
  Permission to use, copy, modify, and distribute this software in source
@@ -25,8 +25,6 @@
  SUCH DAMAGE.
 
  */
-
-/* ver 2.7  */
 
 #ifndef _TN_UTILS_H_
 #define _TN_UTILS_H_
@@ -163,7 +161,6 @@ extern void queue_remove_entry(CDLL_QUEUE *entry);
 
 #endif
 
-extern void idle_task_func(void *par) __attribute__((weak));
 extern bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry);
 extern int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first);
 extern int dque_fifo_read(TN_DQUE * dque, void ** data_ptr);

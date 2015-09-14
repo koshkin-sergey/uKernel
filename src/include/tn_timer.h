@@ -1,9 +1,9 @@
-/******************** Copyright (c) 2011-2012. All rights reserved *************
-  File Name  : tn_timer.h
-  Author     : Koshkin Sergey
-  Version    : 2.7
-  Date       : 14/12/2012
-  Description: TNKernel real-time kernel
+/*
+
+  TNKernel real-time kernel
+
+  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+  All rights reserved.
 
   All rights reserved.
 
@@ -25,7 +25,7 @@
   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
   SUCH DAMAGE.
 
-*******************************************************************************/
+*/
 
 #ifndef _TN_TIMER_H_
 #define _TN_TIMER_H_

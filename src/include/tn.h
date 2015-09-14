@@ -3,7 +3,7 @@
  TNKernel real-time kernel
 
  Copyright © 2004, 2010 Yuri Tiomkin
- Copyright © 2011, 2012 Koshkin Sergey
+ Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
  All rights reserved.
 
  Permission to use, copy, modify, and distribute this software in source
@@ -26,11 +26,10 @@
 
  */
 
-/* ver 2.7 */
-
 #ifndef _TH_H_
 #define _TH_H_
 
+#include "tn_port.h"
 #include "tn_winfo.h"
 
 #define TASK_FUNC __declspec(noreturn) void

@@ -3,7 +3,7 @@
   TNKernel real-time kernel
 
   Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2011 Koshkin Sergey
+  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
   All rights reserved.
 
   Permission to use, copy, modify, and distribute this software in source
@@ -65,6 +65,19 @@ volatile unsigned int   tn_ready_to_run_bmp;
 static TN_TCB  idle_task;
 unsigned int tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK"), zero_init));
 
+/*-----------------------------------------------------------------------------*
+ * Название : tn_idle_task_func
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+__attribute__((weak)) void tn_idle_task_func(void *par)
+{
+  for (;;) {
+    ;
+  }
+}
+
 //----------------------------------------------------------------------------
 // TN main function (never return)
 //----------------------------------------------------------------------------
@@ -94,9 +107,9 @@ void tn_start_system(TN_OPTIONS *opt)
   //--- Idle task
   tn_task_create(
     &idle_task,                             // task TCB
-    idle_task_func,                         // task function
+    tn_idle_task_func,                      // task function
     TN_NUM_PRIORITY-1,                      // task priority
-    &(tn_idle_task_stack[stack_size-1]),       // task stack first addr in memory
+    &(tn_idle_task_stack[stack_size-1]),    // task stack first addr in memory
     stack_size,                             // task stack size (in int,not bytes)
     NULL,                                   // task function parameter
     TN_TASK_IDLE                            // Creation option
@@ -110,19 +123,6 @@ void tn_start_system(TN_OPTIONS *opt)
 
   //-- Run OS - first context switch
   tn_start_exe();
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : idle_task_func
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-__attribute__((weak)) void tn_idle_task_func(void *par)
-{
-  for (;;) {
-    ;
-  }
 }
 
 //--- Set time slice ticks value for priority for round-robin scheduling
