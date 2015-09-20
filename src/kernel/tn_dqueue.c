@@ -48,7 +48,7 @@
 int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 {
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
 		return TERR_WRONG_PARAM;
@@ -61,7 +61,7 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 
 	dque->data_fifo = data_fifo;
 	dque->num_entries = num_entries;
-	if (!dque->data_fifo)
+	if (dque->data_fifo == NULL)
 		dque->num_entries = 0;
 
 	dque->cnt = 0;
@@ -87,7 +87,7 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 int tn_queue_delete(TN_DQUE *dque)
 {
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -128,7 +128,7 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
 	TN_TCB * task;
 
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -222,7 +222,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
 	TN_TCB *task;
 
 #if TN_CHECK_PARAM
-	if (!dque || !data_ptr)
+	if (dque == NULL || data_ptr == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -278,7 +278,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
 int tn_queue_flush(TN_DQUE *dque)
 {
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -310,7 +310,7 @@ int tn_queue_empty(TN_DQUE *dque)
 	int rc;
 
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -343,7 +343,7 @@ int tn_queue_full(TN_DQUE *dque)
 	int rc;
 
 #if TN_CHECK_PARAM
-	if (!dque)
+	if (dque == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;
@@ -375,7 +375,7 @@ int tn_queue_full(TN_DQUE *dque)
 int tn_queue_cnt(TN_DQUE *dque, int *cnt)
 {
 #if TN_CHECK_PARAM
-	if (!dque || !cnt)
+	if (dque == NULL || cnt == NULL)
 		return TERR_WRONG_PARAM;
 	if (dque->id_dque != TN_ID_DATAQUEUE)
 		return TERR_NOEXS;

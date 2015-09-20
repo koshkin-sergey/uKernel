@@ -33,6 +33,7 @@
 #include "tn_winfo.h"
 
 #define TASK_FUNC __declspec(noreturn) void
+#define TNKERNEL_VERSION	3000000
 
 /* - The system configuration (change it for your particular project) --------*/
 #define TN_CHECK_PARAM        1
@@ -260,7 +261,7 @@ typedef struct {
 extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
 extern volatile int tn_created_tasks_qty;           //-- num of created tasks
 
-extern int tn_system_state; //-- System state -(running/not running,etc.)
+extern volatile int tn_system_state; //-- System state -(running/not running,etc.)
 
 extern TN_TCB * tn_curr_run_task;       //-- Task that  run now
 extern TN_TCB * tn_next_task_to_run;    //-- Task to be run after switch context

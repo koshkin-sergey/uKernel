@@ -67,7 +67,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
 	TN_TCB *task;
 
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;
@@ -125,7 +125,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
 int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (bufsz < 0 || msz <= 0 || mbf->id_mbf == TN_ID_MESSAGEBUF)
 		return TERR_WRONG_PARAM;
@@ -160,7 +160,7 @@ int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 int tn_mbf_delete(TN_MBF *mbf)
 {
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf == 0)
 		return TERR_NOEXS;
@@ -236,7 +236,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 	TN_TCB *task;
 
 #if TN_CHECK_PARAM
-	if (!mbf || !msg)
+	if (mbf == NULL || msg == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;
@@ -291,7 +291,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 int tn_mbf_flush(TN_MBF *mbf)
 {
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;
@@ -321,7 +321,7 @@ int tn_mbf_empty(TN_MBF *mbf)
 	int rc;
 
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;
@@ -354,7 +354,7 @@ int tn_mbf_full(TN_MBF *mbf)
 	int rc;
 
 #if TN_CHECK_PARAM
-	if (!mbf)
+	if (mbf == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;
@@ -386,7 +386,7 @@ int tn_mbf_full(TN_MBF *mbf)
 int tn_mbf_cnt(TN_MBF *mbf, int *cnt)
 {
 #if TN_CHECK_PARAM
-	if (!mbf || !cnt)
+	if (mbf == NULL || cnt == NULL)
 		return TERR_WRONG_PARAM;
 	if (mbf->id_mbf != TN_ID_MESSAGEBUF)
 		return TERR_NOEXS;

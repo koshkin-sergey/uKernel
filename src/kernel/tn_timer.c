@@ -27,11 +27,10 @@
 
 */
 
-#include <stddef.h>
-#include <tn_delay.h>
-#include <tn_tasks.h>
-#include <tn_timer.h>
-#include <tn_utils.h>
+#include "tn_delay.h"
+#include "tn_tasks.h"
+#include "tn_timer.h"
+#include "tn_utils.h"
 
 volatile TIME jiffies;
 unsigned long os_period;
@@ -45,7 +44,7 @@ unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 #pragma data_alignment=8
 #endif
 
-unsigned int tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK"), zero_init));
+unsigned int tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK")));
 
 TN_TCB      timer_task;
 static CDLL_QUEUE  timer_queue;
@@ -63,7 +62,7 @@ static unsigned long cyc_next_time(TN_CYCLIC *cyc);
 *-----------------------------------------------------------------------------*/
 void create_timer_task(void)
 {
-  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(tn_timer_task_stack[0]);
+  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
 
   tn_task_create(
     &timer_task,                              // task TCB

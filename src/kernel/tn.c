@@ -26,15 +26,10 @@
 
 */
 
-#include <stddef.h>
-#include <tn.h>
-#include <tn_port.h>
-#include <tn_tasks.h>
-#include <tn_timer.h>
-#include <tn_utils.h>
-
-/* ver 2.7 */
-
+#include "tn.h"
+#include "tn_tasks.h"
+#include "tn_timer.h"
+#include "tn_utils.h"
 
 //  The System uses two levels of priorities for the own purpose:
 //
@@ -51,7 +46,7 @@ TN_USER_FUNC  tn_app_init;
 
 unsigned long           HZ;                       // Частота системного таймера.
 volatile int            tn_created_tasks_qty;     //-- num of created tasks
-int tn_system_state;          //-- System state -(running/not running/etc.)
+volatile int            tn_system_state;          //-- System state -(running/not running/etc.)
 volatile unsigned int   tn_ready_to_run_bmp;
 
 /* - System tasks ------------------------------------------------------------*/
@@ -63,7 +58,7 @@ volatile unsigned int   tn_ready_to_run_bmp;
 #endif
 
 static TN_TCB  idle_task;
-unsigned int tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK"), zero_init));
+unsigned int tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK")));
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_idle_task_func
@@ -103,7 +98,7 @@ void tn_start_system(TN_OPTIONS *opt)
   //--- Timer task
   create_timer_task();
 
-  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(tn_idle_task_stack[0]);
+  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
   //--- Idle task
   tn_task_create(
     &idle_task,                             // task TCB

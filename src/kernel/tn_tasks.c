@@ -30,7 +30,6 @@
  *  includes
  ******************************************************************************/
 
-#include <stddef.h>
 #include "tn_tasks.h"
 #include "tn_timer.h"
 #include "tn_utils.h"

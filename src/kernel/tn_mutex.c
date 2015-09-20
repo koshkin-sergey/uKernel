@@ -25,9 +25,6 @@
 
  */
 
-/* ver 2.6  */
-
-#include <stddef.h>
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
