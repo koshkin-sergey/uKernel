@@ -47,7 +47,7 @@ extern TN_TCB           timer_task;
 extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
 extern unsigned long    HZ;               // Частота системного таймера.
 
-void create_timer_task(void);
+void create_timer_task(void *par);
 void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);
 void timer_delete(TMEB *event);
 

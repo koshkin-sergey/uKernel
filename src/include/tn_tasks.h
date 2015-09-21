@@ -47,6 +47,8 @@
  *  exported variables
  ******************************************************************************/
 
+extern TN_TCB *tn_next_task_to_run;
+extern unsigned int tn_ready_to_run_bmp;
 extern CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];
 
 /*******************************************************************************

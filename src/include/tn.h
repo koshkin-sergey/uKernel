@@ -48,8 +48,8 @@
 #define TN_ST_STATE_RUNNING              1 
 
 #define TN_TASK_START_ON_CREATION        1 
-#define TN_TASK_TIMER                 0x80 
-#define TN_TASK_IDLE                  0x40 
+#define TN_TASK_TIMER                 0x80
+#define TN_TASK_IDLE                  0x40
 
 #define TN_ID_TASK              ((int)0x47ABCF69) 
 #define TN_ID_SEMAPHORE         ((int)0x6FA173EB) 
@@ -260,14 +260,8 @@ typedef struct {
 /* - Global vars -------------------------------------------------------------*/
 extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
 extern volatile int tn_created_tasks_qty;           //-- num of created tasks
-
 extern volatile int tn_system_state; //-- System state -(running/not running,etc.)
-
 extern TN_TCB * tn_curr_run_task;       //-- Task that  run now
-extern TN_TCB * tn_next_task_to_run;    //-- Task to be run after switch context
-
-extern volatile unsigned int tn_ready_to_run_bmp;
-extern TN_USER_FUNC tn_app_init;
 
 //-- Thanks to Vyacheslav Ovsiyenko - for his highly optimized code
 

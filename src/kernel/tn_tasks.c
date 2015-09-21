@@ -54,6 +54,9 @@ extern int do_unlock_mutex(TN_MUTEX *mutex);
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
+TN_TCB *tn_next_task_to_run;                   //-- Task to be run after switch context
+TN_TCB *tn_curr_run_task;                      //-- Task that is running now
+unsigned int tn_ready_to_run_bmp;
 CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) tasks
 
 /*******************************************************************************

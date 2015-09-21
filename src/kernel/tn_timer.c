@@ -44,7 +44,7 @@ unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 #pragma data_alignment=8
 #endif
 
-unsigned int tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, aligned(8), section("TIMER_TASK_STACK")));
+tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, section("STACK"), zero_init));
 
 TN_TCB      timer_task;
 static CDLL_QUEUE  timer_queue;
@@ -60,7 +60,7 @@ static unsigned long cyc_next_time(TN_CYCLIC *cyc);
   Параметры:  Нет.
   Результат:  Нет.
 *-----------------------------------------------------------------------------*/
-void create_timer_task(void)
+void create_timer_task(void *par)
 {
   unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
 
@@ -68,10 +68,10 @@ void create_timer_task(void)
     &timer_task,                              // task TCB
     timer_task_func,                          // task function
     0,                                        // task priority
-    &(tn_timer_task_stack[stack_size-1]),        // task stack first addr in memory
+    &(tn_timer_task_stack[stack_size-1]),     // task stack first addr in memory
     stack_size,                               // task stack size (in int,not bytes)
-    NULL,                                     // task function parameter
-    TN_TASK_TIMER                             // Creation option
+    par,                                      // task function parameter
+    TN_TASK_TIMER | TN_TASK_START_ON_CREATION // Creation option
   );
   queue_reset(&timer_queue);
 }
@@ -101,12 +101,15 @@ static TASK_FUNC timer_task_func(void *par)
 {
   TMEB  *tm;
 
-  //-- User application init - user's objects initial (tasks etc.) creation
-  if (tn_app_init)
-    tn_app_init();
+  tn_arm_disable_interrupts();
+
+  if (((TN_OPTIONS *)par)->app_init)
+    ((TN_OPTIONS *)par)->app_init();
+
   tn_systick_init(HZ);
-  //-- Enable interrupt here ( include tick int)
+
   tn_arm_enable_interrupts();
+
   calibrate_delay();
   tn_system_state = TN_ST_STATE_RUNNING;
 

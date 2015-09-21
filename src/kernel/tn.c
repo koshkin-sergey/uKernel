@@ -36,18 +36,10 @@
 //   - level 0                    (highest) for system timers task
 //   - level (TN_NUM_PRIORITY-1)  (lowest)  for system idle task
 
-
-
-/* - System's  global variables ----------------------------------------------*/
-CDLL_QUEUE    tn_create_queue;                    //-- all created tasks
-TN_TCB        *tn_next_task_to_run;               //-- Task to be run after switch context
-TN_TCB        *tn_curr_run_task;                  //-- Task that is running now
-TN_USER_FUNC  tn_app_init;
-
-unsigned long           HZ;                       // Частота системного таймера.
-volatile int            tn_created_tasks_qty;     //-- num of created tasks
-volatile int            tn_system_state;          //-- System state -(running/not running/etc.)
-volatile unsigned int   tn_ready_to_run_bmp;
+CDLL_QUEUE tn_create_queue;            //-- all created tasks
+unsigned long HZ;                      // Частота системного таймера.
+volatile int tn_created_tasks_qty;     //-- num of created tasks
+volatile int tn_system_state;          //-- System state -(running/not running/etc.)
 
 /* - System tasks ------------------------------------------------------------*/
 
@@ -58,7 +50,7 @@ volatile unsigned int   tn_ready_to_run_bmp;
 #endif
 
 static TN_TCB  idle_task;
-unsigned int tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, aligned(8), section("IDLE_TASK_STACK")));
+tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, section("STACK"), zero_init));
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_idle_task_func
@@ -73,47 +65,49 @@ __attribute__((weak)) void tn_idle_task_func(void *par)
   }
 }
 
+/*-----------------------------------------------------------------------------*
+ * Название : create_idle_task
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+static void create_idle_task(void)
+{
+  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
+
+  tn_task_create(
+    &idle_task,                               // task TCB
+    tn_idle_task_func,                        // task function
+    TN_NUM_PRIORITY-1,                        // task priority
+    &(tn_idle_task_stack[stack_size-1]),      // task stack first addr in memory
+    stack_size,                               // task stack size (in int,not bytes)
+    NULL,                                     // task function parameter
+    TN_TASK_IDLE | TN_TASK_START_ON_CREATION  // Creation option
+  );
+}
+
 //----------------------------------------------------------------------------
 // TN main function (never return)
 //----------------------------------------------------------------------------
 void tn_start_system(TN_OPTIONS *opt)
 {
-  int i;
-
   tn_system_state = TN_ST_STATE_NOT_RUN;
 
   //-- Clear/set all globals (vars, lists, etc)
-  for (i=0; i < TN_NUM_PRIORITY; i++) {
+  for (int i=0; i < TN_NUM_PRIORITY; i++) {
     queue_reset(&(tn_ready_list[i]));
     tslice_ticks[i] = NO_TIME_SLICE;
   }
 
   queue_reset(&tn_create_queue);
-  tn_created_tasks_qty  = 0;
-  tn_ready_to_run_bmp   = 0;
-  tn_app_init           = opt->app_init;
   HZ                    = opt->freq_timer;
   os_period             = 1000/HZ;
 
-  //--- Timer task
-  create_timer_task();
-
-  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
   //--- Idle task
-  tn_task_create(
-    &idle_task,                             // task TCB
-    tn_idle_task_func,                      // task function
-    TN_NUM_PRIORITY-1,                      // task priority
-    &(tn_idle_task_stack[stack_size-1]),    // task stack first addr in memory
-    stack_size,                             // task stack size (in int,not bytes)
-    NULL,                                   // task function parameter
-    TN_TASK_IDLE                            // Creation option
-  );
+  create_idle_task();
+  //--- Timer task
+  create_timer_task((void *)opt);
 
-  //-- Activate timer & idle tasks
-  tn_next_task_to_run = &idle_task;
-  task_to_runnable(&idle_task);
-  task_to_runnable(&timer_task);
   tn_curr_run_task = &idle_task;
 
   //-- Run OS - first context switch
