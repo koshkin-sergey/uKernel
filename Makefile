@@ -13,10 +13,10 @@
 #     $ make ARCH=CORTEX-M3
 #
 
+SRC = src
+
 ifeq ("$(origin ARCH)", "command line")
   CPU := --cpu=$(ARCH)
-
-SRC = ./src
 
 ifeq ($(ARCH), $(filter CORTEX%, $(ARCH)))
   ARCH_DIR = $(SRC)/arch/cortex_m3
@@ -29,8 +29,12 @@ endif
   
 endif
 
-ifndef ARCH_DIR
-  $(error ARCH is undefined. See comments in the Makefile-single for usage notes)
+ifeq ($(MAKECMDGOALS),clean)
+  ARCH_DIR = $(SRC)/arch/cortex_m3 $(SRC)/arch/arm
+else
+  ifndef ARCH_DIR
+    $(error ARCH is undefined. See comments in the Makefile-single for usage notes)
+  endif
 endif
 
 LIB = tnkernel.lib
@@ -48,15 +52,15 @@ DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
 CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
 ASFLAGS = $(CPU) $(DEPFLAGS)
 
-dirs := $(SRC)/kernel \
+DIRS := $(SRC)/kernel \
         $(ARCH_DIR)
 
-FILES := $(foreach dir,$(dirs),$(wildcard $(dir)/*.c))
+FILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
 OBJS := $(ARCH_OBJS) $(FILES:.c=.o)
 DEPS := $(OBJS:.o=.d)
 
 ifneq ($(MAKECMDGOALS),clean)
--include $(DEPS)
+  -include $(DEPS)
 endif
 
 # All Target
@@ -64,13 +68,16 @@ all: $(LIB)
 
 # Tool invocations
 $(LIB): $(OBJS)
-	@echo "Building target: $@"
+	@echo Building target: $@
 	@$(AR) -r $@ $? 
 
 # Other Targets
 clean:
-	@echo "Cleaning ..."
-	$(RM) -f $(OBJS) $(DEPS) $(LIB)
+	@echo Cleaning...
+	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.o))
+	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.d))
+	@$(RM) -f $(wildcard *.lib)
+	@echo Done
 
 .PHONY: all clean
 #.SILENT:
