@@ -3,6 +3,7 @@
   TNKernel real-time kernel
 
   Copyright © 2004, 2010 Yuri Tiomkin
+  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
   All rights reserved.
 
   Permission to use, copy, modify, and distribute this software in source
@@ -28,20 +29,19 @@
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
-//----------------------------------------------------------------------------
-//   Structure's field sem->id_sem have to be set to 0
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_sem_create
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
 {
 #if TN_CHECK_PARAM
-  if (sem == NULL) //-- Thanks to Michael Fisher
+  if (sem == NULL)
     return  TERR_WRONG_PARAM;
-  if (max_val <= 0 || start_value < 0 ||
-         start_value > max_val || sem->id_sem != 0) //-- no recreation
-  {
-    sem->max_count = 0;
+  if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id_sem == TN_ID_SEMAPHORE)
     return TERR_WRONG_PARAM;
-  }
 #endif
 
   queue_reset(&(sem->wait_queue));
@@ -53,7 +53,12 @@ int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
   return TERR_NO_ERR;
 }
 
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_sem_delete
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_sem_delete(TN_SEM *sem)
 {
 #if TN_CHECK_PARAM
@@ -74,20 +79,21 @@ int tn_sem_delete(TN_SEM *sem)
   return TERR_NO_ERR;
 }
 
-//----------------------------------------------------------------------------
-//  Release Semaphore Resource
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_sem_signal
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_sem_signal(TN_SEM *sem)
 {
-  int rc = TERR_NO_ERR; //-- return code
-  CDLL_QUEUE * que;
-  TN_TCB * task;
+  int rc = TERR_NO_ERR;
+  CDLL_QUEUE *que;
+  TN_TCB *task;
 
 #if TN_CHECK_PARAM
   if (sem == NULL)
-    return  TERR_WRONG_PARAM;
-  if (sem->max_count == 0)
-    return  TERR_WRONG_PARAM;
+    return TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
 #endif
@@ -114,9 +120,12 @@ int tn_sem_signal(TN_SEM *sem)
   return rc;
 }
 
-//----------------------------------------------------------------------------
-//   Acquire Semaphore Resource
-//----------------------------------------------------------------------------
+/*-----------------------------------------------------------------------------*
+ * Название : tn_sem_acquire
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
 int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 {
   int rc; //-- return code
@@ -124,15 +133,13 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 #if TN_CHECK_PARAM
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
-  if (sem->max_count == 0)
-    return  TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
 #endif
 
   BEGIN_CRITICAL_SECTION
 
-  if (sem->count >= 1) {
+  if (sem->count > 0) {
     sem->count--;
     rc = TERR_NO_ERR;
   }
