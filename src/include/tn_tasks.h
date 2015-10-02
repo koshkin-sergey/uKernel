@@ -54,7 +54,7 @@ extern CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];
 /*******************************************************************************
  *  exported function prototypes
  ******************************************************************************/
-extern int task_wait_complete(TN_TCB *task);
+extern bool task_wait_complete(TN_TCB *task);
 extern void task_curr_to_wait_action(CDLL_QUEUE *wait_que, int wait_reason,
 																		 unsigned long timeout);
 extern void change_running_task_priority(TN_TCB *task, int new_priority);

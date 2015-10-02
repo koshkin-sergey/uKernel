@@ -66,14 +66,14 @@
  * Название : scan_event_waitqueue
  * Описание : Проверяет очередь ожидания.
  * Параметры: evf	- Указатель на существующую структуру TN_EVENT.
- * Результат: Возвращает 1 если в очереди ожидания была найдена ожидающая задача
- * 						и она была успешно разбужена, в противном случае возвращает 0.
+ * Результат: Возвращает true если в очереди ожидания была найдена ожидающая задача
+ * 						и она была успешно разбужена, в противном случае возвращает false.
  *----------------------------------------------------------------------------*/
-static int scan_event_waitqueue(TN_EVENT *evf)
+static bool scan_event_waitqueue(TN_EVENT *evf)
 {
 	CDLL_QUEUE * que;
 	TN_TCB * task;
-	int fCond, rc = 0;
+	int fCond;
 
 	que = evf->wait_queue.next;
   /*	checking ALL of the tasks waiting on the event.
@@ -92,12 +92,11 @@ static int scan_event_waitqueue(TN_EVENT *evf)
 		if (fCond) {
 			queue_remove_entry(&task->task_queue);
 			*task->winfo.event.flags_pattern = evf->pattern;
-			if (task_wait_complete(task))
-				rc = 1;
+			return task_wait_complete(task);
 		}
 	}
 
-	return rc;
+	return false;
 }
 
 /*******************************************************************************

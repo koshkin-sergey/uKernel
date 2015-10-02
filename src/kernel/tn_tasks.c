@@ -144,9 +144,9 @@ static void task_to_non_runnable(TN_TCB *task)
  Параметры:
  Результат:
  *-----------------------------------------------------------------------------*/
-static int task_wait_release(TN_TCB *task)
+static bool task_wait_release(TN_TCB *task)
 {
-	int rc = 0;
+	bool rc = false;
 #ifdef USE_MUTEXES
 	int fmutex;
 	int curr_priority;
@@ -168,7 +168,7 @@ static int task_wait_release(TN_TCB *task)
 
 	if (!(task->task_state & TSK_STATE_SUSPEND)) {
 		task_to_runnable(task);
-		rc = 1;
+		rc = true;
 	}
 	else
 		//-- remove WAIT state
@@ -190,7 +190,7 @@ static int task_wait_release(TN_TCB *task)
 					mutex, mt_holder_task->base_priority);
 
 				set_current_priority(mt_holder_task, curr_priority);
-				rc = 1;
+				rc = true;
 			}
 		}
 	}
@@ -759,17 +759,17 @@ void task_to_runnable(TN_TCB *task)
 }
 
 /*-----------------------------------------------------------------------------*
- Название :  task_wait_complete
- Описание :
- Параметры:
- Результат:
- *-----------------------------------------------------------------------------*/
-int task_wait_complete(TN_TCB *task)
+ * Название : task_wait_complete
+ * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
+ * Параметры: task - Указатель на задачу
+ * Результат: Возвращает true при успешном выполнении, иначе возвращает false
+ *----------------------------------------------------------------------------*/
+bool task_wait_complete(TN_TCB *task)
 {
-	int rc;
+	bool rc;
 
 	if (task == NULL)
-		return 0;
+		return false;
 
 	timer_delete(&task->wtmeb);
 	rc = task_wait_release(task);
