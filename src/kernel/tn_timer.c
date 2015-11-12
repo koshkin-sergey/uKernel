@@ -46,8 +46,8 @@ unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 
 tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak, section("STACK"), zero_init));
 
-TN_TCB      timer_task;
-static CDLL_QUEUE  timer_queue;
+TN_TCB timer_task;
+static CDLL_QUEUE timer_queue;
 
 static void timer_task_func(void *par);
 static void alarm_handler(TN_ALARM *alarm);

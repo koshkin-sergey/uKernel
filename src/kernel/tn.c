@@ -100,15 +100,14 @@ void tn_start_system(TN_OPTIONS *opt)
   }
 
   queue_reset(&tn_create_queue);
-  HZ                    = opt->freq_timer;
-  os_period             = 1000/HZ;
+  HZ = opt->freq_timer;
+  os_period = 1000/HZ;
+  tn_curr_run_task = tn_next_task_to_run = &idle_task;
 
   //--- Idle task
   create_idle_task();
   //--- Timer task
   create_timer_task((void *)opt);
-
-  tn_curr_run_task = &idle_task;
 
   //-- Run OS - first context switch
   tn_start_exe();
