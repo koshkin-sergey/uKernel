@@ -36,7 +36,6 @@
 
   IMPORT  tn_curr_run_task
   IMPORT  tn_next_task_to_run
-  IMPORT  tn_system_state
 
 
   ;-- Public functions declared in this file
@@ -50,7 +49,6 @@
   EXPORT  tn_enable_irq
   EXPORT  PendSV_Handler
   EXPORT  tn_inside_irq
-  EXPORT  ffs_asm
 
  ;--  Interrupt Control State Register Address
 
@@ -78,22 +76,33 @@ PENDS_VPRIORITY  EQU     0x00FF0000
        PRESERVE8
 
 ;----------------------------------------------------------------------------
-; Interrups not yet enabled
+; Interrupts not yet enabled
 ;----------------------------------------------------------------------------
 tn_start_exe
 
        ldr    r1, =PR_12_15_ADDR        ;-- Load the System 12-15 Priority Register
        ldr    r0, [r1]
-       orr    r0, r0, #PENDS_VPRIORITY  ;-- set PRI_14 (PendSV) to 0xFF - minimal
+       ldr    r2, =PENDS_VPRIORITY
+       orrs   r0, r0, r2                ;-- set PRI_14 (PendSV) to 0xFF - minimal
        str    r0, [r1]
 
   ;---------------
 
-       ldr    r1, =tn_curr_run_task     ; =tn_next_task_to_run
+       ldr    r1, =tn_curr_run_task     ; =tn_curr_run_task
        ldr    r2, [r1]
-       ldr    r0, [r2]                  ;-- in r0 - new task SP
-       add    r0, #32
+       ldr    r0, [r2]                  ;-- in r0 - current task SP
+       adds   r0, #32
        msr    PSP, r0
+
+  ; modify CONTROL register so that PSP becomes active
+
+;       mrs    r0, CONTROL                ; read current CONTROL
+;       movs   r1, #0x02                  ; used intermediary register r1 in order to work on M0 too
+;       orrs   r0, r0, r1
+;       msr    CONTROL, r0                ; write to CONTROL
+
+  ; after modifying CONTROL, we need for instruction barrier
+;       isb
 
 tn_switch_context_exit
 
@@ -122,15 +131,32 @@ PendSV_Handler
   ;-------------------------------------
 
        mrs    r0, psp                    ;  in PSP - process(task) stack pointer
-       stmdb  r0!, {r4-r11}
+       subs   r0, #32                    ; allocate space for r4-r11
+       stmia  r0!, {r4-r7}
+       mov    r4, r8
+       mov    r5, r9
+       mov    r6, r10
+       mov    r7, r11
+       stmia  r0!, {r4-r7}
+       subs   r0, #32                    ; increment r0 again
 
        str    r0, [r1]                   ;  save own SP in TCB
        str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
        ldr    r0, [r2]                   ;  in r0 - new task SP
 
-       ldmia  r0!, {r4-r11}
+       adds   r0, #16
+       ldmia  r0!, {r4-r7}
+       mov    r8, r4
+       mov    r9, r5
+       mov    r10, r6
+       mov    r11, r7
+       subs   r0, #32
+       ldmia  r0!, {r4-r7}
+       adds   r0, #16
        msr    psp, r0
-       orr    lr, lr, #0x04              ;  Force to new process PSP
+
+       ldr    r0, =0xFFFFFFFD
+       mov    lr, r0
 
   ;-------------------------------------
 
@@ -165,7 +191,7 @@ tn_inside_irq
 
        ldr    r0, =ICSR_ADDR
        ldr    r0, [r0]
-       ubfx   r0, r0, #0, #9
+       lsls   r0, r0, #26
        bx     lr
 
 ; ----------------------------------------------------------------------------
@@ -179,16 +205,6 @@ tn_enable_irq
 
        cpsie I
        bx   lr
-
-;-----------------------------------------------------------------------------
-ffs_asm
-
-       mov    r1, r0                    ;-- tmp = in
-       rsbs   r0, r1, #0                ;-- in = -in
-       ands   r0, r0, r1                ;-- in = in & tmp
-       CLZ.W  r0, r0
-       rsb    r0, r0, #0x20             ;-- 32 - in
-       bx     lr
 
 ;----------------------------------------------------------------------------
 

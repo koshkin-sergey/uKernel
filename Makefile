@@ -13,12 +13,22 @@
 #     $ make ARCH=CORTEX-M3
 #
 
-SRC = src
+SRC = $(CURDIR)/src
 
 ifeq ("$(origin ARCH)", "command line")
   CPU := --cpu=$(ARCH)
 
-ifeq ($(ARCH), $(filter CORTEX%, $(ARCH)))
+ifeq ($(ARCH), CORTEX-M0)
+  ARCH_DIR = $(SRC)/arch/cortex_m0
+  ARCH_OBJS = $(ARCH_DIR)/tn_port_cm0_armcc.o
+endif
+
+ifeq ($(ARCH), CORTEX-M3)
+  ARCH_DIR = $(SRC)/arch/cortex_m3
+  ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
+endif
+
+ifeq ($(ARCH), CORTEX-M4)
   ARCH_DIR = $(SRC)/arch/cortex_m3
   ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
 endif
@@ -30,7 +40,9 @@ endif
 endif
 
 ifeq ($(MAKECMDGOALS),clean)
-  ARCH_DIR = $(SRC)/arch/cortex_m3 $(SRC)/arch/arm
+  ARCH_DIR = $(SRC)/arch/cortex_m0 \
+             $(SRC)/arch/cortex_m3 \
+             $(SRC)/arch/arm
 else
   ifndef ARCH_DIR
     $(error ARCH is undefined. See comments in the Makefile-single for usage notes)

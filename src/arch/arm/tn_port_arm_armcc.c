@@ -2,7 +2,7 @@
   File Name  : tn_timer.c
   Author     : Koshkin Sergey
   Version    : 2.7
-  Date       : 18/12/2012
+  Date       : 18/12/2015
   Description: Этот файл содержит реализацию низкоуровневых функций зависящих
                от ядра микроконтроллера. Этот файл написан под компилятор
                ARM применяемый в Keil.
@@ -32,7 +32,10 @@
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
+
 #if defined (__CC_ARM)
+
+extern void task_exit(void);
 
 #pragma arm
 
@@ -215,7 +218,7 @@ __asm void tn_cpu_fiq_isr(void)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-unsigned int* tn_stack_init(void *task_func, void *stack_start, void *param)
+unsigned int* tn_stack_init(void *task_func, unsigned int *stack_start, void *param)
 {
   unsigned int *stk;
   
@@ -227,7 +230,7 @@ unsigned int* tn_stack_init(void *task_func, void *stack_start, void *param)
   *stk = ((unsigned int)task_func) & ~1;   //-- Entry Point
   stk--;
   
-  *stk = (unsigned int)tn_task_exit;       //-- LR  //0x14141414L
+  *stk = (unsigned int)task_exit;       //-- LR  //0x14141414L
   stk--;
   
   *stk = 0x12121212L;              //-- R12
@@ -277,12 +280,12 @@ unsigned int* tn_stack_init(void *task_func, void *stack_start, void *param)
 }
 
 /*-----------------------------------------------------------------------------*
-  Название :  tn_arm_enable_interrupts
-  Описание :  
-  Параметры:  
-  Результат:  
+  Название :  tn_enable_irq
+  Описание :
+  Параметры:
+  Результат:
 *-----------------------------------------------------------------------------*/
-__asm void tn_arm_enable_interrupts(void)
+__asm void tn_enable_irq(void)
 {
   mrs  r0, cpsr
   bic  r0, r0, #NOINT
@@ -291,12 +294,12 @@ __asm void tn_arm_enable_interrupts(void)
 }
 
 /*-----------------------------------------------------------------------------*
-  Название :  tn_arm_disable_interrupts
-  Описание :  
-  Параметры:  
-  Результат:  
+  Название :  tn_disable_irq
+  Описание :
+  Параметры:
+  Результат:
 *-----------------------------------------------------------------------------*/
-__asm void tn_arm_disable_interrupts(void)
+__asm void tn_disable_irq(void)
 {
   mrs  r0, cpsr
   orr  r0, r0, #NOINT

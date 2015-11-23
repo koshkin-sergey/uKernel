@@ -38,7 +38,6 @@
  *  external declarations
  ******************************************************************************/
 
-extern unsigned int* tn_stack_init(void *task_func, void *stack_start, void *param);
 extern int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority);
 extern int do_unlock_mutex(TN_MUTEX *mutex);
 
@@ -81,23 +80,16 @@ static void find_next_task_to_run(void)
 {
 	int tmp;
 
-#ifdef USE_ASM_FFS
+#if defined USE_ASM_FFS
 	tmp = ffs_asm(tn_ready_to_run_bmp);
 	tmp--;
 #else
-	int i;
-	unsigned int mask;
-
-	mask = 1;
 	tmp = 0;
-	for(i=0; i < TN_BITS_IN_INT; i++)  //-- for each bit in bmp
-	{
-		if(tn_ready_to_run_bmp & mask)
-		{
+	for (int i = 0; i < TN_BITS_IN_INT; ++i) {
+		if (tn_ready_to_run_bmp & (1UL << i)) {
 			tmp = i;
 			break;
 		}
-		mask = mask<<1;
 	}
 #endif
 
@@ -298,14 +290,6 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
 		*ptr_stack-- = TN_FILL_STACK_VAL;
 
 	task_set_dormant_state(task);
-
-	//--- Init task stack
-
-	ptr_stack = tn_stack_init(task->task_func_addr, task->stk_start,
-														task->task_func_param);
-
-	task->task_stk = ptr_stack;    //-- Pointer to task top of stack,
-																 //-- when not running
 
 	//-- Add task to created task queue
 
@@ -588,16 +572,8 @@ void tn_task_exit(int attr)
 #endif
 
 	TN_TCB * task;
-	unsigned int * ptr_stack;
-	volatile int stack_exp[TN_PORT_STACK_EXPAND_AT_EXIT];
 
-	tn_cpu_save_sr();  //-- For ARM - disable interrupts without saving SPSR
-
-	//-- To use stack_exp[] and avoid warning message
-
-	stack_exp[0] = (int)tn_system_state;
-	ptr_stack = (unsigned int *)stack_exp[0];
-	//--------------------------------------------------
+	tn_disable_irq();  //-- For ARM - disable interrupts without saving SPSR
 
 	//-- Unlock all mutexes, locked by the task
 
@@ -610,12 +586,9 @@ void tn_task_exit(int attr)
 #endif
 
 	task = tn_curr_run_task;
-	task_to_non_runnable(tn_curr_run_task);
+	task_to_non_runnable(task);
 
 	task_set_dormant_state(task);
-	ptr_stack = tn_stack_init(task->task_func_addr, task->stk_start,
-														task->task_func_param);
-	task->task_stk = ptr_stack; //-- Pointer to task top of stack,when not running
 
 	if (attr == TN_EXIT_AND_DELETE_TASK) {
 		queue_remove_entry(&(task->create_queue));
@@ -627,6 +600,17 @@ void tn_task_exit(int attr)
 }
 
 /*-----------------------------------------------------------------------------*
+ * Название : task_exit
+ * Описание :
+ * Параметры:
+ * Результат:
+ *----------------------------------------------------------------------------*/
+void task_exit(void)
+{
+  tn_task_exit(0);
+}
+
+/*-----------------------------------------------------------------------------*
  * Название : tn_task_terminate
  * Описание :
  * Параметры:
@@ -634,15 +618,12 @@ void tn_task_exit(int attr)
  *----------------------------------------------------------------------------*/
 int tn_task_terminate(TN_TCB *task)
 {
-	int rc;
-	unsigned int * ptr_stack;
+	int rc = TERR_NO_ERR;
 
 #ifdef USE_MUTEXES
 	CDLL_QUEUE * que;
 	TN_MUTEX * mutex;
 #endif
-
-	volatile int stack_exp[TN_PORT_STACK_EXPAND_AT_EXIT];
 
 #if TN_CHECK_PARAM
 	if (task == NULL)
@@ -652,15 +633,6 @@ int tn_task_terminate(TN_TCB *task)
 #endif
 
 	BEGIN_DISABLE_INTERRUPT
-
-	//-- To use stack_exp[] and avoid warning message
-
-	stack_exp[0] = (int)tn_system_state;
-	ptr_stack = (unsigned int *)stack_exp[0];
-
-	//--------------------------------------------------
-
-	rc = TERR_NO_ERR;
 
 	if (task->task_state == TSK_STATE_DORMANT || tn_curr_run_task == task)
 		rc = TERR_WCONTEXT; //-- Cannot terminate running task
@@ -685,10 +657,6 @@ int tn_task_terminate(TN_TCB *task)
 #endif
 
 		task_set_dormant_state(task);
-		ptr_stack = tn_stack_init(task->task_func_addr, task->stk_start,
-															task->task_func_param);
-		task->task_stk = ptr_stack;  //-- Pointer to task top of the stack
-																 //-- when not running
 	}
 
 	END_DISABLE_INTERRUPT
@@ -741,12 +709,16 @@ void task_to_runnable(TN_TCB *task)
 {
 	int priority;
 
-	priority = task->priority;
+	if (task->task_state == TSK_STATE_DORMANT) {
+	  //--- Init task stack
+	  task->task_stk = tn_stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
+	}
+
 	task->task_state = TSK_STATE_RUNNABLE;
 	task->pwait_queue = NULL;
 
 	//-- Add the task to the end of 'ready queue' for the current priority
-
+	priority = task->priority;
 	queue_add_tail(&(tn_ready_list[priority]), &(task->task_queue));
 	tn_ready_to_run_bmp |= 1 << priority;
 

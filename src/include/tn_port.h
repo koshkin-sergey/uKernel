@@ -3,7 +3,7 @@
   TNKernel real-time kernel
 
   Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2011 Koshkin Sergey
+  Copyright © 2015 Koshkin Sergey
   All rights reserved.
 
   Permission to use, copy, modify, and distribute this software in source
@@ -31,42 +31,25 @@
 #ifndef  _TN_PORT_H_
 #define  _TN_PORT_H_
 
-#if defined (__ICCARM__)    // IAR ARM
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
 
-#define align_attr_start
-  #define align_attr_end
-  
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   _Pragma("inline=forced")
-#endif
-  
-#elif defined (__GNUC__)    //-- GNU Compiler
-
-  #define align_attr_start
-  #define align_attr_end     __attribute__((aligned(0x8)))
-  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
-  
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   static inline __attribute__ ((always_inline))
-#endif
-
-#elif defined ( __CC_ARM )  //-- RealView Compiler
-
-  #define align_attr_start   __align(8)
-  #define align_attr_end
-  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
-  
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   __forceinline
-#endif
-
+#if defined __TARGET_ARCH_4T
+  #include "../arch/arm/tn_port_arm.h"
+#elif defined __TARGET_ARCH_6_M || __TARGET_ARCH_6S_M
+  #include "../arch/cortex_m0/tn_port_cm0.h"
+#elif defined __TARGET_ARCH_7_M
+  #include "../arch/cortex_m3/tn_port_cm3.h"
+#elif defined __TARGET_ARCH_7E_M
+  #include "../arch/cortex_m3/tn_port_cm3.h"
 #else
-  #error "Unknown compiler"
-  #define align_attr_start
-  #define align_attr_end
-	#define INLINE_FORCED
-  #define tn_stack_t     unsigned int
+  #error "Wrong processor architecture"
 #endif
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
 
 #define TN_TIMER_STACK_SIZE           64
 #define TN_IDLE_STACK_SIZE            48
@@ -75,80 +58,45 @@
 #define TN_BITS_IN_INT                32
 #define TN_ALIG                       sizeof(void*)
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
-#define TN_PORT_STACK_EXPAND_AT_EXIT  16
 
-#define TN_NUM_PRIORITY        TN_BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
-#define TN_WAIT_INFINITE       0xFFFFFFFF
-#define TN_POLLING             0x0
-#define TN_FILL_STACK_VAL      0xFFFFFFFF
+#define TN_NUM_PRIORITY               TN_BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
+#define TN_FILL_STACK_VAL             0xFFFFFFFF
 
-#ifdef __cplusplus
-extern "C"  {
-#endif
-
-void  tn_switch_context_request(void);
-void  tn_switch_context_exit(void);
-int   tn_cpu_save_sr(void);
-void  tn_cpu_restore_sr(int sr);
-void  tn_start_exe(void);
-int   tn_inside_irq(void);
-int   ffs_asm(unsigned int val);
-void  tn_arm_disable_interrupts(void);
-void  tn_arm_enable_interrupts(void);
-
-#ifdef __cplusplus
-}  /* extern "C" */
-#endif
-
-/* - ARM port ----------------------------------------------------------------*/
-#if defined __TARGET_ARCH_4T
-
-/* - Assembler functions prototypes ------------------------------------------*/
-#ifdef __cplusplus
-extern "C"  {
-#endif
-
-void  tn_switch_context(void);
-void  tn_cpu_irq_handler(void);
-void  tn_cpu_irq_isr(void);
-void  tn_cpu_fiq_isr(void);
-
-#ifdef __cplusplus
-}  /* extern "C" */
-#endif
-
-/* - Interrupt processing - processor specific -------------------------------*/
-
-#define BEGIN_CRITICAL_SECTION  int tn_save_status_reg = tn_cpu_save_sr();
-#define END_CRITICAL_SECTION    tn_cpu_restore_sr(tn_save_status_reg);  \
-                                if (!tn_inside_irq())                   \
-                                  tn_switch_context();
-
-#define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_save_sr();
-#define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
-
-/* - Cortex-M3 port ----------------------------------------------------------*/
-#elif defined __TARGET_ARCH_6_M || __TARGET_ARCH_6S_M || __TARGET_ARCH_7_M || __TARGET_ARCH_7E_M
-
-/* - Assembler functions prototypes ------------------------------------------*/
-#define  tn_switch_context()
-
-/* - Interrupt processing - processor specific -------------------------------*/
-
-#define BEGIN_CRITICAL_SECTION  int tn_save_status_reg = tn_cpu_save_sr();
-#define END_CRITICAL_SECTION    tn_cpu_restore_sr(tn_save_status_reg);
-
-#define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_save_sr();
-#define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
-
-#else
+#ifndef BEGIN_CRITICAL_SECTION
   #define BEGIN_CRITICAL_SECTION
   #define END_CRITICAL_SECTION
+#endif
 
+#ifndef BEGIN_DISABLE_INTERRUPT
   #define BEGIN_DISABLE_INTERRUPT
   #define END_DISABLE_INTERRUPT
+#endif
 
-  #error "Wrong processor architecture"
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  exported variables
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  exported function prototypes
+ ******************************************************************************/
+
+#ifdef __cplusplus
+extern "C"  {
+#endif
+
+extern void tn_switch_context_request(void);
+extern void tn_switch_context_exit(void);
+extern int tn_cpu_save_sr(void);
+extern void tn_cpu_restore_sr(int sr);
+extern void tn_start_exe(void);
+extern int tn_inside_irq(void);
+
+#ifdef __cplusplus
+}  /* extern "C" */
 #endif
 
 #endif

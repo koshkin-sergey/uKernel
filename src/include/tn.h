@@ -29,16 +29,59 @@
 #ifndef _TH_H_
 #define _TH_H_
 
-#include "tn_port.h"
-#include "tn_winfo.h"
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
+
+#include <stdbool.h>
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
 
 #define TASK_FUNC __declspec(noreturn) void
 #define TNKERNEL_VERSION	3000000
 
+#if defined (__ICCARM__)    // IAR ARM
+
+#define align_attr_start
+  #define align_attr_end
+
+#ifndef INLINE_FORCED
+  #define INLINE_FORCED   _Pragma("inline=forced")
+#endif
+
+#elif defined (__GNUC__)    //-- GNU Compiler
+
+  #define align_attr_start
+  #define align_attr_end     __attribute__((aligned(0x8)))
+  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
+
+#ifndef INLINE_FORCED
+  #define INLINE_FORCED   static inline __attribute__ ((always_inline))
+#endif
+
+#elif defined ( __CC_ARM )  //-- RealView Compiler
+
+  #define align_attr_start   __align(8)
+  #define align_attr_end
+  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
+
+#ifndef INLINE_FORCED
+  #define INLINE_FORCED   __forceinline
+#endif
+
+#else
+  #error "Unknown compiler"
+  #define align_attr_start
+  #define align_attr_end
+  #define INLINE_FORCED
+  #define tn_stack_t     unsigned int
+#endif
+
 /* - The system configuration (change it for your particular project) --------*/
 #define TN_CHECK_PARAM        1
 #define TN_MEAS_PERFORMANCE   1
-#define USE_ASM_FFS           1
 #define USE_MUTEXES           1
 #define USE_EVENTS            1
 #define USE_INLINE_CDLL       1
@@ -100,6 +143,9 @@
 #define TN_CYCLIC_ATTR_START            1
 #define TN_CYCLIC_ATTR_PHS              2
 
+#define TN_WAIT_INFINITE                0xFFFFFFFF
+#define TN_POLLING                      0x0
+
 //-- Errors
 
 #define TERR_TRUE                       1
@@ -117,6 +163,10 @@
 #define NO_TIME_SLICE                   0
 #define MAX_TIME_SLICE             0xFFFE
 
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
 typedef void (*CBACK)(void *);
 
 /* - Circular double-linked list queue - for internal using ------------------*/
@@ -131,6 +181,49 @@ typedef struct timer_event_block {
 	CBACK callback; /* Callback function */
 	void *arg; /* Argument to be sent to callback function */
 } TMEB;
+
+typedef struct {
+  void **data_elem;
+} WINFO_RDQUE;
+
+typedef struct {
+  void *data_elem;
+  bool send_to_first;
+} WINFO_SDQUE;
+
+typedef struct {
+  void *data_elem;
+} WINFO_FMEM;
+
+/*
+ * Message buffer receive/send wait (TTW_RMBF, TTW_SMBF)
+ */
+typedef struct {
+  void *msg; /* Address that has a received message */
+} WINFO_RMBF;
+
+typedef struct {
+  void *msg; /* Send message head address */
+  bool send_to_first;
+} WINFO_SMBF;
+
+typedef struct {
+  unsigned int pattern;   // Event wait pattern
+  int mode;               // Event wait mode:  _AND or _OR
+  unsigned int *flags_pattern;
+} WINFO_EVENT;
+
+/*
+ * Definition of wait information in task control block
+ */
+typedef union {
+  WINFO_RDQUE rdque;
+  WINFO_SDQUE sdque;
+  WINFO_RMBF rmbf;
+  WINFO_SMBF smbf;
+  WINFO_FMEM fmem;
+  WINFO_EVENT event;
+} WINFO;
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct _TN_TCB {
@@ -257,6 +350,10 @@ typedef struct {
 	unsigned long freq_timer;
 } TN_OPTIONS;
 
+/*******************************************************************************
+ *  exported variables
+ ******************************************************************************/
+
 /* - Global vars -------------------------------------------------------------*/
 extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
 extern volatile int tn_created_tasks_qty;           //-- num of created tasks
@@ -293,6 +390,10 @@ extern TN_TCB * tn_curr_run_task;       //-- Task that  run now
 
 #define tn_time_after_eq(a,b)   ((long)(a) - (long)(b) >= 0)
 #define tn_time_before_eq(a,b)  tn_time_after_eq(b,a)
+
+/*******************************************************************************
+ *  exported function prototypes
+ ******************************************************************************/
 
 #ifdef __cplusplus
 extern "C" {
@@ -736,6 +837,22 @@ extern void* tn_memset(void *dst, int ch, int length) __attribute__((nonnull));
 extern void* tn_memcpy(void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_memcmp(const void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_atoi(const char *s) __attribute__((nonnull));
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_disable_irq
+ * Описание : Отключает прерывания в ядре
+ * Параметры: Нет
+ * Результат: Нет
+ *----------------------------------------------------------------------------*/
+extern void tn_disable_irq(void);
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_enable_irq
+ * Описание : Включает прерывания в ядре
+ * Параметры: Нет
+ * Результат: Нет
+ *----------------------------------------------------------------------------*/
+extern void tn_enable_irq(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

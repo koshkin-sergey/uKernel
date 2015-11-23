@@ -3,7 +3,7 @@
   TNKernel real-time kernel
 
   Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2015 Sergey Koshkin (Cortex-M3 port)
+  Copyright © 2015 Sergey Koshkin (Cortex-M0 port)
 
   All rights reserved.
 
@@ -29,7 +29,7 @@
 
   /* ver 3.0 */
 
-#include "tn_port_cm3.h"
+#include "tn_port_cm0.h"
 
 extern void task_exit(void);
 

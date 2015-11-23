@@ -101,14 +101,14 @@ static TASK_FUNC timer_task_func(void *par)
 {
   TMEB  *tm;
 
-  tn_arm_disable_interrupts();
+  tn_disable_irq();
 
   if (((TN_OPTIONS *)par)->app_init)
     ((TN_OPTIONS *)par)->app_init();
 
   tn_systick_init(HZ);
 
-  tn_arm_enable_interrupts();
+  tn_enable_irq();
 
   calibrate_delay();
   tn_system_state = TN_ST_STATE_RUNNING;
@@ -266,9 +266,9 @@ static void alarm_handler(TN_ALARM *alarm)
     return;
   
   alarm->stat = ALARM_STOP;
-  tn_arm_enable_interrupts();
+  tn_enable_irq();
   alarm->handler(alarm->exinf);
-  tn_arm_disable_interrupts();
+  tn_disable_irq();
 }
 
 /*-----------------------------------------------------------------------------*
@@ -427,9 +427,9 @@ static void cyclic_handler(TN_CYCLIC *cyc)
 {
   cyc_timer_insert(cyc, cyc_next_time(cyc));
 
-  tn_arm_enable_interrupts();
+  tn_enable_irq();
   cyc->handler(cyc->exinf);
-  tn_arm_disable_interrupts();
+  tn_disable_irq();
 }
 
 /*-----------------------------------------------------------------------------*
