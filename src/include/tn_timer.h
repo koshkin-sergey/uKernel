@@ -2,7 +2,7 @@
 
   TNKernel real-time kernel
 
-  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+  Copyright В© 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
   All rights reserved.
 
   All rights reserved.
@@ -45,7 +45,7 @@ extern volatile TIME    jiffies;
 extern unsigned long    os_period;
 extern TN_TCB           timer_task;
 extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
-extern unsigned long    HZ;               // Частота системного таймера.
+extern unsigned long    HZ;               // Р§Р°СЃС‚РѕС‚Р° СЃРёСЃС‚РµРјРЅРѕРіРѕ С‚Р°Р№РјРµСЂР°.
 
 void create_timer_task(void *par);
 void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);
@@ -53,4 +53,4 @@ void timer_delete(TMEB *event);
 
 #endif  // _TN_TIMER_H_
 
-/*------------------------------ Конец файла ---------------------------------*/
+/*------------------------------ РљРѕРЅРµС† С„Р°Р№Р»Р° ---------------------------------*/

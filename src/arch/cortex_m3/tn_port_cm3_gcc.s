@@ -4,7 +4,7 @@
 ;
 ;  v.2.6
 ;
-; Copyright © 2004, 2010 Yuri Tiomkin
+; Copyright Â© 2004, 2010 Yuri Tiomkin
 ; All rights reserved.
 ;
 ;

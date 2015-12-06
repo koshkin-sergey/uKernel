@@ -1,7 +1,7 @@
 ;------------------------------------------------------------------------------
 ; TNKernel RTOS port for ARM(c) Cortex-M3(c) core
 ;
-; Copyright © 2004, 2010 Yuri Tiomkin
+; Copyright Â© 2004, 2010 Yuri Tiomkin
 ; All rights reserved.
 ;
 ; v.2.6

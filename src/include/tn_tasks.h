@@ -2,7 +2,7 @@
 
  TNKernel real-time kernel
 
- Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+ Copyright Â© 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
  All rights reserved.
 
  Permission to use, copy, modify, and distribute this software in source

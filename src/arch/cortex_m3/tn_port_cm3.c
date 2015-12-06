@@ -2,8 +2,8 @@
 
   TNKernel real-time kernel
 
-  Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2015 Sergey Koshkin (Cortex-M3 port)
+  Copyright Â© 2004, 2010 Yuri Tiomkin
+  Copyright Â© 2015 Sergey Koshkin (Cortex-M3 port)
 
   All rights reserved.
 

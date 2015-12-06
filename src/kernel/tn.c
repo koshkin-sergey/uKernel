@@ -2,8 +2,8 @@
 
   TNKernel real-time kernel
 
-  Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+  Copyright В© 2004, 2010 Yuri Tiomkin
+  Copyright В© 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
   All rights reserved.
 
   Permission to use, copy, modify, and distribute this software in source
@@ -37,7 +37,7 @@
 //   - level (TN_NUM_PRIORITY-1)  (lowest)  for system idle task
 
 CDLL_QUEUE tn_create_queue;            //-- all created tasks
-unsigned long HZ;                      // Частота системного таймера.
+unsigned long HZ;                      // Р§Р°СЃС‚РѕС‚Р° СЃРёСЃС‚РµРјРЅРѕРіРѕ С‚Р°Р№РјРµСЂР°.
 volatile int tn_created_tasks_qty;     //-- num of created tasks
 volatile int tn_system_state;          //-- System state -(running/not running/etc.)
 
@@ -53,10 +53,10 @@ static TN_TCB  idle_task;
 tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, section("STACK"), zero_init));
 
 /*-----------------------------------------------------------------------------*
- * Название : tn_idle_task_func
- * Описание :
- * Параметры:
- * Результат:
+ * РќР°Р·РІР°РЅРёРµ : tn_idle_task_func
+ * РћРїРёСЃР°РЅРёРµ :
+ * РџР°СЂР°РјРµС‚СЂС‹:
+ * Р РµР·СѓР»СЊС‚Р°С‚:
  *----------------------------------------------------------------------------*/
 __attribute__((weak)) void tn_idle_task_func(void *par)
 {
@@ -66,10 +66,10 @@ __attribute__((weak)) void tn_idle_task_func(void *par)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : create_idle_task
- * Описание :
- * Параметры:
- * Результат:
+ * РќР°Р·РІР°РЅРёРµ : create_idle_task
+ * РћРїРёСЃР°РЅРёРµ :
+ * РџР°СЂР°РјРµС‚СЂС‹:
+ * Р РµР·СѓР»СЊС‚Р°С‚:
  *----------------------------------------------------------------------------*/
 static void create_idle_task(void)
 {
@@ -133,4 +133,4 @@ int tn_sys_tslice_ticks(int priority, int value)
   return TERR_NO_ERR;
 }
 
-/*------------------------------ Конец файла ---------------------------------*/
+/*------------------------------ РљРѕРЅРµС† С„Р°Р№Р»Р° ---------------------------------*/
