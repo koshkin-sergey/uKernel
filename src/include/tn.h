@@ -33,6 +33,8 @@
  *  includes
  ******************************************************************************/
 
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdbool.h>
 
 /*******************************************************************************
@@ -825,6 +827,7 @@ void tn_udelay(unsigned long usecs);
 
 /* - tn_sprintf.c ------------------------------------------------------------*/
 extern int tn_snprintf(char *outStr, int maxLen, const char *fmt, ...) __attribute__((nonnull(1,3)));
+extern int tn_vsnprintf(char *outStr, int maxLen, const char *fmt, va_list args) __attribute__((nonnull(1,3)));
 extern int tn_abs(int i);
 extern int tn_strlen(const char *str) __attribute__((nonnull));
 extern char* tn_strcpy(char *dst, const char *src) __attribute__((nonnull));

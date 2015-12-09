@@ -8,8 +8,7 @@
 //
 //----------------------------------------------------------------------------
 
-#include <stddef.h>
-#include <stdarg.h>
+#include "tn.h"
 
 #define  NO_OPTION       0x00   // No options specified.
 #define  MINUS_SIGN	     0x01   // Should we print a minus sign?
@@ -46,9 +45,7 @@ typedef struct _STRPRINTFPARAMS
 static void OutputChar(PARAMETERS *p, int c);
 static void OutputField(PARAMETERS *p, char *s);
 static int  StrPrintfFunc(void *outParm, int ch);
-static int  vStrPrintf(char *outStr, int maxLen, const char *fmt, va_list args);
-static int  vStrXPrintf(dprintf_func outFunc, void *outParm,
-                        const char *fmt, va_list args);
+static int  vStrXPrintf(dprintf_func outFunc, void *outParm, const char *fmt, va_list args);
 
 //----------------------------------------------------------------------------
 int tn_snprintf( char *outStr, int maxLen, const char *fmt, ... )
@@ -57,14 +54,14 @@ int tn_snprintf( char *outStr, int maxLen, const char *fmt, ... )
    va_list  args;
 
    va_start( args, fmt );
-   rc = vStrPrintf( outStr, maxLen, fmt, args );
+   rc = tn_vsnprintf( outStr, maxLen, fmt, args );
    va_end( args );
 
    return rc;
 }
 
 //----------------------------------------------------------------------------
-static int vStrPrintf( char *outStr, int maxLen, const char *fmt, va_list args )
+int tn_vsnprintf(char *outStr, int maxLen, const char *fmt, va_list args)
 {
    STRPRINTFPARAMS    strParm;
 
