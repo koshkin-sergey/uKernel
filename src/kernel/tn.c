@@ -50,7 +50,7 @@ volatile int tn_system_state;          //-- System state -(running/not running/e
 #endif
 
 static TN_TCB  idle_task;
-tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak, section("STACK"), zero_init));
+tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak));
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_idle_task_func

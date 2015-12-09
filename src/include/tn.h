@@ -57,7 +57,7 @@
 
   #define align_attr_start
   #define align_attr_end     __attribute__((aligned(0x8)))
-  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
+  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
 
 #ifndef INLINE_FORCED
   #define INLINE_FORCED   static inline __attribute__ ((always_inline))
@@ -67,7 +67,7 @@
 
   #define align_attr_start   __align(8)
   #define align_attr_end
-  #define tn_stack_t     __attribute__((aligned(8))) unsigned int
+  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
 
 #ifndef INLINE_FORCED
   #define INLINE_FORCED   __forceinline
