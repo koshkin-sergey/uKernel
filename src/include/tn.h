@@ -251,7 +251,6 @@ typedef struct _TN_TCB {
 	int *wercd;    				//-- Waiting return code(reason why waiting  finished)
 	WINFO winfo;					// Wait information
 	int tslice_count;     //-- Time slice counter
-	int wakeup_count;     //-- Wakeup request count - for statistic
 	unsigned long time;             //-- Time work task
 // Other implementation specific fields may be added below
 } TN_TCB;
@@ -434,8 +433,28 @@ int tn_task_create(TN_TCB *task,                   //-- task TCB
 int tn_task_suspend(TN_TCB *task);
 int tn_task_resume(TN_TCB *task);
 int tn_task_sleep(unsigned long timeout);
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_time
+ * Описание : Возвращает время работы задачи с момента ее создания
+ * Параметры: task  - Указатель на дескриптор задачи
+ * Результат: Возвращает беззнаковое 32 битное число
+ *----------------------------------------------------------------------------*/
 unsigned long tn_task_time(TN_TCB *task);
-int tn_task_wakeup(TN_TCB *task);
+
+/*-----------------------------------------------------------------------------*
+ * Название : tn_task_wakeup
+ * Описание : Пробуждает заданную задачу, если заданная задача усыпила себя
+ *            вызовом tn_task_sleep
+ * Параметры: task  - Указатель на дескриптор задачи.
+ * Результат: Возвращает следующие значения:
+ *              TERR_NO_ERR - если выполнена без ошибок
+ *              TERR_WRONG_PARAM - если задан неверный параметр функции
+ *              TERR_NOEXS - если задача, которую надо пробудить, не существует
+ *              TERR_WSTATE - если задача не находится в состоянии SLEEP
+ *----------------------------------------------------------------------------*/
+extern int tn_task_wakeup(TN_TCB *task);
+
 int tn_task_activate(TN_TCB *task);
 int tn_task_release_wait(TN_TCB *task);
 void tn_task_exit(int attr);

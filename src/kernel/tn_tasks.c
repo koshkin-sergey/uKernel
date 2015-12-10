@@ -212,9 +212,6 @@ static void task_set_dormant_state(TN_TCB* task)
 	task->task_state = TSK_STATE_DORMANT;   //-- Task state
 	task->task_wait_reason = 0;              //-- Reason for waiting
 	task->wercd = NULL;
-
-//	task->data_elem = NULL;      //-- Store data queue entry,if data queue is full
-	task->wakeup_count = 0;                 //-- Wakeup request count
 	task->tslice_count = 0;
 }
 
@@ -422,12 +419,8 @@ int tn_task_sleep(unsigned long timeout)
 
 	BEGIN_CRITICAL_SECTION
 
-	if (tn_curr_run_task->wakeup_count > 0)
-		tn_curr_run_task->wakeup_count--;
-	else {
-		tn_curr_run_task->wercd = NULL;
-		task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, timeout);
-	}
+	tn_curr_run_task->wercd = NULL;
+	task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, timeout);
 
 	END_CRITICAL_SECTION
 
@@ -435,11 +428,11 @@ int tn_task_sleep(unsigned long timeout)
 }
 
 /*-----------------------------------------------------------------------------*
- Название :  tn_task_time
- Описание :  Возвращает время работы задачи с момента ее создания.
- Параметры:  task  - Указатель на дескриптор задачи.
- Результат:  Возвращает беззнаковое 32 битное число.
- *-----------------------------------------------------------------------------*/
+ * Название : tn_task_time
+ * Описание : Возвращает время работы задачи с момента ее создания
+ * Параметры: task  - Указатель на дескриптор задачи
+ * Результат: Возвращает беззнаковое 32 битное число
+ *----------------------------------------------------------------------------*/
 unsigned long tn_task_time(TN_TCB *task)
 {
 	unsigned long time;
@@ -462,9 +455,14 @@ unsigned long tn_task_time(TN_TCB *task)
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_task_wakeup
- * Описание :
- * Параметры:
- * Результат:
+ * Описание : Пробуждает заданную задачу, если заданная задача усыпила себя
+ *            вызовом tn_task_sleep
+ * Параметры: task  - Указатель на дескриптор задачи.
+ * Результат: Возвращает следующие значения:
+ *              TERR_NO_ERR - если выполнена без ошибок
+ *              TERR_WRONG_PARAM - если задан неверный параметр функции
+ *              TERR_NOEXS - если задача, которую надо пробудить, не существует
+ *              TERR_WSTATE - если задача не находится в состоянии SLEEP
  *----------------------------------------------------------------------------*/
 int tn_task_wakeup(TN_TCB *task)
 {
@@ -479,19 +477,10 @@ int tn_task_wakeup(TN_TCB *task)
 
 	BEGIN_CRITICAL_SECTION
 
-	if (task->task_state == TSK_STATE_DORMANT)
-		rc = TERR_WCONTEXT;
-	else {
-		if ((task->task_state & TSK_STATE_WAIT)
-			&& task->task_wait_reason == TSK_WAIT_REASON_SLEEP)
-			task_wait_complete(task);
-		else {
-			if (tn_curr_run_task->wakeup_count == 0)
-				tn_curr_run_task->wakeup_count++;
-			else
-				rc = TERR_OVERFLOW;
-		}
-	}
+	if ((task->task_state & TSK_STATE_WAIT) && task->task_wait_reason == TSK_WAIT_REASON_SLEEP)
+	  task_wait_complete(task);
+	else
+	  rc = TERR_WSTATE;
 
 	END_CRITICAL_SECTION
 
