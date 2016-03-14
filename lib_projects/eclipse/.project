@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>tn_stm32f0_example_basic</name>
+	<name>tnkernel</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -24,4 +24,17 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>src</name>
+			<type>2</type>
+			<locationURI>TNKERNEL_SRC_LOC</locationURI>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>TNKERNEL_SRC_LOC</name>
+			<value>$%7BPARENT-2-PROJECT_LOC%7D/src</value>
+		</variable>
+	</variableList>
 </projectDescription>

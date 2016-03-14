@@ -1,37 +1,141 @@
-/*
+/*******************************************************************************
+ *
+ * TNKernel real-time kernel
+ *
+ * Copyright © 2004, 2013 Yuri Tiomkin
+ * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ ******************************************************************************/
 
- TNKernel real-time kernel
-
- Copyright © 2004, 2010 Yuri Tiomkin
- Copyright © 2011 Koshkin Sergey
- All rights reserved.
-
- Permission to use, copy, modify, and distribute this software in source
- and binary forms and its documentation for any purpose and without fee
- is hereby granted, provided that the above copyright notice appear
- in all copies and that both that copyright notice and this permission
- notice appear in supporting documentation.
-
- THIS SOFTWARE IS PROVIDED BY THE YURI TIOMKIN AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- ARE DISCLAIMED. IN NO EVENT SHALL YURI TIOMKIN OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- SUCH DAMAGE.
-
+/**
+ * @file
+ *
+ * Kernel system routines.
+ *
  */
+
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
 
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
-//-------------------------------------------------------------------------
-// Structure's field dque->id_dque have to be set to 0
-//-------------------------------------------------------------------------
+/*******************************************************************************
+ *  external declarations
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions  (scope: module-exported)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function prototypes (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
+
+/*-----------------------------------------------------------------------------*
+ * Название : do_queue_send
+ * Описание : Помещает данные в очередь за установленный интервал времени.
+ * Параметры: dque  - Дескриптор очереди данных.
+ *            data_ptr  - Указатель на данные.
+ *            timeout - Время, в течении которого данные должны быть помещены
+ *                      в очередь.
+ *            send_to_first - Флаг, указывающий, что необходимо поместить данные
+ *                            в начало очереди.
+ * Результат: Возвращает один из вариантов:
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  - очередь не существует;
+ *              TERR_TIMEOUT  - Превышен заданный интервал времени;
+ *----------------------------------------------------------------------------*/
+static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
+                         bool send_to_first)
+{
+  int rc = TERR_NO_ERR;
+  CDLL_QUEUE * que;
+  TN_TCB * task;
+
+#if TN_CHECK_PARAM
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
+#endif
+
+  BEGIN_CRITICAL_SECTION
+
+  //-- there are task(s) in the data queue's wait_receive list
+
+  if (!is_queue_empty(&(dque->wait_receive_list))) {
+    que = queue_remove_head(&(dque->wait_receive_list));
+    task = get_task_by_tsk_queue(que);
+    *task->winfo.rdque.data_elem = data_ptr;
+    task_wait_complete(task);
+  }
+  /* the data queue's  wait_receive list is empty */
+  else {
+    rc = dque_fifo_write(dque, data_ptr, send_to_first);
+    //-- No free entries in the data queue
+    if (rc != TERR_NO_ERR) {
+      if (timeout == TN_POLLING) {
+        rc = TERR_TIMEOUT;
+      }
+      else {
+        tn_curr_run_task->wercd = &rc;
+        tn_curr_run_task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
+        tn_curr_run_task->winfo.sdque.send_to_first = send_to_first;
+        task_curr_to_wait_action(&(dque->wait_send_list),
+                                 TSK_WAIT_REASON_DQUE_WSEND, timeout);
+      }
+    }
+  }
+
+  END_CRITICAL_SECTION
+  return rc;
+}
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
+
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_create
  * Описание : Создает очередь данных. Поле id_dque структуры TN_DQUE предварительно
@@ -103,67 +207,6 @@ int tn_queue_delete(TN_DQUE *dque)
 	END_CRITICAL_SECTION
 
 	return TERR_NO_ERR;
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : do_queue_send
- * Описание : Помещает данные в очередь за установленный интервал времени.
- * Параметры: dque  - Дескриптор очереди данных.
- *						data_ptr  - Указатель на данные.
- *						timeout - Время, в течении которого данные должны быть помещены
- *											в очередь.
- *						send_to_first - Флаг, указывающий, что необходимо поместить данные
- *														в начало очереди.
- * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS	-	очередь не существует;
- *							TERR_TIMEOUT	-	Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
-												 bool send_to_first)
-{
-	int rc = TERR_NO_ERR;
-	CDLL_QUEUE * que;
-	TN_TCB * task;
-
-#if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
-#endif
-
-	BEGIN_CRITICAL_SECTION
-
-	//-- there are task(s) in the data queue's wait_receive list
-
-	if (!is_queue_empty(&(dque->wait_receive_list))) {
-		que = queue_remove_head(&(dque->wait_receive_list));
-		task = get_task_by_tsk_queue(que);
-		*task->winfo.rdque.data_elem = data_ptr;
-		task_wait_complete(task);
-	}
-	/* the data queue's  wait_receive list is empty */
-	else {
-		rc = dque_fifo_write(dque, data_ptr, send_to_first);
-		//-- No free entries in the data queue
-		if (rc != TERR_NO_ERR) {
-			if (timeout == TN_POLLING) {
-				rc = TERR_TIMEOUT;
-			}
-			else {
-				tn_curr_run_task->wercd = &rc;
-				tn_curr_run_task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
-				tn_curr_run_task->winfo.sdque.send_to_first = send_to_first;
-				task_curr_to_wait_action(&(dque->wait_send_list),
-																 TSK_WAIT_REASON_DQUE_WSEND, timeout);
-			}
-		}
-	}
-
-	END_CRITICAL_SECTION
-	return rc;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -390,4 +433,4 @@ int tn_queue_cnt(TN_DQUE *dque, int *cnt)
 	return TERR_NO_ERR;
 }
 
-/*------------------------------ Конец файла ---------------------------------*/
+/*------------------------------ End of file ---------------------------------*/

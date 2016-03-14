@@ -1,37 +1,109 @@
-/*
+/*******************************************************************************
+ *
+ * TNKernel real-time kernel
+ *
+ * Copyright © 2004, 2013 Yuri Tiomkin
+ * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ ******************************************************************************/
 
-  TNKernel real-time kernel
+/**
+ * @file
+ *
+ * Kernel system routines.
+ *
+ */
 
-  Copyright © 2004, 2010 Yuri Tiomkin
-  All rights reserved.
-
-  Permission to use, copy, modify, and distribute this software in source
-  and binary forms and its documentation for any purpose and without fee
-  is hereby granted, provided that the above copyright notice appear
-  in all copies and that both that copyright notice and this permission
-  notice appear in supporting documentation.
-
-  THIS SOFTWARE IS PROVIDED BY THE YURI TIOMKIN AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL YURI TIOMKIN OR CONTRIBUTORS BE LIABLE
-  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-  SUCH DAMAGE.
-
-*/
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
 
 #include "tn_tasks.h"
 #include "tn_utils.h"
 
-//-- Local function prototypes --
+/*******************************************************************************
+ *  external declarations
+ ******************************************************************************/
 
-static void * fm_get(TN_FMP * fmp);
-static int fm_put(TN_FMP * fmp, void * mem);
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions  (scope: module-exported)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function prototypes (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
+
+//----------------------------------------------------------------------------
+static void* fm_get(TN_FMP *fmp)
+{
+  void *p_tmp;
+
+  if (fmp->fblkcnt > 0) {
+    p_tmp = fmp->free_list;
+    fmp->free_list = *(void **)fmp->free_list;   //-- ptr - to new free list
+    fmp->fblkcnt--;
+
+    return p_tmp;
+  }
+
+  return NULL;
+}
+
+//----------------------------------------------------------------------------
+static int fm_put(TN_FMP *fmp, void *mem)
+{
+  if (fmp->fblkcnt < fmp->num_blocks) {
+    *(void **)mem  = fmp->free_list;   //-- insert block into free block list
+    fmp->free_list = mem;
+    fmp->fblkcnt++;
+
+    return TERR_NO_ERR;
+  }
+
+  return TERR_OVERFLOW;
+}
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
 
 //----------------------------------------------------------------------------
 //  Structure's field fmp->id_id_fmp have to be set to 0
@@ -187,34 +259,4 @@ int tn_fmem_release(TN_FMP *fmp,void *p_data)
   return  TERR_NO_ERR;
 }
 
-//----------------------------------------------------------------------------
-static void* fm_get(TN_FMP *fmp)
-{
-  void *p_tmp;
-
-  if (fmp->fblkcnt > 0) {
-    p_tmp = fmp->free_list;
-    fmp->free_list = *(void **)fmp->free_list;   //-- ptr - to new free list
-    fmp->fblkcnt--;
-
-    return p_tmp;
-  }
-
-  return NULL;
-}
-
-//----------------------------------------------------------------------------
-static int fm_put(TN_FMP *fmp, void *mem)
-{
-  if (fmp->fblkcnt < fmp->num_blocks) {
-    *(void **)mem  = fmp->free_list;   //-- insert block into free block list
-    fmp->free_list = mem;
-    fmp->fblkcnt++;
-
-    return TERR_NO_ERR;
-  }
-
-  return TERR_OVERFLOW;
-}
-
-//----------------------------------------------------------------------------
+/*------------------------------ End of file ---------------------------------*/

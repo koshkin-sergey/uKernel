@@ -3,19 +3,19 @@
 # All rights reserved
 #
 # File Name  :	path.mk
-# Description:	Файл сборки проекта
+# Description:	Р¤Р°Р№Р» СЃР±РѕСЂРєРё РїСЂРѕРµРєС‚Р°
 #
 
 # set the locations of the tools
 ifndef DIR_TOOLS 
-DIR_TOOLS = $(CURDIR)/../../../../../tools
+DIR_TOOLS = ../../../../../../../tools
 endif
 
 # set the locations of the bin and lib output directories
 ifndef DIR_BIN
-DIR_BIN = $(CURDIR)/bin
+DIR_BIN = bin
 endif
 
 ifndef DIR_RTOS_SRC
-DIR_RTOS_SRC = $(CURDIR)/../../../../../src
+DIR_RTOS_SRC = ../../../../../../../src
 endif

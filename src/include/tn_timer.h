@@ -1,37 +1,46 @@
-/*
-
-  TNKernel real-time kernel
-
-  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
-  All rights reserved.
-
-  All rights reserved.
-
-  Permission to use, copy, modify, and distribute this software in source
-  and binary forms and its documentation for any purpose and without fee
-  is hereby granted, provided that the above copyright notice appear
-  in all copies and that both that copyright notice and this permission
-  notice appear in supporting documentation.
-
-  THIS SOFTWARE IS PROVIDED BY THE SERGEY KOSHKIN AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL SERGEY KOSHKIN OR CONTRIBUTORS BE LIABLE
-  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-  SUCH DAMAGE.
-
-*/
+/*******************************************************************************
+ *
+ * TNKernel real-time kernel
+ *
+ * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ ******************************************************************************/
 
 #ifndef _TN_TIMER_H_
 #define _TN_TIMER_H_
 
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
+
 #include "tn.h"
 #include "tn_port.h"
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
 
 #define ALARM_STOP      0U
 #define ALARM_START     1U
@@ -39,18 +48,30 @@
 #define CYCLIC_STOP     0U
 #define CYCLIC_START    1U
 
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
 typedef unsigned long TIME;
+
+/*******************************************************************************
+ *  exported variables
+ ******************************************************************************/
 
 extern volatile TIME    jiffies;
 extern unsigned long    os_period;
 extern TN_TCB           timer_task;
 extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
-extern unsigned long    HZ;               // Частота системного таймера.
+extern unsigned long    HZ;
 
-void create_timer_task(void *par);
-void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);
-void timer_delete(TMEB *event);
+/*******************************************************************************
+ *  exported function prototypes
+ ******************************************************************************/
+
+extern void create_timer_task(void *par);
+extern void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);
+extern void timer_delete(TMEB *event);
 
 #endif  // _TN_TIMER_H_
 
-/*------------------------------ Конец файла ---------------------------------*/
+/*------------------------------ End of file ---------------------------------*/

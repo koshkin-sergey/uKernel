@@ -1,44 +1,75 @@
-/*
+/*******************************************************************************
+ *
+ * TNKernel real-time kernel
+ *
+ * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ ******************************************************************************/
 
-  TNKernel real-time kernel
+/**
+ * @file
+ *
+ * Kernel system routines.
+ *
+ */
 
-  Copyright © 2013, 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
-  All rights reserved.
-
-  All rights reserved.
-
-  Permission to use, copy, modify, and distribute this software in source
-  and binary forms and its documentation for any purpose and without fee
-  is hereby granted, provided that the above copyright notice appear
-  in all copies and that both that copyright notice and this permission
-  notice appear in supporting documentation.
-
-  THIS SOFTWARE IS PROVIDED BY THE SERGEY KOSHKIN AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL SERGEY KOSHKIN OR CONTRIBUTORS BE LIABLE
-  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-  SUCH DAMAGE.
-
-*/
+/*******************************************************************************
+ *  includes
+ ******************************************************************************/
 
 #include "tn_delay.h"
 #include "tn_tasks.h"
 #include "tn_timer.h"
 #include "tn_utils.h"
 
+/*******************************************************************************
+ *  external declarations
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  defines and macros (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  global variable definitions  (scope: module-exported)
+ ******************************************************************************/
+
 volatile TIME jiffies;
 unsigned long os_period;
 unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
+TN_TCB timer_task;
 
-/* - System tasks ------------------------------------------------------------*/
+/*******************************************************************************
+ *  global variable definitions (scope: module-local)
+ ******************************************************************************/
 
-/* - timer task - priority 0 - highest */
+static CDLL_QUEUE timer_queue;
 
 #if defined (__ICCARM__)    // IAR ARM
 #pragma data_alignment=8
@@ -46,35 +77,16 @@ unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
 
 tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak));
 
-TN_TCB timer_task;
-static CDLL_QUEUE timer_queue;
 
-static void timer_task_func(void *par);
-static void alarm_handler(TN_ALARM *alarm);
+/*******************************************************************************
+ *  function prototypes (scope: module-local)
+ ******************************************************************************/
+
 static void cyclic_handler(TN_CYCLIC *cyc);
-static unsigned long cyc_next_time(TN_CYCLIC *cyc);
 
-/*-----------------------------------------------------------------------------*
-  Название :  create_timer_task
-  Описание :  Функция создает задачу таймера с наивысшим приоритетом.
-  Параметры:  Нет.
-  Результат:  Нет.
-*-----------------------------------------------------------------------------*/
-void create_timer_task(void *par)
-{
-  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
-
-  tn_task_create(
-    &timer_task,                              // task TCB
-    timer_task_func,                          // task function
-    0,                                        // task priority
-    &(tn_timer_task_stack[stack_size-1]),     // task stack first addr in memory
-    stack_size,                               // task stack size (in int,not bytes)
-    par,                                      // task function parameter
-    TN_TASK_TIMER | TN_TASK_START_ON_CREATION // Creation option
-  );
-  queue_reset(&timer_queue);
-}
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_systick_init
@@ -179,6 +191,122 @@ static void tick_int_processing()
 }
 
 /*-----------------------------------------------------------------------------*
+  Название :  do_timer_insert
+  Описание :
+  Параметры:
+  Результат:
+*-----------------------------------------------------------------------------*/
+static void do_timer_insert(TMEB *event)
+{
+  CDLL_QUEUE  *que;
+  TMEB        *tm;
+
+  for (que = timer_queue.next; que != &timer_queue; que = que->next) {
+    tm = get_timer_address(que);
+    if (tn_time_before(event->time, tm->time))
+      break;
+  }
+  queue_add_tail(que, &event->queue);
+}
+
+/*-----------------------------------------------------------------------------*
+  Название :  alarm_handler
+  Описание :
+  Параметры:
+  Результат:
+*-----------------------------------------------------------------------------*/
+static void alarm_handler(TN_ALARM *alarm)
+{
+  if (alarm == NULL)
+    return;
+
+  alarm->stat = ALARM_STOP;
+  tn_enable_irq();
+  alarm->handler(alarm->exinf);
+  tn_disable_irq();
+}
+
+/*-----------------------------------------------------------------------------*
+  Название :  cyc_next_time
+  Описание :
+  Параметры:
+  Результат:
+*-----------------------------------------------------------------------------*/
+static TIME cyc_next_time(TN_CYCLIC *cyc)
+{
+  TIME  tm;
+  unsigned int  n;
+
+  tm = cyc->tmeb.time + cyc->time;
+
+  if (tn_time_before_eq(tm, jiffies)) {
+    tm = jiffies - cyc->tmeb.time;
+    n = tm / cyc->time;
+    n++;
+    tm = n * cyc->time;
+    tm = cyc->tmeb.time + tm;
+  }
+
+  return tm;
+}
+
+/*-----------------------------------------------------------------------------*
+  Название :  cyc_timer_insert
+  Описание :
+  Параметры:
+  Результат:
+*-----------------------------------------------------------------------------*/
+static void cyc_timer_insert(TN_CYCLIC *cyc, TIME time)
+{
+  cyc->tmeb.callback  = (CBACK)cyclic_handler;
+  cyc->tmeb.arg = cyc;
+  cyc->tmeb.time  = time;
+
+  do_timer_insert(&cyc->tmeb);
+}
+
+/*-----------------------------------------------------------------------------*
+  Название :  cyclic_handler
+  Описание :
+  Параметры:
+  Результат:
+*-----------------------------------------------------------------------------*/
+static void cyclic_handler(TN_CYCLIC *cyc)
+{
+  cyc_timer_insert(cyc, cyc_next_time(cyc));
+
+  tn_enable_irq();
+  cyc->handler(cyc->exinf);
+  tn_disable_irq();
+}
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
+
+/*-----------------------------------------------------------------------------*
+  Название :  create_timer_task
+  Описание :  Функция создает задачу таймера с наивысшим приоритетом.
+  Параметры:  Нет.
+  Результат:  Нет.
+*-----------------------------------------------------------------------------*/
+void create_timer_task(void *par)
+{
+  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
+
+  tn_task_create(
+    &timer_task,                              // task TCB
+    timer_task_func,                          // task function
+    0,                                        // task priority
+    &(tn_timer_task_stack[stack_size-1]),     // task stack first addr in memory
+    stack_size,                               // task stack size (in int,not bytes)
+    par,                                      // task function parameter
+    TN_TASK_TIMER | TN_TASK_START_ON_CREATION // Creation option
+  );
+  queue_reset(&timer_queue);
+}
+
+/*-----------------------------------------------------------------------------*
   Название :  tn_timer
   Описание :  Эту функцию необходимо вызывать в обработчике прерывания от
               системного таймера.
@@ -210,25 +338,6 @@ unsigned long tn_get_tick_count(void)
 }
 
 /*-----------------------------------------------------------------------------*
-  Название :  do_timer_insert
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static void do_timer_insert(TMEB *event)
-{
-  CDLL_QUEUE  *que;
-  TMEB        *tm;
-
-  for (que = timer_queue.next; que != &timer_queue; que = que->next) {
-    tm = get_timer_address(que);
-    if (tn_time_before(event->time, tm->time))
-      break;
-  }
-  queue_add_tail(que, &event->queue);
-}
-
-/*-----------------------------------------------------------------------------*
   Название :  timer_insert
   Описание :  
   Параметры:  
@@ -252,23 +361,6 @@ void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg)
 void timer_delete(TMEB *event)
 {
   queue_remove_entry(&event->queue);
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  alarm_handler
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static void alarm_handler(TN_ALARM *alarm)
-{
-  if (alarm == NULL)
-    return;
-  
-  alarm->stat = ALARM_STOP;
-  tn_enable_irq();
-  alarm->handler(alarm->exinf);
-  tn_disable_irq();
 }
 
 /*-----------------------------------------------------------------------------*
@@ -376,60 +468,6 @@ int tn_alarm_stop(TN_ALARM *alarm)
 
   END_CRITICAL_SECTION
   return TERR_NO_ERR;
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  cyc_next_time
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static TIME cyc_next_time(TN_CYCLIC *cyc)
-{
-  TIME  tm;
-  unsigned int  n;
-
-  tm = cyc->tmeb.time + cyc->time;
-
-  if (tn_time_before_eq(tm, jiffies)) {
-    tm = jiffies - cyc->tmeb.time;
-    n = tm / cyc->time;
-    n++;
-    tm = n * cyc->time;
-    tm = cyc->tmeb.time + tm;
-  }
-
-  return tm;
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  cyc_timer_insert
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static void cyc_timer_insert(TN_CYCLIC *cyc, TIME time)
-{
-  cyc->tmeb.callback  = (CBACK)cyclic_handler;
-  cyc->tmeb.arg = cyc;
-  cyc->tmeb.time  = time;
-
-  do_timer_insert(&cyc->tmeb);
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  cyclic_handler
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static void cyclic_handler(TN_CYCLIC *cyc)
-{
-  cyc_timer_insert(cyc, cyc_next_time(cyc));
-
-  tn_enable_irq();
-  cyc->handler(cyc->exinf);
-  tn_disable_irq();
 }
 
 /*-----------------------------------------------------------------------------*
@@ -567,4 +605,5 @@ int tn_cyclic_stop(TN_CYCLIC *cyc)
   END_CRITICAL_SECTION
   return TERR_NO_ERR;
 }
-/*------------------------------ Конец файла ---------------------------------*/
+
+/*------------------------------ End of file ---------------------------------*/

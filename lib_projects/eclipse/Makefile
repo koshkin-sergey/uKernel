@@ -13,7 +13,7 @@
 #     $ make ARCH=CORTEX-M3
 #
 
-SRC = $(CURDIR)/src
+SRC = ../../src
 
 ifeq ("$(origin ARCH)", "command line")
   CPU := --cpu=$(ARCH)

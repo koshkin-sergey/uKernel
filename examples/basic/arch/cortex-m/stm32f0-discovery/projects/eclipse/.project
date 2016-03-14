@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>tnkernel</name>
+	<name>tn_stm32f0_example_basic</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -24,4 +24,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>src</name>
+			<type>2</type>
+			<locationURI>PARENT-2-PROJECT_LOC/src</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>

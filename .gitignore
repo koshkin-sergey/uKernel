@@ -1,3 +1,13 @@
 *.o
 *.d
-/tnkernel.lib
+tnkernel.lib
+*.launch
+*.axf
+bin
+*.bin
+obj
+lst
+*.uvgui.*
+*.bak
+*.uvopt
+*.dep

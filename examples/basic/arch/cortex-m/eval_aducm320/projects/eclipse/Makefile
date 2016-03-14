@@ -3,15 +3,15 @@
 # All rights reserved
 #
 # File Name  :	Makefile
-# Description:	‘‡ÈÎ Ò·ÓÍË ÔÓÂÍÚ‡
+# Description:	–§–∞–π–ª —Å–±–æ—Ä–∫–∏ –ø—Ä–æ–µ–∫—Ç–∞
 #
 
 include path.mk
 
-OUTNAME = test
+OUTNAME = blink
 AXF = $(OUTNAME).axf
 
-CPU := --cpu=CORTEX-M0
+CPU := --cpu=CORTEX-M3
 
 # set variable to compile with ARM compiler
 CC = armcc
@@ -21,7 +21,7 @@ AR = armar
 MKDIR = $(DIR_TOOLS)/mkdir
 RM = $(DIR_TOOLS)/rm
 
-SRC := src
+SRC := ../../src
 
 INC := -I $(SRC)/include \
        -I $(DIR_RTOS_SRC)/include
@@ -31,20 +31,19 @@ LIBS :=
 DIRS := $(SRC) \
         $(SRC)/init \
         $(DIR_RTOS_SRC)/kernel \
-        $(DIR_RTOS_SRC)/arch/cortex_m0
+        $(DIR_RTOS_SRC)/arch/cortex_m3
         
 CFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
-SFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.s))
-OBJS := $(CFILES:.c=.o) $(SFILES:.s=.o)
+OBJS := $(CFILES:.c=.o) $(DIR_RTOS_SRC)/arch/cortex_m3/tn_port_cm3_armcc.o $(SRC)/init/startup_aducm320.o
 DEPS := $(OBJS:.o=.d)
 
-DEFINES := -D STM32F051
+DEFINES :=
 
 DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
 
-CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O0 -g
+CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O2 -g --split_sections
 ASFLAGS = $(CPU) $(DEPFLAGS) -g
-LDFLAGS = $(CPU) --scatter=stm32f051r8.scat --info=totals --strict
+LDFLAGS = $(CPU) --scatter=aducm320.scat --info=totals --strict
 
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)

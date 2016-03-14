@@ -62,41 +62,41 @@
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
 		<buildTargets>
-			<target name="Собрать библиотеку для Cortex-M3" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M3" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments>-j4</buildArguments>
+				<buildArguments>-j8</buildArguments>
 				<buildTarget>ARCH=CORTEX-M3 all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Очистить библиотеку" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Clean project" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments>-j4</buildArguments>
+				<buildArguments>-j8</buildArguments>
 				<buildTarget>clean</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Собрать библиотеку для ARM7TDMI" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for ARM7TDMI" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments>-j4</buildArguments>
+				<buildArguments>-j8</buildArguments>
 				<buildTarget>ARCH=ARM7TDMI all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Собрать библиотеку для Cortex-M4" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M4" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments>-j4</buildArguments>
+				<buildArguments>-j8</buildArguments>
 				<buildTarget>ARCH=CORTEX-M4 all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Собрать библиотеку для Cortex-M0" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M0" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments>-j4</buildArguments>
+				<buildArguments>-j8</buildArguments>
 				<buildTarget>ARCH=CORTEX-M0 all</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
