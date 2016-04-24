@@ -3,7 +3,7 @@
   TNKernel real-time kernel
 
   Copyright © 2004, 2010 Yuri Tiomkin
-  Copyright © 2015 Sergey Koshkin (Cortex-M3 port)
+  Copyright © 2008-2015 Sergey Koshkin (Cortex-M3 port)
 
   All rights reserved.
 
@@ -33,11 +33,11 @@
 
 extern void task_exit(void);
 
-//----------------------------------------------------------------------------
-//   Processor specific routine - here for Cortex-M3
-//
-//   sizeof(void*) = sizeof(int)
-//----------------------------------------------------------------------------
+/**
+ * @brief
+ * @param
+ * @return
+ */
 unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *param)
 {
   unsigned int *stk = ++stack_start;            //-- Load stack pointer
@@ -61,3 +61,5 @@ unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *p
 
   return stk;
 }
+
+/*------------------------------ End of file ---------------------------------*/

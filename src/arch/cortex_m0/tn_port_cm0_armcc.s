@@ -1,25 +1,23 @@
-;------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
 ;
-;  TNKernel RTOS port for ARM(c) Cortex-M3(c) core
+; TNKernel RTOS port for ARM(c) Cortex-M0(c) core
 ;
-;  Copyright © 2004, 2010 Yuri Tiomkin
-;  All rights reserved.
+; Copyright © 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+; All rights reserved.
 ;
-;  v.2.6
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions
+; are met:
+; 1. Redistributions of source code must retain the above copyright
+;    notice, this list of conditions and the following disclaimer.
+; 2. Redistributions in binary form must reproduce the above copyright
+;    notice, this list of conditions and the following disclaimer in the
+;    documentation and/or other materials provided with the distribution.
 ;
-;  Assembler:   ARM(c)
-;
-;
-; Permission to use, copy, modify, and distribute this software in source
-; and binary forms and its documentation for any purpose and without fee
-; is hereby granted, provided that the above copyright notice appear
-; in all copies and that both that copyright notice and this permission
-; notice appear in supporting documentation.
-;
-; THIS SOFTWARE IS PROVIDED BY THE YURI TIOMKIN AND CONTRIBUTORS "AS IS" AND
+; THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
 ; ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 ; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-; ARE DISCLAIMED. IN NO EVENT SHALL YURI TIOMKIN OR CONTRIBUTORS BE LIABLE
+; ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
 ; FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 ; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
 ; OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -27,8 +25,8 @@
 ; LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 ; OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 ; SUCH DAMAGE.
-;------------------------------------------------------------------------------
-
+;
+;-------------------------------------------------------------------------------
 
         PRESERVE8
 
