@@ -20,7 +20,6 @@
 	</buildSpec>
 	<natures>
 		<nature>org.eclipse.cdt.core.cnature</nature>
-		<nature>org.eclipse.cdt.core.ccnature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
@@ -28,13 +27,7 @@
 		<link>
 			<name>src</name>
 			<type>2</type>
-			<locationURI>TNKERNEL_SRC_LOC</locationURI>
+			<locationURI>PARENT-2-PROJECT_LOC/src</locationURI>
 		</link>
 	</linkedResources>
-	<variableList>
-		<variable>
-			<name>TNKERNEL_SRC_LOC</name>
-			<value>$%7BPARENT-2-PROJECT_LOC%7D/src</value>
-		</variable>
-	</variableList>
 </projectDescription>
