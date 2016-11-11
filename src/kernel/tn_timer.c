@@ -52,6 +52,12 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+#define ALARM_STOP      0U
+#define ALARM_START     1U
+
+#define CYCLIC_STOP     0U
+#define CYCLIC_START    1U
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -62,8 +68,11 @@
 
 volatile TIME jiffies;
 unsigned long os_period;
+static TN_TCB timer_task;
+
+#if defined(ROUND_ROBIN_ENABLE)
 unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
-TN_TCB timer_task;
+#endif
 
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
@@ -96,7 +105,8 @@ static void cyclic_handler(TN_CYCLIC *cyc);
  *            прерывание, в котором необходимо вызывать функцию tn_timer().
  * Результат: Нет.
  *----------------------------------------------------------------------------*/
-__attribute__((weak)) void tn_systick_init(unsigned int hz)
+__attribute__((weak))
+void tn_systick_init(unsigned int hz)
 {
   ;
 }
@@ -109,7 +119,8 @@ __attribute__((weak)) void tn_systick_init(unsigned int hz)
   Параметры:  par - Указатель на данные
   Результат:  Нет
 *-----------------------------------------------------------------------------*/
-static TASK_FUNC timer_task_func(void *par)
+static
+TASK_FUNC timer_task_func(void *par)
 {
   TMEB  *tm;
 
@@ -126,8 +137,6 @@ static TASK_FUNC timer_task_func(void *par)
   tn_system_state = TN_ST_STATE_RUNNING;
 
   for (;;) {
-    BEGIN_CRITICAL_SECTION
-    
     /* Проводим проверку очереди программных таймеров */
     while (!is_queue_empty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
@@ -142,22 +151,26 @@ static TASK_FUNC timer_task_func(void *par)
 
     task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
     
-    END_CRITICAL_SECTION
+    tn_switch_context();
   }
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tick_int_processing
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-static void tick_int_processing()
+/**
+ * @brief
+ * @param
+ * @return
+ */
+__attribute__((always_inline)) static
+void tick_int_processing(void)
 {
+//  BEGIN_CRITICAL_SECTION
+
+#if defined(ROUND_ROBIN_ENABLE)
+
   volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
   volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
   volatile int        priority;
-  
+
   //-------  Round -robin (if is used)  
   priority = tn_curr_run_task->priority;
   
@@ -178,7 +191,9 @@ static void tick_int_processing()
     }
   }
 
-  queue_remove_entry(&(timer_task.task_queue));
+#endif  // ROUND_ROBIN_ENABLE
+
+//  queue_remove_entry(&(timer_task.task_queue));
 
   timer_task.task_state       = TSK_STATE_RUNNABLE;
   timer_task.pwait_queue      = NULL;
@@ -188,6 +203,9 @@ static void tick_int_processing()
 
   tn_next_task_to_run = &timer_task;
   tn_switch_context_request();
+
+  tn_switch_context();
+//  END_CRITICAL_SECTION
 }
 
 /*-----------------------------------------------------------------------------*
@@ -221,9 +239,7 @@ static void alarm_handler(TN_ALARM *alarm)
     return;
 
   alarm->stat = ALARM_STOP;
-  tn_enable_irq();
   alarm->handler(alarm->exinf);
-  tn_disable_irq();
 }
 
 /*-----------------------------------------------------------------------------*
@@ -275,9 +291,7 @@ static void cyclic_handler(TN_CYCLIC *cyc)
 {
   cyc_timer_insert(cyc, cyc_next_time(cyc));
 
-  tn_enable_irq();
   cyc->handler(cyc->exinf);
-  tn_disable_irq();
 }
 
 /*******************************************************************************
@@ -315,15 +329,11 @@ void create_timer_task(void *par)
 *-----------------------------------------------------------------------------*/
 void tn_timer(void)
 {
-	BEGIN_CRITICAL_SECTION
-
   jiffies += os_period;
   if (tn_system_state == TN_ST_STATE_RUNNING) {
     tn_curr_run_task->time += os_period;
     tick_int_processing();
   }
-
-  END_CRITICAL_SECTION
 }
 
 /*-----------------------------------------------------------------------------*

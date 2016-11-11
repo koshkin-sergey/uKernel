@@ -132,10 +132,11 @@ void tn_start_system(TN_OPTIONS *opt)
 {
   tn_system_state = TN_ST_STATE_NOT_RUN;
 
-  //-- Clear/set all globals (vars, lists, etc)
   for (int i=0; i < TN_NUM_PRIORITY; i++) {
     queue_reset(&(tn_ready_list[i]));
+#if defined(ROUND_ROBIN_ENABLE)
     tslice_ticks[i] = NO_TIME_SLICE;
+#endif
   }
 
   queue_reset(&tn_create_queue);
@@ -151,6 +152,8 @@ void tn_start_system(TN_OPTIONS *opt)
   //-- Run OS - first context switch
   tn_start_exe();
 }
+
+#if defined(ROUND_ROBIN_ENABLE)
 
 /**
  * @brief   Set time slice ticks value for priority for round-robin scheduling.
@@ -176,5 +179,7 @@ int tn_sys_tslice_ticks(int priority, int value)
   END_DISABLE_INTERRUPT
   return TERR_NO_ERR;
 }
+
+#endif  // ROUND_ROBIN_ENABLE
 
 /*------------------------------ End of file ---------------------------------*/

@@ -62,7 +62,6 @@ extern void task_curr_to_wait_action(CDLL_QUEUE *wait_que, int wait_reason,
 																		 unsigned long timeout);
 extern void change_running_task_priority(TN_TCB *task, int new_priority);
 extern void set_current_priority(TN_TCB *task, int priority);
-extern void task_to_runnable(TN_TCB *task);
 extern void task_wait_delete(CDLL_QUEUE *que);
 
 #endif /* TN_TASKS_H_ */

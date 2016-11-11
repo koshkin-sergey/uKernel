@@ -405,7 +405,10 @@ extern "C" {
 
 /* - tn.c --------------------------------------------------------------------*/
 void tn_start_system(TN_OPTIONS *opt);
+
+#if defined(ROUND_ROBIN_ENABLE)
 int tn_sys_tslice_ticks(int priority, int value);
+#endif
 
 /* - tn_timer.c --------------------------------------------------------------*/
 void tn_timer(void);

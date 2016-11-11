@@ -42,12 +42,6 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define ALARM_STOP      0U
-#define ALARM_START     1U
-
-#define CYCLIC_STOP     0U
-#define CYCLIC_START    1U
-
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -60,9 +54,10 @@ typedef unsigned long TIME;
 
 extern volatile TIME    jiffies;
 extern unsigned long    os_period;
-extern TN_TCB           timer_task;
-extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
 extern unsigned long    HZ;
+#if defined(ROUND_ROBIN_ENABLE)
+extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
+#endif
 
 /*******************************************************************************
  *  exported function prototypes

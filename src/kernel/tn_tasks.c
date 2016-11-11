@@ -80,13 +80,13 @@ CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) t
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : find_next_task_to_run
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-static void find_next_task_to_run(void)
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+void find_next_task_to_run(void)
 {
 	int tmp;
 
@@ -107,13 +107,44 @@ static void find_next_task_to_run(void)
 	tn_switch_context_request();
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : task_to_non_runnable
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-static void task_to_non_runnable(TN_TCB *task)
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+void task_to_runnable(TN_TCB *task)
+{
+  int priority;
+
+  if (task->task_state == TSK_STATE_DORMANT) {
+    //--- Init task stack
+    task->task_stk = tn_stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
+  }
+
+  task->task_state = TSK_STATE_RUNNABLE;
+  task->pwait_queue = NULL;
+
+  //-- Add the task to the end of 'ready queue' for the current priority
+  priority = task->priority;
+  queue_add_tail(&(tn_ready_list[priority]), &(task->task_queue));
+  tn_ready_to_run_bmp |= 1 << priority;
+
+  //-- less value - greater priority, so '<' operation is used here
+
+  if (priority < tn_next_task_to_run->priority) {
+    tn_next_task_to_run = task;
+    tn_switch_context_request();
+  }
+}
+
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+void task_to_non_runnable(TN_TCB *task)
 {
 	int priority;
 	CDLL_QUEUE *que;
@@ -140,13 +171,13 @@ static void task_to_non_runnable(TN_TCB *task)
 	}
 }
 
-/*-----------------------------------------------------------------------------*
- Название :  task_wait_release
- Описание :
- Параметры:
- Результат:
- *-----------------------------------------------------------------------------*/
-static bool task_wait_release(TN_TCB *task)
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+bool task_wait_release(TN_TCB *task)
 {
 	bool rc = false;
 #ifdef USE_MUTEXES
@@ -203,13 +234,13 @@ static bool task_wait_release(TN_TCB *task)
 	return rc;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : task_set_dormant_state
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-static void task_set_dormant_state(TN_TCB* task)
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+void task_set_dormant_state(TN_TCB* task)
 {
 	queue_reset(&(task->task_queue));
 	queue_reset(&(task->wtmeb.queue));
@@ -225,13 +256,13 @@ static void task_set_dormant_state(TN_TCB* task)
 	task->tslice_count = 0;
 }
 
-/*-----------------------------------------------------------------------------*
- Название :  task_wait_release_handler
- Описание :
- Параметры:
- Результат:
- *-----------------------------------------------------------------------------*/
-static void task_wait_release_handler(TN_TCB *task)
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
+void task_wait_release_handler(TN_TCB *task)
 {
 	if (task == NULL)
 		return;
@@ -699,37 +730,6 @@ int tn_task_change_priority(TN_TCB * task, int new_priority)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : task_to_runnable
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-void task_to_runnable(TN_TCB *task)
-{
-	int priority;
-
-	if (task->task_state == TSK_STATE_DORMANT) {
-	  //--- Init task stack
-	  task->task_stk = tn_stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
-	}
-
-	task->task_state = TSK_STATE_RUNNABLE;
-	task->pwait_queue = NULL;
-
-	//-- Add the task to the end of 'ready queue' for the current priority
-	priority = task->priority;
-	queue_add_tail(&(tn_ready_list[priority]), &(task->task_queue));
-	tn_ready_to_run_bmp |= 1 << priority;
-
-	//-- less value - greater priority, so '<' operation is used here
-
-	if (priority < tn_next_task_to_run->priority) {
-		tn_next_task_to_run = task;
-		tn_switch_context_request();
-	}
-}
-
-/*-----------------------------------------------------------------------------*
  * Название : task_wait_complete
  * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
  * Параметры: task - Указатель на задачу
@@ -772,7 +772,7 @@ void task_curr_to_wait_action(CDLL_QUEUE * wait_que, int wait_reason,
 	}
 
 	//--- Add to the timers queue
-	if (timeout != TN_WAIT_INFINITE && tn_curr_run_task != &timer_task)
+	if (timeout != TN_WAIT_INFINITE)
 		timer_insert(&tn_curr_run_task->wtmeb, timeout,
 								 (CBACK)task_wait_release_handler, tn_curr_run_task);
 }
