@@ -163,8 +163,6 @@ TASK_FUNC timer_task_func(void *par)
 __attribute__((always_inline)) static
 void tick_int_processing(void)
 {
-//  BEGIN_CRITICAL_SECTION
-
 #if defined(ROUND_ROBIN_ENABLE)
 
   volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
@@ -193,7 +191,7 @@ void tick_int_processing(void)
 
 #endif  // ROUND_ROBIN_ENABLE
 
-//  queue_remove_entry(&(timer_task.task_queue));
+  queue_remove_entry(&(timer_task.task_queue));
 
   timer_task.task_state       = TSK_STATE_RUNNABLE;
   timer_task.pwait_queue      = NULL;
@@ -203,9 +201,6 @@ void tick_int_processing(void)
 
   tn_next_task_to_run = &timer_task;
   tn_switch_context_request();
-
-  tn_switch_context();
-//  END_CRITICAL_SECTION
 }
 
 /*-----------------------------------------------------------------------------*
@@ -329,11 +324,15 @@ void create_timer_task(void *par)
 *-----------------------------------------------------------------------------*/
 void tn_timer(void)
 {
+	BEGIN_CRITICAL_SECTION
+
   jiffies += os_period;
   if (tn_system_state == TN_ST_STATE_RUNNING) {
     tn_curr_run_task->time += os_period;
     tick_int_processing();
   }
+
+  END_CRITICAL_SECTION
 }
 
 /*-----------------------------------------------------------------------------*
