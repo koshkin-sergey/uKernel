@@ -81,6 +81,8 @@
  *  exported variables
  ******************************************************************************/
 
+extern unsigned int max_syscall_interrupt_priority;
+
 /*******************************************************************************
  *  exported function prototypes
  ******************************************************************************/
@@ -93,6 +95,8 @@ extern void tn_switch_context_request(void);
 extern void tn_switch_context_exit(void);
 extern int tn_cpu_save_sr(void);
 extern void tn_cpu_restore_sr(int sr);
+extern int tn_cpu_set_basepri(int);
+extern void tn_cpu_restore_basepri(int);
 extern void tn_start_exe(void);
 extern int tn_inside_irq(void);
 

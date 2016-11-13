@@ -36,14 +36,15 @@
   IMPORT  tn_curr_run_task
   IMPORT  tn_next_task_to_run
   IMPORT  tn_system_state
+  IMPORT  max_syscall_interrupt_priority
 
 
   ;-- Public functions declared in this file
 
   EXPORT  tn_switch_context_exit
   EXPORT  tn_switch_context_request
-  EXPORT  tn_cpu_save_sr
-  EXPORT  tn_cpu_restore_sr
+  EXPORT  tn_cpu_set_basepri
+  EXPORT  tn_cpu_restore_basepri
   EXPORT  tn_start_exe
   EXPORT  tn_disable_irq
   EXPORT  tn_enable_irq
@@ -109,7 +110,8 @@ tn_switch_context_exit
 ;----------------------------------------------------------------------------
 PendSV_Handler
 
-       cpsid  I                          ;   Disable core int
+       ldr    r0, =max_syscall_interrupt_priority
+       msr    BASEPRI, r0                ;  Start critical section
 
        ldr    r3, =tn_curr_run_task      ;  in R3 - =tn_curr_run_task
        ldr    r1, [r3]                   ;  in R1 - tn_curr_run_task
@@ -135,7 +137,8 @@ PendSV_Handler
 
 exit_context_switch
 
-       cpsie  I                          ;  enable core int
+       mov    r0, #0
+       msr    BASEPRI, r0                ;  End critical section
        bx     lr
 
 ;-----------------------------------------------------------------------------
@@ -147,16 +150,21 @@ tn_switch_context_request
        bx     lr
 
 ;-----------------------------------------------------------------------------
-tn_cpu_save_sr
+tn_cpu_set_basepri
 
-       mrs    r0, PRIMASK
-       cpsid  I
+       mrs    r1, BASEPRI
+       msr    BASEPRI, r0
+       mov    r0, r1
+;       dsb
+;       isb
        bx     lr
 
 ;-----------------------------------------------------------------------------
-tn_cpu_restore_sr
+tn_cpu_restore_basepri
 
-       msr    PRIMASK, r0
+       msr    BASEPRI, r0
+;       dsb
+;       isb
        bx     lr
 
 ;-----------------------------------------------------------------------------

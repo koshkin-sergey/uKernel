@@ -45,7 +45,7 @@
  ******************************************************************************/
 
 #define TASK_FUNC __declspec(noreturn) void
-#define TNKERNEL_VERSION	3000000
+#define TNKERNEL_VERSION	3010000
 
 #if defined (__ICCARM__)    // IAR ARM
 
@@ -352,6 +352,7 @@ typedef void (*TN_USER_FUNC)(void);
 typedef struct {
 	TN_USER_FUNC app_init;
 	unsigned long freq_timer;
+	unsigned int max_syscall_interrupt_priority;
 } TN_OPTIONS;
 
 /*******************************************************************************

@@ -45,8 +45,8 @@
 #define  tn_switch_context()
 
 /* - Interrupt processing - processor specific -------------------------------*/
-#define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_save_sr();
-#define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
+#define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_set_basepri(max_syscall_interrupt_priority);
+#define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
 
 #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
 #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
