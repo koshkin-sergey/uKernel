@@ -45,7 +45,7 @@
  ******************************************************************************/
 
 #define TASK_FUNC __declspec(noreturn) void
-#define TNKERNEL_VERSION	3000000
+#define TNKERNEL_VERSION	3010000
 
 #if defined (__ICCARM__)    // IAR ARM
 
