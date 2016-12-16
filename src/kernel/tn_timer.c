@@ -123,6 +123,7 @@ static
 TASK_FUNC timer_task_func(void *par)
 {
   TMEB  *tm;
+  TIME cur_time;
 
   tn_disable_irq();
 
@@ -137,21 +138,28 @@ TASK_FUNC timer_task_func(void *par)
   tn_system_state = TN_ST_STATE_RUNNING;
 
   for (;;) {
+    cur_time = jiffies;
+
+    BEGIN_CRITICAL_SECTION
+
     /* Проводим проверку очереди программных таймеров */
     while (!is_queue_empty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
-      if (tn_time_after_eq(tm->time, jiffies))
+      if (tn_time_after(tm->time, cur_time))
         break;
 
       timer_delete(tm);
+
+      END_CRITICAL_SECTION
       if (tm->callback != NULL) {
         (*tm->callback)(tm->arg);
       }
+      BEGIN_CRITICAL_SECTION
     }
 
     task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
-    
-    tn_switch_context();
+
+    END_CRITICAL_SECTION
   }
 }
 
