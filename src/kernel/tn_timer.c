@@ -137,21 +137,24 @@ TASK_FUNC timer_task_func(void *par)
   tn_system_state = TN_ST_STATE_RUNNING;
 
   for (;;) {
+    BEGIN_CRITICAL_SECTION
+
     /* Проводим проверку очереди программных таймеров */
     while (!is_queue_empty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
-      if (tn_time_after_eq(tm->time, jiffies))
+      if (tn_time_after(tm->time, jiffies))
         break;
 
       timer_delete(tm);
+
       if (tm->callback != NULL) {
         (*tm->callback)(tm->arg);
       }
     }
 
     task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
-    
-    tn_switch_context();
+
+    END_CRITICAL_SECTION
   }
 }
 
@@ -234,7 +237,10 @@ static void alarm_handler(TN_ALARM *alarm)
     return;
 
   alarm->stat = ALARM_STOP;
+
+  BEGIN_ENABLE_INTERRUPT
   alarm->handler(alarm->exinf);
+  END_ENABLE_INTERRUPT
 }
 
 /*-----------------------------------------------------------------------------*
@@ -286,7 +292,9 @@ static void cyclic_handler(TN_CYCLIC *cyc)
 {
   cyc_timer_insert(cyc, cyc_next_time(cyc));
 
+  BEGIN_ENABLE_INTERRUPT
   cyc->handler(cyc->exinf);
+  END_ENABLE_INTERRUPT
 }
 
 /*******************************************************************************
