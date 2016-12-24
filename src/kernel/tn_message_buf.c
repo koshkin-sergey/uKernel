@@ -71,6 +71,85 @@
  ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
+ * Название : mbf_fifo_write
+ * Описание : Записывает данные в циклический буфер
+ * Параметры: mbf - Дескриптор буфера сообщений.
+ *            msg - Указатель на данные.
+ *            send_to_first - Флаг, указывающий, что необходимо поместить данные
+ *                            в начало буфера.
+ * Результат: Возвращает один из вариантов:
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
+ *-----------------------------------------------------------------------------*/
+static
+int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
+{
+  int bufsz, msz;
+
+  if (mbf->num_entries == 0)
+    return TERR_OUT_OF_MEM;
+
+  if (mbf->cnt == mbf->num_entries)
+    return TERR_OVERFLOW;  //--  full
+
+  msz = mbf->msz;
+  bufsz = mbf->num_entries * msz;
+
+  if (send_to_first) {
+    if (mbf->tail == 0)
+      mbf->tail = bufsz - msz;
+    else
+      mbf->tail -= msz;
+
+    tn_memcpy(&mbf->buf[mbf->tail], msg, msz);
+  }
+  else {
+    tn_memcpy(&mbf->buf[mbf->head], msg, msz);
+    mbf->head += msz;
+    if (mbf->head >= bufsz)
+      mbf->head = 0;
+  }
+
+  mbf->cnt++;
+
+  return TERR_NO_ERR;
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : mbf_fifo_read
+ * Описание : Читает данные из буфера сообщений.
+ * Параметры: mbf - Дескриптор буфера сообщений.
+ *            msg - Указатель на место в памяти куда будут считаны данные.
+ * Результат: Возвращает один из вариантов:
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
+ *-----------------------------------------------------------------------------*/
+static
+int mbf_fifo_read(TN_MBF *mbf, void *msg)
+{
+  int bufsz, msz;
+
+  if (mbf->num_entries == 0)
+    return TERR_OUT_OF_MEM;
+
+  if (mbf->cnt == 0)
+    return TERR_UNDERFLOW; //-- empty
+
+  msz = mbf->msz;
+  bufsz = mbf->num_entries * msz;
+
+  tn_memcpy(msg, &mbf->buf[mbf->tail], msz);
+  mbf->cnt--;
+  mbf->tail += msz;
+  if (mbf->tail >= bufsz)
+    mbf->tail = 0;
+
+  return TERR_NO_ERR;
+}
+
+/*-----------------------------------------------------------------------------*
  * Название : do_mbf_send
  * Описание : Помещает данные в буфер сообщений за установленный интервал
  * 						времени.
@@ -148,6 +227,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  * Результат: Возвращает один из вариантов:
  *							TERR_NO_ERR - функция выполнена без ошибок;
  *							TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_OUT_OF_MEM - Ошибка установки размера буфера.
  *----------------------------------------------------------------------------*/
 int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {

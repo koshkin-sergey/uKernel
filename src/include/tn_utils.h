@@ -185,12 +185,6 @@ extern void queue_remove_entry(CDLL_QUEUE *entry);
 
 #endif
 
-extern bool queue_contains_entry(CDLL_QUEUE * que, CDLL_QUEUE * entry);
-extern int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first);
-extern int dque_fifo_read(TN_DQUE * dque, void ** data_ptr);
-extern int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first);
-extern int mbf_fifo_read(TN_MBF *mbf, void *msg);
-
 #ifdef __cplusplus
 }
 #endif

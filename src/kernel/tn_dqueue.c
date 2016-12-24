@@ -72,6 +72,75 @@
  ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
+ * Название : dque_fifo_write
+ * Описание : Записывает данные в циклический буфер
+ * Параметры: dque  - Дескриптор очереди данных.
+ *            data_ptr  - Указатель на данные.
+ *            send_to_first - Флаг, указывающий, что необходимо поместить данные
+ *                            в начало очереди.
+ * Результат: Возвращает один из вариантов:
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_OUT_OF_MEM - Емкость очереди данных равна нулю.
+ *-----------------------------------------------------------------------------*/
+static
+int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
+{
+  if (dque->num_entries <= 0)
+    return TERR_OUT_OF_MEM;
+
+  if (dque->cnt == dque->num_entries)
+    return TERR_OVERFLOW;  //--  full
+
+  if (send_to_first) {
+    if (dque->tail_cnt == 0)
+      dque->tail_cnt = dque->num_entries - 1;
+    else
+      dque->tail_cnt--;
+
+    dque->data_fifo[dque->tail_cnt] = data_ptr;
+  }
+  else {
+    dque->data_fifo[dque->header_cnt] = data_ptr;
+    dque->header_cnt++;
+    if (dque->header_cnt >= dque->num_entries)
+      dque->header_cnt = 0;
+  }
+
+  dque->cnt++;
+
+  return TERR_NO_ERR;
+}
+
+/*-----------------------------------------------------------------------------*
+ * Название : dque_fifo_read
+ * Описание : Читает данные из очереди.
+ * Параметры: dque  - Дескриптор очереди данных.
+ *            data_ptr  - Указатель на место в памяти куда будут считаны данные.
+ * Результат: Возвращает один из вариантов:
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_OUT_OF_MEM - Емкость очереди данных равна нулю.
+ *-----------------------------------------------------------------------------*/
+static
+int dque_fifo_read(TN_DQUE *dque, void **data_ptr)
+{
+  if (dque->num_entries <= 0)
+    return TERR_OUT_OF_MEM;
+
+  if (dque->cnt == 0)
+    return TERR_UNDERFLOW; //-- empty
+
+  *data_ptr = dque->data_fifo[dque->tail_cnt];
+  dque->cnt--;
+  dque->tail_cnt++;
+  if (dque->tail_cnt >= dque->num_entries)
+    dque->tail_cnt = 0;
+
+  return TERR_NO_ERR;
+}
+
+/*-----------------------------------------------------------------------------*
  * Название : do_queue_send
  * Описание : Помещает данные в очередь за установленный интервал времени.
  * Параметры: dque  - Дескриптор очереди данных.
