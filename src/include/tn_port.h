@@ -73,6 +73,11 @@
   #define END_DISABLE_INTERRUPT
 #endif
 
+#ifndef BEGIN_ENABLE_INTERRUPT
+  #define BEGIN_ENABLE_INTERRUPT
+  #define END_ENABLE_INTERRUPT
+#endif
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
