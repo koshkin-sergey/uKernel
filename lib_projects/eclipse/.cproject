@@ -5,7 +5,6 @@
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889" moduleId="org.eclipse.cdt.core.settings" name="Default">
 				<externalSettings/>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="com.arm.eclipse.builder.armcc.error" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -14,17 +13,17 @@
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 				<configuration artifactName="${ProjName}" buildProperties="" description="" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
 					<folderInfo id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311" name="/" resourcePath="">
-						<toolChain id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1739604446" name="ARM Compiler 5" superClass="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5">
-							<targetPlatform binaryParser="org.eclipse.cdt.core.ELF" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.938497339" name=""/>
-							<builder autoBuildTarget="all" cleanBuildTarget="clean" enableAutoBuild="false" enableCleanBuild="true" enabledIncrementalBuild="true" id="com.arm.toolchain.baremetal.builder.1061442019" incrementalBuildTarget="all" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.arm.toolchain.baremetal.builder"/>
-							<tool id="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1309303252" name="ARM C Compiler 5" superClass="com.arm.tool.c.compiler.base.var.arm_compiler_5-5">
-								<inputType id="com.arm.tool.c.compiler.input.1380032111" superClass="com.arm.tool.c.compiler.input"/>
-								<inputType id="com.arm.tool.cpp.compiler.input.245354244" superClass="com.arm.tool.cpp.compiler.input"/>
+						<toolChain id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.737550205" name="ARM Compiler 5" superClass="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5">
+							<targetPlatform id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.737550205.1073771451" name=""/>
+							<builder id="com.arm.toolchain.baremetal.builder.1983081744" managedBuildOn="false" name="Gnu Make Builder.Default" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.arm.toolchain.baremetal.builder"/>
+							<tool id="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.343707335" name="ARM C Compiler 5" superClass="com.arm.tool.c.compiler.base.var.arm_compiler_5-5">
+								<inputType id="com.arm.tool.c.compiler.input.315841341" superClass="com.arm.tool.c.compiler.input"/>
+								<inputType id="com.arm.tool.cpp.compiler.input.1812004349" superClass="com.arm.tool.cpp.compiler.input"/>
 							</tool>
-							<tool id="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.178493947" name="ARM C++ Compiler 5" superClass="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.assembler.base.var.arm_compiler_5-5.402896815" name="ARM Assembler 5" superClass="com.arm.tool.assembler.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.c.linker.base.var.arm_compiler_5-5.1446619800" name="ARM Linker 5" superClass="com.arm.tool.c.linker.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.librarian.base.var.arm_compiler_5-5.1691246921" name="ARM Librarian 5" superClass="com.arm.tool.librarian.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.922372379" name="ARM C++ Compiler 5" superClass="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.assembler.base.var.arm_compiler_5-5.1897791728" name="ARM Assembler 5" superClass="com.arm.tool.assembler.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.c.linker.base.var.arm_compiler_5-5.1697877375" name="ARM Linker 5" superClass="com.arm.tool.c.linker.base.var.arm_compiler_5-5"/>
+							<tool id="com.arm.tool.librarian.base.var.arm_compiler_5-5.703000298" name="ARM Librarian 5" superClass="com.arm.tool.librarian.base.var.arm_compiler_5-5"/>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
@@ -64,38 +63,39 @@
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Create library for ARM7TDMI" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for ARM7TDMI (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>ARCH=ARM7TDMI all</buildTarget>
+				<buildTarget>all TN_ARCH=arm7 TN_COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Create library for Cortex-M0" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M0 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>ARCH=CORTEX-M0 all</buildTarget>
+				<buildTarget>all TN_ARCH=cortex_m0 TN_COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Create library for Cortex-M3" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M3 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>ARCH=CORTEX-M3 all</buildTarget>
+				<buildTarget>all TN_ARCH=cortex_m3 TN_COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
-			<target name="Create library for Cortex-M4" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Create library for Cortex-M4 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>ARCH=CORTEX-M4 all</buildTarget>
+				<buildTarget>all TN_ARCH=cortex_m4 TN_COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
 		</buildTargets>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

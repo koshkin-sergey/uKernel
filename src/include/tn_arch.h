@@ -36,13 +36,15 @@
  *  includes
  ******************************************************************************/
 
-#if defined __TARGET_ARCH_4T
+#include "tn_arch_detect.h"
+
+#if defined (__TN_ARCH_ARM7__)
   #include "../arch/arm/tn_port_arm.h"
-#elif defined __TARGET_ARCH_6_M || __TARGET_ARCH_6S_M
+#elif defined (__TN_ARCH_CORTEX_M0__)
   #include "../arch/cortex_m0/tn_port_cm0.h"
-#elif defined __TARGET_ARCH_7_M
+#elif defined (__TN_ARCH_CORTEX_M3__)
   #include "../arch/cortex_m3/tn_port_cm3.h"
-#elif defined __TARGET_ARCH_7E_M
+#elif defined (__TN_ARCH_CORTEX_M4__)
   #include "../arch/cortex_m3/tn_port_cm3.h"
 #else
   #error "Wrong processor architecture"

@@ -1,95 +1,157 @@
-# This makefile accepts one param: ARCH. Is mandatory.
+# This makefile accepts two params: TN_ARCH and TN_COMPILER. Both are mandatory.
 #
-#  ARCH: the following values are valid:
+#  TN_ARCH: the following values are valid:
 # 
-#     ARM7TDMI
-#     CORTEX-M0
-#     CORTEX-M1
-#     CORTEX-M3
-#     CORTEX-M4
+#     arm7
+#     cortex_m0
+#     cortex_m0plus
+#     cortex_m1
+#     cortex_m3
+#     cortex_m4
+#     cortex_m4f
+#
+#  TN_COMPILER: the following values are valid:
+#
+#     armcc
+#     armclang
 #
 #  Example invocation:
 #
-#     $ make ARCH=CORTEX-M3
+#     $ make TN_ARCH=cortex_m3 TN_COMPILER=armcc
 #
 
-SRC = ../../src
+ERR_MSG_STD = See comments in the Makefile
 
-ifeq ("$(origin ARCH)", "command line")
-  CPU := --cpu=$(ARCH)
+ifneq ($(MAKECMDGOALS),clean)
+  ifeq ($(TN_ARCH),)
+    $(error TN_ARCH is undefined. $(ERR_MSG_STD))
+  endif
 
-ifeq ($(ARCH), CORTEX-M0)
-  ARCH_DIR = $(SRC)/arch/cortex_m0
-  ARCH_OBJS = $(ARCH_DIR)/tn_port_cm0_armcc.o
-endif
-
-ifeq ($(ARCH), CORTEX-M3)
-  ARCH_DIR = $(SRC)/arch/cortex_m3
-  ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
-endif
-
-ifeq ($(ARCH), CORTEX-M4)
-  ARCH_DIR = $(SRC)/arch/cortex_m3
-  ARCH_OBJS = $(ARCH_DIR)/tn_port_cm3_armcc.o
-endif
-
-ifeq ($(ARCH), $(filter ARM7%, $(ARCH)))
-  ARCH_DIR = $(SRC)/arch/arm
-endif
+  ifeq ($(TN_COMPILER),)
+     $(error TN_COMPILER is undefined. $(ERR_MSG_STD))
+  endif
   
 endif
 
-ifeq ($(MAKECMDGOALS),clean)
-  ARCH_DIR = $(SRC)/arch/cortex_m0 \
-             $(SRC)/arch/cortex_m3 \
-             $(SRC)/arch/arm
-else
-  ifndef ARCH_DIR
-    $(error ARCH is undefined. See comments in the Makefile-single for usage notes)
-  endif
+# set the locations of the bin and lib output directories
+ifndef BIN_FOLDER
+BIN_FOLDER = ./bin/$(TN_ARCH)/$(TN_COMPILER)
 endif
 
-LIB = tnkernel.lib
+ifndef SRC
+SRC = ../../src
+endif
 
-# set variable to compile with ARM compiler
-CC = armcc
-AS = armasm
-LD = armlink
-AR = armar
-RM = rm
+ifndef OBJ_FOLDER
+OBJ_FOLDER = ./obj/$(TN_ARCH)/$(TN_COMPILER)
+endif
+
+TOOLS_FOLDER = ../../tools
+MKDIR = $(TOOLS_FOLDER)/mkdir
+RM = $(TOOLS_FOLDER)/rm
+
+#---------------------------------------------------------------------------
+# Cortex-M series
+#---------------------------------------------------------------------------
+
+ifeq ($(TN_ARCH), $(filter $(TN_ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cortex_m4 cortex_m4f))
+  
+  ifeq ($(TN_COMPILER), armcc)
+  
+    ifeq ($(TN_ARCH), cortex_m0)
+      CPU := --cpu=cortex-m0
+      ARCH_DIR = $(SRC)/arch/cortex_m0
+      SFILES = $(ARCH_DIR)/tn_port_cm0_armcc.s
+    endif
+
+    ifeq ($(TN_ARCH), cortex_m3)
+      CPU := --cpu=cortex-m3
+      ARCH_DIR = $(SRC)/arch/cortex_m3
+      SFILES = $(ARCH_DIR)/tn_port_cm3_armcc.s
+    endif
+
+    ifeq ($(TN_ARCH), cortex_m4)
+      CPU := --cpu=cortex-m4
+      ARCH_DIR = $(SRC)/arch/cortex_m3
+      SFILES = $(ARCH_DIR)/tn_port_cm3_armcc.s
+    endif
+
+    CC = armcc
+    AS = armasm
+    LD = armlink
+    AR = armar
+
+    DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
+    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
+    ASFLAGS = $(CPU) $(DEPFLAGS)
+    
+  endif
+  
+endif
+
+#---------------------------------------------------------------------------
+# ARM7
+#---------------------------------------------------------------------------
+
+ifeq ($(TN_ARCH), arm7)
+
+  ifeq ($(TN_COMPILER), armcc)
+    CPU := --cpu=arm7tdmi
+    ARCH_DIR = $(SRC)/arch/arm
+
+    CC = armcc
+    AS = armasm
+    LD = armlink
+    AR = armar
+
+    DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
+    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
+    ASFLAGS = $(CPU) $(DEPFLAGS)
+
+  endif
+
+endif
+
+BINARY = $(BIN_FOLDER)/tnkernel.lib
 
 INC := -I $(SRC)/include
-
-DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
-CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
-ASFLAGS = $(CPU) $(DEPFLAGS)
 
 DIRS := $(SRC)/kernel \
         $(ARCH_DIR)
 
-FILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
-OBJS := $(ARCH_OBJS) $(FILES:.c=.o)
+CFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
+OBJS := $(patsubst %.c,$(OBJ_FOLDER)/%.o, $(notdir $(CFILES))) $(patsubst %.s,$(OBJ_FOLDER)/%.o,$(notdir $(SFILES)))
 DEPS := $(OBJS:.o=.d)
+
+VPATH = $(DIRS)
 
 ifneq ($(MAKECMDGOALS),clean)
   -include $(DEPS)
 endif
 
 # All Target
-all: $(LIB)
-
-# Tool invocations
-$(LIB): $(OBJS)
-	@echo Building target: $@
-	@$(AR) -r $@ $? 
+all: $(OBJ_FOLDER) $(BIN_FOLDER) $(BINARY)
 
 # Other Targets
 clean:
 	@echo Cleaning...
-	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.o))
-	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.d))
-	@$(RM) -f $(wildcard *.lib)
+	@$(RM) -drf $(BIN_FOLDER) $(OBJ_FOLDER)
 	@echo Done
 
 .PHONY: all clean
-#.SILENT:
+
+$(BIN_FOLDER):
+	@$(MKDIR) -p $@
+
+$(OBJ_FOLDER):
+	@$(MKDIR) -p $@
+
+$(BINARY): $(OBJS)
+	@$(AR) -r $@ $?
+	@echo Done 
+
+$(OBJ_FOLDER)/%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJ_FOLDER)/%.o: %.s
+	$(AS) $(ASFLAGS) -o $@ $<
