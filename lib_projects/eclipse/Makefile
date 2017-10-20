@@ -4,16 +4,16 @@
 # 
 #     arm7
 #     cortex_m0
-#     cortex_m0plus
-#     cortex_m1
+#     cortex_m0plus    // it's not implemented
+#     cortex_m1        // it's not implemented
 #     cortex_m3
 #     cortex_m4
-#     cortex_m4f
+#     cortex_m4f       // it's not implemented
 #
 #  TN_COMPILER: the following values are valid:
 #
 #     armcc
-#     armclang
+#     armclang         // it's not implemented
 #
 #  Example invocation:
 #
@@ -58,22 +58,18 @@ ifeq ($(TN_ARCH), $(filter $(TN_ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_
   
   ifeq ($(TN_COMPILER), armcc)
   
+    ARCH_DIR = $(SRC)/arch/cortex_m
+    
     ifeq ($(TN_ARCH), cortex_m0)
       CPU := --cpu=cortex-m0
-      ARCH_DIR = $(SRC)/arch/cortex_m0
-      SFILES = $(ARCH_DIR)/tn_port_cm0_armcc.s
     endif
 
     ifeq ($(TN_ARCH), cortex_m3)
       CPU := --cpu=cortex-m3
-      ARCH_DIR = $(SRC)/arch/cortex_m3
-      SFILES = $(ARCH_DIR)/tn_port_cm3_armcc.s
     endif
 
     ifeq ($(TN_ARCH), cortex_m4)
       CPU := --cpu=cortex-m4
-      ARCH_DIR = $(SRC)/arch/cortex_m3
-      SFILES = $(ARCH_DIR)/tn_port_cm3_armcc.s
     endif
 
     CC = armcc
@@ -82,7 +78,7 @@ ifeq ($(TN_ARCH), $(filter $(TN_ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_
     AR = armar
 
     DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
-    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
+    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O2 -Otime --split_sections
     ASFLAGS = $(CPU) $(DEPFLAGS)
     
   endif
@@ -105,7 +101,7 @@ ifeq ($(TN_ARCH), arm7)
     AR = armar
 
     DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
-    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) --apcs=/interwork --c99 -O2 -Otime --split_sections
+    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --apcs=/interwork --c99 -O2 -Otime --split_sections
     ASFLAGS = $(CPU) $(DEPFLAGS)
 
   endif
@@ -148,6 +144,7 @@ $(OBJ_FOLDER):
 
 $(BINARY): $(OBJS)
 	@$(AR) -r $@ $?
+	@$(AR) --zt $@
 	@echo Done 
 
 $(OBJ_FOLDER)/%.o: %.c
