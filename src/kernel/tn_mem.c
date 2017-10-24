@@ -197,6 +197,7 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 {
   int rc = TERR_NO_ERR;
   void * ptr;
+  TN_TCB *task;
 
 #if TN_CHECK_PARAM
   if (fmp == NULL || p_data == NULL)
@@ -214,14 +215,15 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == TN_POLLING)
       rc = TERR_TIMEOUT;
     else {
-    	tn_curr_run_task->wercd = &rc;
-    	task_curr_to_wait_action(&(fmp->wait_queue),
-        TSK_WAIT_REASON_WFIXMEM, timeout);
+      task = run_task.curr;
+      task->wercd = &rc;
+      task_to_wait_action(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
+                          timeout);
       
       END_CRITICAL_SECTION
 
       //-- When returns to this point, in the 'data_elem' have to be valid value
-      *p_data = tn_curr_run_task->winfo.fmem.data_elem; //-- Return to caller
+      *p_data = task->winfo.fmem.data_elem; //-- Return to caller
     }
   }
 

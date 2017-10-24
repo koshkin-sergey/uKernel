@@ -125,9 +125,9 @@ static void create_idle_task(void)
  ******************************************************************************/
 
 /**
- * @brief	Initial TNKernel system start function, never returns. Typically
- * 				called from main().
- * @param	opt - Pointer to struct TN_OPTIONS.
+ * @brief Initial TNKernel system start function, never returns. Typically
+ *        called from main().
+ * @param opt - Pointer to struct TN_OPTIONS.
  */
 void tn_start_system(TN_OPTIONS *opt)
 {
@@ -144,7 +144,8 @@ void tn_start_system(TN_OPTIONS *opt)
   HZ = opt->freq_timer;
   os_period = 1000/HZ;
   max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
-  tn_curr_run_task = tn_next_task_to_run = &idle_task;
+  run_task.curr = &idle_task;
+  run_task.next = &idle_task;
 
   //--- Idle task
   create_idle_task();
@@ -163,7 +164,7 @@ void tn_start_system(TN_OPTIONS *opt)
  *                      set. If value is NO_TIME_SLICE there are no round-robin
  *                      scheduling for tasks with priority. NO_TIME_SLICE is
  *                      default value.
- * @return	TERR_NO_ERR on success;
+ * @return  TERR_NO_ERR on success;
  *          TERR_WRONG_PARAM if given parameters are invalid.
  */
 int tn_sys_tslice_ticks(int priority, int value)

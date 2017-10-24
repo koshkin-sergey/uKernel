@@ -11,7 +11,7 @@
 #include "tn.h"
 
 #define  NO_OPTION       0x00   // No options specified.
-#define  MINUS_SIGN	     0x01   // Should we print a minus sign?
+#define  MINUS_SIGN      0x01   // Should we print a minus sign?
 #define  RIGHT_JUSTIFY   0x02   // Should field be right justified?
 #define  ZERO_PAD        0x04   // Should field be zero padded?
 #define  CAPITAL_HEX     0x08   // Did we encounter %X?
@@ -610,13 +610,13 @@ int tn_atoi(const char *s)
 {
   int i, n, sign;
   /* skip white space */
-	for (i = 0; s[i] == ' ' || s[i] == '\n' || s[i] == '\t'; i++);
-	sign = 1;
-	if (s[i] == '+' || s[i] == '-')	/* sign */
-		sign = (s[i++] == '+') ? 1 : -1;
-	for (n = 0; s[i] >= '0' && s[i] <= '9'; i++)
-		n = 10 * n + s[i] - '0';
-	return (sign * n);
+  for (i = 0; s[i] == ' ' || s[i] == '\n' || s[i] == '\t'; i++);
+  sign = 1;
+  if (s[i] == '+' || s[i] == '-') /* sign */
+    sign = (s[i++] == '+') ? 1 : -1;
+  for (n = 0; s[i] >= '0' && s[i] <= '9'; i++)
+    n = 10 * n + s[i] - '0';
+  return (sign * n);
 }
 
 /*------------------------------ End of file ---------------------------------*/

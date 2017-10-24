@@ -29,8 +29,6 @@
  *  external declarations
  ******************************************************************************/
 
-extern void task_exit(void);
-
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
@@ -79,18 +77,13 @@ void tn_start_exe(void)
 
   ldr    r1, =PR_12_15_ADDR        ;-- Load the System 12-15 Priority Register
   ldr    r0, [r1]
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
   ldr    r2, =PENDS_VPRIORITY
   orrs   r0, r0, r2
-#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-  orr    r0, r0, #PENDS_VPRIORITY
-#endif
   str    r0, [r1]
 
 ;---------------
 
-  ldr    r1, =tn_curr_run_task     ; =tn_next_task_to_run
+  ldr    r1, =__cpp(&run_task)
   ldr    r2, [r1]
   ldr    r0, [r2]                  ;-- in r0 - new task SP
   adds   r0, #32
@@ -213,35 +206,27 @@ __asm
 void PendSV_Handler(void)
 {
   PRESERVE8
+
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
   cpsid  I                          ;   Disable core int
-#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-  ldr    r0, =__cpp(&max_syscall_interrupt_priority)
-  msr    BASEPRI, r0                ;  Start critical section
-#endif
 
-  ldr    r3, =__cpp(&tn_curr_run_task)      ;  in R3 - =tn_curr_run_task
-  ldr    r1, [r3]                   ;  in R1 - tn_curr_run_task
-  ldr    r2, =__cpp(&tn_next_task_to_run)
-  ldr    r2, [r2]                   ;  in R2 - tn_next_task_to_run
-  cmp    r1, r2
+  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldm    r3!, {r1,r2}
+  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
   beq    exit_context_switch
 
-;-------------------------------------
-
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+  subs   r3, #8
   mrs    r0, psp                    ; in PSP - process(task) stack pointer
+
   subs   r0, #32                    ; allocate space for r4-r11
+  str    r0, [r1]                   ;  save own SP in TCB
   stmia  r0!, {r4-r7}
   mov    r4, r8
   mov    r5, r9
   mov    r6, r10
   mov    r7, r11
   stmia  r0!, {r4-r7}
-  subs   r0, #32                    ; increment r0 again
 
-  str    r0, [r1]                   ;  save own SP in TCB
   str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
   ldr    r0, [r2]                   ;  in r0 - new task SP
 
@@ -251,41 +236,45 @@ void PendSV_Handler(void)
   mov    r9, r5
   mov    r10, r6
   mov    r11, r7
+  msr    psp, r0
   subs   r0, #32
   ldmia  r0!, {r4-r7}
-  adds   r0, #16
-  msr    psp, r0
-
-  ldr    r0, =0xFFFFFFFD
-  mov    lr, r0
-#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-  mrs    r0, psp                    ;  in PSP - process(task) stack pointer
-  stmdb  r0!, {r4-r11}
-
-  str    r0, [r1]                   ;  save own SP in TCB
-  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ;  in r0 - new task SP
-
-  ldmia  r0!, {r4-r11}
-  msr    psp, r0
-  orr    lr, lr, #0x04              ;  Force to new process PSP
-#endif
-
-
-;-------------------------------------
 
 exit_context_switch
 
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
   cpsie  I                          ;  enable core int
+
+  ldr    r0, =0xFFFFFFFD
+
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+
+  ldr    r0, =__cpp(&max_syscall_interrupt_priority)
+  msr    BASEPRI, r0                ;  Start critical section
+
+  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldm    r3, {r1,r2}
+  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  beq    exit_context_switch
+
+  mrs    r0, psp                    ; in PSP - process(task) stack pointer
+  stmdb  r0!, {r4-r11}
+  str    r0, [r1]                   ;  save own SP in TCB
+  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
+  ldr    r0, [r2]                   ;  in r0 - new task SP
+  ldmia  r0!, {r4-r11}
+  msr    psp, r0
+
+exit_context_switch
+
   mov    r0, #0
   msr    BASEPRI, r0                ;  End critical section
+
+  ldr    r0, =0xFFFFFFFD
+
 #endif
 
-  bx     lr
+  bx     r0
 
   ALIGN
 }

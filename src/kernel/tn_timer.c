@@ -68,7 +68,6 @@
 
 volatile TIME jiffies;
 unsigned long os_period;
-static TN_TCB timer_task;
 
 #if defined(ROUND_ROBIN_ENABLE)
 unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
@@ -78,6 +77,7 @@ unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
+static TN_TCB timer_task;
 static CDLL_QUEUE timer_queue;
 
 #if defined (__ICCARM__)    // IAR ARM
@@ -152,7 +152,7 @@ TASK_FUNC timer_task_func(void *par)
       }
     }
 
-    task_curr_to_wait_action(NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
+    task_to_wait_action(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
 
     END_CRITICAL_SECTION
   }
@@ -171,14 +171,15 @@ void tick_int_processing(void)
   volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
   volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
   volatile int        priority;
+  TN_TCB *task = run_task.curr;
 
   //-------  Round -robin (if is used)  
-  priority = tn_curr_run_task->priority;
+  priority = task->priority;
   
   if (tslice_ticks[priority] != NO_TIME_SLICE) {
-    tn_curr_run_task->tslice_count++;
-    if (tn_curr_run_task->tslice_count > tslice_ticks[priority]) {
-      tn_curr_run_task->tslice_count = 0;
+    task->tslice_count++;
+    if (task->tslice_count > tslice_ticks[priority]) {
+      task->tslice_count = 0;
   
       pri_queue = &(tn_ready_list[priority]);
       //-- If ready queue is not empty and qty  of queue's tasks > 1
@@ -202,7 +203,7 @@ void tick_int_processing(void)
   queue_add_tail(&(tn_ready_list[0]), &(timer_task.task_queue));
   tn_ready_to_run_bmp |= 1;  // priority 0;
 
-  tn_next_task_to_run = &timer_task;
+  run_task.next = &timer_task;
   tn_switch_context_request();
 }
 
@@ -332,11 +333,11 @@ void create_timer_task(void *par)
 *-----------------------------------------------------------------------------*/
 void tn_timer(void)
 {
-	BEGIN_CRITICAL_SECTION
+  BEGIN_CRITICAL_SECTION
 
   jiffies += os_period;
   if (tn_system_state == TN_ST_STATE_RUNNING) {
-    tn_curr_run_task->time += os_period;
+    run_task.curr->time += os_period;
     tick_int_processing();
   }
 

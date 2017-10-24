@@ -159,8 +159,8 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
                          bool send_to_first)
 {
   int rc = TERR_NO_ERR;
-  CDLL_QUEUE * que;
-  TN_TCB * task;
+  CDLL_QUEUE *que;
+  TN_TCB *task;
 
 #if TN_CHECK_PARAM
   if (dque == NULL)
@@ -188,11 +188,12 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        tn_curr_run_task->wercd = &rc;
-        tn_curr_run_task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
-        tn_curr_run_task->winfo.sdque.send_to_first = send_to_first;
-        task_curr_to_wait_action(&(dque->wait_send_list),
-                                 TSK_WAIT_REASON_DQUE_WSEND, timeout);
+        task = run_task.curr;
+        task->wercd = &rc;
+        task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
+        task->winfo.sdque.send_to_first = send_to_first;
+        task_to_wait_action(task, &(dque->wait_send_list),
+                            TSK_WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
   }
@@ -208,44 +209,44 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_create
  * Описание : Создает очередь данных. Поле id_dque структуры TN_DQUE предварительно
- *						должно быть установлено в 0.
+ *            должно быть установлено в 0.
  * Параметры: dque  - Указатель на существующую структуру TN_DQUE.
- *						data_fifo - Указатель на существующий массив void *.
- *												Может быть равен 0.
- *						num_entries - Емкость очереди. Может быть равна 0, тогда задачи
- *													общаются через эту очередь в синхронном режиме.
+ *            data_fifo - Указатель на существующий массив void *.
+ *                        Может быть равен 0.
+ *            num_entries - Емкость очереди. Может быть равна 0, тогда задачи
+ *                          общаются через эту очередь в синхронном режиме.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *----------------------------------------------------------------------------*/
 int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
-		return TERR_WRONG_PARAM;
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
+    return TERR_WRONG_PARAM;
 #endif
 
-	BEGIN_CRITICAL_SECTION
+  BEGIN_CRITICAL_SECTION
 
-	queue_reset(&(dque->wait_send_list));
-	queue_reset(&(dque->wait_receive_list));
+  queue_reset(&(dque->wait_send_list));
+  queue_reset(&(dque->wait_receive_list));
 
-	dque->data_fifo = data_fifo;
-	dque->num_entries = num_entries;
-	if (dque->data_fifo == NULL)
-		dque->num_entries = 0;
+  dque->data_fifo = data_fifo;
+  dque->num_entries = num_entries;
+  if (dque->data_fifo == NULL)
+    dque->num_entries = 0;
 
-	dque->cnt = 0;
-	dque->tail_cnt = 0;
-	dque->header_cnt = 0;
+  dque->cnt = 0;
+  dque->tail_cnt = 0;
+  dque->header_cnt = 0;
 
-	dque->id_dque = TN_ID_DATAQUEUE;
+  dque->id_dque = TN_ID_DATAQUEUE;
 
-	END_CRITICAL_SECTION
+  END_CRITICAL_SECTION
 
-	return TERR_NO_ERR;
+  return TERR_NO_ERR;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -253,129 +254,130 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
  * Описание : Удаляет очередь данных.
  * Параметры: dque  - Указатель на существующую структуру TN_DQUE.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS	-	очередь не существует;
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  -   очередь не существует;
  *----------------------------------------------------------------------------*/
 int tn_queue_delete(TN_DQUE *dque)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_CRITICAL_SECTION
+  BEGIN_CRITICAL_SECTION
 
-	task_wait_delete(&dque->wait_send_list);
-	task_wait_delete(&dque->wait_receive_list);
+  task_wait_delete(&dque->wait_send_list);
+  task_wait_delete(&dque->wait_receive_list);
 
-	dque->id_dque = 0; // Data queue not exists now
+  dque->id_dque = 0; // Data queue not exists now
 
-	END_CRITICAL_SECTION
+  END_CRITICAL_SECTION
 
-	return TERR_NO_ERR;
+  return TERR_NO_ERR;
 }
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_send
  * Описание : Помещает данные в конец очереди за установленный интервал времени.
  * Параметры: dque  - Дескриптор очереди данных.
- *						data_ptr  - Указатель на данные.
- *						timeout - Время, в течении которого данные должны быть помещены
- *											в очередь.
+ *            data_ptr  - Указатель на данные.
+ *            timeout - Время, в течении которого данные должны быть помещены
+ *                                          в очередь.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS	-	очередь не существует;
- *							TERR_TIMEOUT	-	Превышен заданный интервал времени;
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  -   очередь не существует;
+ *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
 int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
-	return do_queue_send(dque, data_ptr, timeout, false);
+  return do_queue_send(dque, data_ptr, timeout, false);
 }
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_send_first
  * Описание : Помещает данные в начало очереди за установленный интервал времени.
  * Параметры: dque  - Дескриптор очереди данных.
- *						data_ptr  - Указатель на данные.
- *						timeout - Время, в течении которого данные должны быть помещены
- *											в очередь.
+ *            data_ptr  - Указатель на данные.
+ *            timeout - Время, в течении которого данные должны быть помещены
+ *                                          в очередь.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS	-	очередь не существует;
- *							TERR_TIMEOUT	-	Превышен заданный интервал времени;
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  -   очередь не существует;
+ *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
 int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
-	return do_queue_send(dque, data_ptr, timeout, true);
+  return do_queue_send(dque, data_ptr, timeout, true);
 }
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_receive
  * Описание : Считывает один элемент данных из начала очереди за установленный
- * 						интервал времени.
+ *                      интервал времени.
  * Параметры: dque  - Дескриптор очереди данных.
- * 						data_ptr  - Указатель на буфер, куда будут считаны данные.
- * 						timeout - Время, в течении которого данные должны быть считаны.
+ *            data_ptr  - Указатель на буфер, куда будут считаны данные.
+ *            timeout - Время, в течении которого данные должны быть считаны.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS	-	очередь не существует;
- *							TERR_TIMEOUT	-	Превышен заданный интервал времени;
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  -   очередь не существует;
+ *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
 int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
 {
-	int rc; //-- return code
-	CDLL_QUEUE *que;
-	TN_TCB *task;
+  int rc; //-- return code
+  CDLL_QUEUE *que;
+  TN_TCB *task;
 
 #if TN_CHECK_PARAM
-	if (dque == NULL || data_ptr == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL || data_ptr == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_CRITICAL_SECTION
+  BEGIN_CRITICAL_SECTION
 
-	rc = dque_fifo_read(dque, data_ptr);
-	if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-		if (!is_queue_empty(&(dque->wait_send_list))) {
-			que = queue_remove_head(&(dque->wait_send_list));
-			task = get_task_by_tsk_queue(que);
-			dque_fifo_write(dque, task->winfo.sdque.data_elem,
-											task->winfo.sdque.send_to_first);
-			task_wait_complete(task);
-		}
-	}
-	else {  //-- data FIFO is empty
-		if (!is_queue_empty(&(dque->wait_send_list))) {
-			que = queue_remove_head(&(dque->wait_send_list));
-			task = get_task_by_tsk_queue(que);
-			*data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
-			task_wait_complete(task);
-			rc = TERR_NO_ERR;
-		}
-		else {  //-- wait_send_list is empty
-			if (timeout == TN_POLLING) {
-				rc = TERR_TIMEOUT;
-			}
-			else {
-				tn_curr_run_task->wercd = &rc;
-				tn_curr_run_task->winfo.rdque.data_elem = data_ptr;
-				task_curr_to_wait_action(&(dque->wait_receive_list),
-																 TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
-			}
-		}
-	}
+  rc = dque_fifo_read(dque, data_ptr);
+  if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
+    if (!is_queue_empty(&(dque->wait_send_list))) {
+      que = queue_remove_head(&(dque->wait_send_list));
+      task = get_task_by_tsk_queue(que);
+      dque_fifo_write(dque, task->winfo.sdque.data_elem,
+          task->winfo.sdque.send_to_first);
+      task_wait_complete(task);
+    }
+  }
+  else {  //-- data FIFO is empty
+    if (!is_queue_empty(&(dque->wait_send_list))) {
+      que = queue_remove_head(&(dque->wait_send_list));
+      task = get_task_by_tsk_queue(que);
+      *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
+      task_wait_complete(task);
+      rc = TERR_NO_ERR;
+    }
+    else {  //-- wait_send_list is empty
+      if (timeout == TN_POLLING) {
+        rc = TERR_TIMEOUT;
+      }
+      else {
+        task = run_task.curr;
+        task->wercd = &rc;
+        task->winfo.rdque.data_elem = data_ptr;
+        task_to_wait_action(task, &(dque->wait_receive_list),
+            TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
+      }
+    }
+  }
 
-	END_CRITICAL_SECTION
+  END_CRITICAL_SECTION
 
-	return rc;
+  return rc;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -383,28 +385,28 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
  * Описание : Сбрасывает очередь данных.
  * Параметры: dque  - Указатель на очередь данных.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS  - очередь данных не была создана.
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
 int tn_queue_flush(TN_DQUE *dque)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_DISABLE_INTERRUPT
+  BEGIN_DISABLE_INTERRUPT
 
-	dque->cnt = 0;
-	dque->tail_cnt = 0;
-	dque->header_cnt = 0;
+  dque->cnt = 0;
+  dque->tail_cnt = 0;
+  dque->header_cnt = 0;
 
-	END_DISABLE_INTERRUPT
+  END_DISABLE_INTERRUPT
 
-	return TERR_NO_ERR;
+  return TERR_NO_ERR;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -412,32 +414,32 @@ int tn_queue_flush(TN_DQUE *dque)
  * Описание : Проверяет очередь данных на пустоту.
  * Параметры: dque  - Указатель на очередь данных.
  * Результат: Возвращает один из вариантов:
- *							TERR_TRUE - очередь данных пуста;
- *							TERR_NO_ERR - в очереди данные есть;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS  - очередь данных не была создана.
+ *              TERR_TRUE - очередь данных пуста;
+ *              TERR_NO_ERR - в очереди данные есть;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
 int tn_queue_empty(TN_DQUE *dque)
 {
-	int rc;
+  int rc;
 
 #if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_DISABLE_INTERRUPT
+  BEGIN_DISABLE_INTERRUPT
 
-	if (dque->cnt == 0)
-		rc = TERR_TRUE;
-	else
-		rc = TERR_NO_ERR;
+  if (dque->cnt == 0)
+    rc = TERR_TRUE;
+  else
+    rc = TERR_NO_ERR;
 
-	END_DISABLE_INTERRUPT
+  END_DISABLE_INTERRUPT
 
-	return rc;
+  return rc;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -445,61 +447,61 @@ int tn_queue_empty(TN_DQUE *dque)
  * Описание : Проверяет очередь данных на полное заполнение.
  * Параметры: dque  - Указатель на очередь данных.
  * Результат: Возвращает один из вариантов:
- *            	TERR_TRUE - очередь данных полная;
+ *              TERR_TRUE - очередь данных полная;
  *              TERR_NO_ERR - очередь данных не полная;
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
 int tn_queue_full(TN_DQUE *dque)
 {
-	int rc;
+  int rc;
 
 #if TN_CHECK_PARAM
-	if (dque == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_DISABLE_INTERRUPT
+  BEGIN_DISABLE_INTERRUPT
 
-	if (dque->cnt == dque->num_entries)
-		rc = TERR_TRUE;
-	else
-		rc = TERR_NO_ERR;
+  if (dque->cnt == dque->num_entries)
+    rc = TERR_TRUE;
+  else
+    rc = TERR_NO_ERR;
 
-	END_DISABLE_INTERRUPT
+  END_DISABLE_INTERRUPT
 
-	return rc;
+  return rc;
 }
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_cnt
  * Описание : Функция возвращает количество элементов в очереди данных.
  * Параметры: dque  - Дескриптор очереди данных.
- *						cnt - Указатель на ячейку памяти, в которую будет возвращено
- *									количество элементов.
+ *            cnt - Указатель на ячейку памяти, в которую будет возвращено
+ *                  количество элементов.
  * Результат: Возвращает один из вариантов:
- *							TERR_NO_ERR - функция выполнена без ошибок;
- *							TERR_WRONG_PARAM  - некорректно заданы параметры;
- *							TERR_NOEXS  - очередь данных не была создана.
+ *              TERR_NO_ERR - функция выполнена без ошибок;
+ *              TERR_WRONG_PARAM  - некорректно заданы параметры;
+ *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
 int tn_queue_cnt(TN_DQUE *dque, int *cnt)
 {
 #if TN_CHECK_PARAM
-	if (dque == NULL || cnt == NULL)
-		return TERR_WRONG_PARAM;
-	if (dque->id_dque != TN_ID_DATAQUEUE)
-		return TERR_NOEXS;
+  if (dque == NULL || cnt == NULL)
+    return TERR_WRONG_PARAM;
+  if (dque->id_dque != TN_ID_DATAQUEUE)
+    return TERR_NOEXS;
 #endif
 
-	BEGIN_DISABLE_INTERRUPT
+  BEGIN_DISABLE_INTERRUPT
 
-	*cnt = dque->cnt;
+  *cnt = dque->cnt;
 
-	END_DISABLE_INTERRUPT
+  END_DISABLE_INTERRUPT
 
-	return TERR_NO_ERR;
+  return TERR_NO_ERR;
 }
 
 /*------------------------------ End of file ---------------------------------*/

@@ -88,7 +88,7 @@
  *-----------------------------------------------------------------------------*/
 void queue_reset(CDLL_QUEUE *que)
 {
-	que->prev = que->next = que;
+  que->prev = que->next = que;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -99,7 +99,7 @@ void queue_reset(CDLL_QUEUE *que)
  *-----------------------------------------------------------------------------*/
 BOOL is_queue_empty(CDLL_QUEUE *que)
 {
-	return ((que->next == que) ? TRUE : FALSE);
+  return ((que->next == que) ? TRUE : FALSE);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -110,12 +110,12 @@ BOOL is_queue_empty(CDLL_QUEUE *que)
  *-----------------------------------------------------------------------------*/
 void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
-	//--  Insert an entry at the head of the queue.
+  //--  Insert an entry at the head of the queue.
 
-	entry->next = que->next;
-	entry->prev = que;
-	entry->next->prev = entry;
-	que->next = entry;
+  entry->next = que->next;
+  entry->prev = que;
+  entry->next->prev = entry;
+  que->next = entry;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -126,12 +126,12 @@ void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
  *-----------------------------------------------------------------------------*/
 void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
-	//-- Insert an entry at the tail of the queue.
+  //-- Insert an entry at the tail of the queue.
 
-	entry->next = que;
-	entry->prev = que->prev;
-	entry->prev->next = entry;
-	que->prev = entry;
+  entry->next = que;
+  entry->prev = que->prev;
+  entry->prev->next = entry;
+  que->prev = entry;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -142,17 +142,17 @@ void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
  *----------------------------------------------------------------------------*/
 CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
 {
-	//-- Remove and return an entry at the head of the queue.
+  //-- Remove and return an entry at the head of the queue.
 
-	CDLL_QUEUE * entry;
+  CDLL_QUEUE * entry;
 
-	if(que == NULL || que->next == que)
-	return (CDLL_QUEUE *) 0;
+  if(que == NULL || que->next == que)
+  return (CDLL_QUEUE *) 0;
 
-	entry = que->next;
-	entry->next->prev = que;
-	que->next = entry->next;
-	return entry;
+  entry = que->next;
+  entry->next->prev = que;
+  que->next = entry->next;
+  return entry;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -163,17 +163,17 @@ CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
  *----------------------------------------------------------------------------*/
 CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
 {
-	//-- Remove and return an entry at the tail of the queue.
+  //-- Remove and return an entry at the tail of the queue.
 
-	CDLL_QUEUE * entry;
+  CDLL_QUEUE * entry;
 
-	if(que->prev == que)
-	return (CDLL_QUEUE *) 0;
+  if(que->prev == que)
+  return (CDLL_QUEUE *) 0;
 
-	entry = que->prev;
-	entry->prev->next = que;
-	que->prev = entry->prev;
-	return entry;
+  entry = que->prev;
+  entry->prev->next = que;
+  que->prev = entry->prev;
+  return entry;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -184,12 +184,12 @@ CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
  *----------------------------------------------------------------------------*/
 void queue_remove_entry(CDLL_QUEUE *entry)
 {
-	//--  Remove an entry from the queue.
-	if (!is_queue_empty(entry)) {
-		entry->prev->next = entry->next;
-		entry->next->prev = entry->prev;
-		queue_reset(entry);
-	}
+  //--  Remove an entry from the queue.
+  if (!is_queue_empty(entry)) {
+    entry->prev->next = entry->next;
+    entry->next->prev = entry->prev;
+    queue_reset(entry);
+  }
 }
 
 #endif

@@ -175,6 +175,7 @@ int tn_sem_signal(TN_SEM *sem)
 int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 {
   int rc; //-- return code
+  TN_TCB *task;
 
 #if TN_CHECK_PARAM
   if (sem == NULL)
@@ -194,8 +195,9 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
       rc = TERR_TIMEOUT;
     }
     else {
-    	tn_curr_run_task->wercd = &rc;
-    	task_curr_to_wait_action(&(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
+      task = run_task.curr;
+      task->wercd = &rc;
+      task_to_wait_action(task, &(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
     }
   }
 
