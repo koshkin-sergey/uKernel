@@ -36,6 +36,7 @@
  *  includes
  ******************************************************************************/
 
+#include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -153,11 +154,11 @@
 
 //-- Errors
 
-#define TERR_TRUE                       1
-#define TERR_NO_ERR                     0
+#define TERR_TRUE                      (1)
+#define TERR_NO_ERR                    (0)
 #define TERR_OVERFLOW                 (-1) //-- OOV
-#define TERR_WCONTEXT                 (-2) //-- Wrong context context error
-#define TERR_WSTATE                   (-3) //-- Wrong state   state error
+#define TERR_WCONTEXT                 (-2) //-- Wrong context error
+#define TERR_WSTATE                   (-3) //-- Wrong state error
 #define TERR_TIMEOUT                  (-4) //-- Polling failure or timeout
 #define TERR_WRONG_PARAM              (-5)
 #define TERR_UNDERFLOW                (-6)
@@ -165,12 +166,15 @@
 #define TERR_ILUSE                    (-8) //-- Illegal using
 #define TERR_NOEXS                    (-9) //-- Non-valid or Non-existent object
 #define TERR_DLT                     (-10) //-- Waiting object deleted
-#define NO_TIME_SLICE                   0
-#define MAX_TIME_SLICE             0xFFFE
+
+#define NO_TIME_SLICE                  (0)
+#define MAX_TIME_SLICE            (0xFFFE)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
+
+typedef uint32_t TIME_t;
 
 typedef void (*CBACK)(void *);
 
@@ -418,7 +422,7 @@ int tn_alarm_create(TN_ALARM *alarm,     // Alarm Control Block
   void *exinf      // Extended information
   );
 int tn_alarm_delete(TN_ALARM *alarm);
-int tn_alarm_start(TN_ALARM *alarm, unsigned long time);
+int tn_alarm_start(TN_ALARM *alarm, TIME_t time);
 int tn_alarm_stop(TN_ALARM *alarm);
 int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
                      unsigned long cyctime, unsigned long cycphs,
@@ -438,7 +442,7 @@ int tn_task_create(TN_TCB *task,                   //-- task TCB
   );
 int tn_task_suspend(TN_TCB *task);
 int tn_task_resume(TN_TCB *task);
-int tn_task_sleep(unsigned long timeout);
+int32_t tn_task_sleep(TIME_t timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_task_time
@@ -865,22 +869,6 @@ extern void* tn_memset(void *dst, int ch, int length) __attribute__((nonnull));
 extern void* tn_memcpy(void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_memcmp(const void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_atoi(const char *s) __attribute__((nonnull));
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_disable_irq
- * Описание : Отключает прерывания в ядре
- * Параметры: Нет
- * Результат: Нет
- *----------------------------------------------------------------------------*/
-extern void tn_disable_irq(void);
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_enable_irq
- * Описание : Включает прерывания в ядре
- * Параметры: Нет
- * Результат: Нет
- *----------------------------------------------------------------------------*/
-extern void tn_enable_irq(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

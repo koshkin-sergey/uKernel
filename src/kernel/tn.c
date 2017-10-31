@@ -65,10 +65,10 @@
  ******************************************************************************/
 
 CDLL_QUEUE tn_create_queue;            /**< All created tasks */
-unsigned long HZ;                      /**< Frequency system timer */
+uint32_t HZ;                           /**< Frequency system timer */
 volatile int tn_created_tasks_qty;     /**< Number of created tasks */
 volatile int tn_system_state;          /**< System state -(running/not running/etc.) */
-unsigned int max_syscall_interrupt_priority;
+uint32_t max_syscall_interrupt_priority;
 
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
@@ -131,6 +131,8 @@ static void create_idle_task(void)
  */
 void tn_start_system(TN_OPTIONS *opt)
 {
+  __disable_irq();
+
   tn_system_state = TN_ST_STATE_NOT_RUN;
 
   for (int i=0; i < TN_NUM_PRIORITY; i++) {

@@ -66,7 +66,7 @@
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
-volatile TIME jiffies;
+volatile TIME_t jiffies;
 unsigned long os_period;
 
 #if defined(ROUND_ROBIN_ENABLE)
@@ -124,14 +124,10 @@ TASK_FUNC timer_task_func(void *par)
 {
   TMEB  *tm;
 
-  tn_disable_irq();
-
   if (((TN_OPTIONS *)par)->app_init)
     ((TN_OPTIONS *)par)->app_init();
 
   tn_systick_init(HZ);
-
-  tn_enable_irq();
 
   calibrate_delay();
   tn_system_state = TN_ST_STATE_RUNNING;
@@ -250,9 +246,9 @@ static void alarm_handler(TN_ALARM *alarm)
   Параметры:
   Результат:
 *-----------------------------------------------------------------------------*/
-static TIME cyc_next_time(TN_CYCLIC *cyc)
+static TIME_t cyc_next_time(TN_CYCLIC *cyc)
 {
-  TIME  tm;
+  TIME_t  tm;
   unsigned int  n;
 
   tm = cyc->tmeb.time + cyc->time;
@@ -274,7 +270,7 @@ static TIME cyc_next_time(TN_CYCLIC *cyc)
   Параметры:
   Результат:
 *-----------------------------------------------------------------------------*/
-static void cyc_timer_insert(TN_CYCLIC *cyc, TIME time)
+static void cyc_timer_insert(TN_CYCLIC *cyc, TIME_t time)
 {
   cyc->tmeb.callback  = (CBACK)cyclic_handler;
   cyc->tmeb.arg = cyc;
@@ -361,7 +357,7 @@ unsigned long tn_get_tick_count(void)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg)
+void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg)
 {
   event->callback = callback;
   event->arg  = arg;
@@ -441,7 +437,7 @@ int tn_alarm_delete(TN_ALARM *alarm)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_alarm_start(TN_ALARM *alarm, TIME time)
+int tn_alarm_start(TN_ALARM *alarm, TIME_t time)
 {
 #if TN_CHECK_PARAM
   if (alarm == NULL || time == 0)
@@ -498,7 +494,7 @@ int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
                      unsigned long cyctime, unsigned long cycphs,
                      unsigned int attr)
 {
-  TIME  tm;
+  TIME_t  tm;
 
 #if TN_CHECK_PARAM
   if (cyc == NULL || handler == NULL || cyctime == 0)
@@ -566,7 +562,7 @@ int tn_cyclic_delete(TN_CYCLIC *cyc)
 *-----------------------------------------------------------------------------*/
 int tn_cyclic_start(TN_CYCLIC *cyc)
 {
-  TIME  tm;
+  TIME_t  tm;
 
 #if TN_CHECK_PARAM
   if (cyc == NULL)

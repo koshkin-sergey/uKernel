@@ -36,6 +36,8 @@
  *  includes
  ******************************************************************************/
 
+#include <stdint.h>
+
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
@@ -73,12 +75,12 @@
   #define USE_ASM_FFS
 
   /* - Interrupt processing - processor specific -------------------------------*/
-  #define BEGIN_CRITICAL_SECTION  int tn_save_status_reg = tn_cpu_save_sr();
+  #define BEGIN_CRITICAL_SECTION  uint32_t tn_save_status_reg = tn_cpu_save_sr();
   #define END_CRITICAL_SECTION    tn_cpu_restore_sr(tn_save_status_reg);  \
                                   if (!tn_inside_irq())                   \
                                     tn_switch_context();
 
-  #define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_save_sr();
+  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
 
 #endif
@@ -89,7 +91,7 @@
   #define  tn_switch_context()
 
   /* - Interrupt processing - processor specific -----------------------------*/
-  #define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_save_sr();
+  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
 
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
@@ -106,10 +108,10 @@
   #define  tn_switch_context()
 
   /* - Interrupt processing - processor specific -----------------------------*/
-  #define BEGIN_DISABLE_INTERRUPT int tn_save_status_reg = tn_cpu_set_basepri(max_syscall_interrupt_priority);
+  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(max_syscall_interrupt_priority);
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
 
-  #define BEGIN_ENABLE_INTERRUPT  int tn_save_status_reg = tn_cpu_set_basepri(0);
+  #define BEGIN_ENABLE_INTERRUPT  uint32_t tn_save_status_reg = tn_cpu_set_basepri(0);
   #define END_ENABLE_INTERRUPT    tn_cpu_restore_basepri(tn_save_status_reg);
 
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
@@ -140,7 +142,7 @@
  *  exported variables
  ******************************************************************************/
 
-extern unsigned int max_syscall_interrupt_priority;
+extern uint32_t max_syscall_interrupt_priority;
 
 /*******************************************************************************
  *  exported function prototypes
@@ -151,7 +153,7 @@ extern "C"  {
 #endif
 
 extern void tn_start_exe(void);
-extern unsigned int* tn_stack_init(void *task_func, unsigned int *stack_start, void *param);
+extern uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param);
 extern void tn_switch_context_request(void);
 extern void tn_switch_context_exit(void);
 
@@ -161,26 +163,26 @@ extern void tn_switch_context_exit(void);
   extern void tn_cpu_irq_handler(void);
   extern void tn_cpu_irq_isr(void);
   extern void tn_cpu_fiq_isr(void);
-  extern int ffs_asm(unsigned int val);
-  extern int tn_cpu_save_sr(void);
-  extern void tn_cpu_restore_sr(int sr);
-  extern int tn_inside_irq(void);
+  extern int32_t ffs_asm(uint32_t val);
+  extern uint32_t tn_cpu_save_sr(void);
+  extern void tn_cpu_restore_sr(uint32_t sr);
+  extern int32_t tn_inside_irq(void);
 
 #endif
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
-  extern int tn_cpu_save_sr(void);
-  extern void tn_cpu_restore_sr(int sr);
+  extern uint32_t tn_cpu_save_sr(void);
+  extern void tn_cpu_restore_sr(uint32_t sr);
 
 #endif
 
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  extern int ffs_asm(unsigned int val);
-  extern int tn_cpu_set_basepri(int);
-  extern void tn_cpu_restore_basepri(int);
+  extern int32_t ffs_asm(uint32_t val);
+  extern uint32_t tn_cpu_set_basepri(uint32_t);
+  extern void tn_cpu_restore_basepri(uint32_t);
 
 #endif
 

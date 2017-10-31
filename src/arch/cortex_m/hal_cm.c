@@ -39,12 +39,19 @@
 /* pendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-/* System Handlers 12-15 Priority Register Address */
-#define PR_12_15_ADDR                 (0xE000ED20)
+/* System Handler Priority Register 2 Address */
+#define SHPR2_ADDR                    (0xE000ED1C)
+/* System Handler Priority Register 3 Address */
+#define SHPR3_ADDR                    (0xE000ED20)
 
-/* PRI_14 (PendSV) priority in the System Handlers 12-15 Priority Register Address
-PendSV priority is minimal (0xFF) */
-#define PENDS_VPRIORITY               (0x00FF0000)
+/* PendSV priority is minimal (0xFF) */
+#define PENDSV_PRIORITY               (0x00FF0000)
+/* SVCall priority is minimal (0xFF) */
+#define SVCALL_PRIORITY               (0xFF000000)
+
+#define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
+#define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
+#define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -70,18 +77,35 @@ PendSV priority is minimal (0xFF) */
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
+void svc_init(void)
+{
+#if !defined(__TARGET_ARCH_6S_M)
+  uint32_t sh, prigroup;
+#endif
+  NVIC_SYS_PRI3 |= 0x00FF0000U;
+#if defined(__TARGET_ARCH_6S_M)
+  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+#else
+  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
+  if (prigroup >= sh) {
+    sh = prigroup + 1U;
+  }
+  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+#endif
+}
+
+/**
+ * @fn      void tn_start_exe(void)
+ * @brief
+ */
 __asm
 void tn_start_exe(void)
 {
   EXPORT tn_switch_context_exit
 
-  ldr    r1, =PR_12_15_ADDR        ;-- Load the System 12-15 Priority Register
-  ldr    r0, [r1]
-  ldr    r2, =PENDS_VPRIORITY
-  orrs   r0, r0, r2
-  str    r0, [r1]
-
-;---------------
+  ldr    r0, =__cpp(svc_init)
+  blx    r0
 
   ldr    r1, =__cpp(&run_task)
   ldr    r2, [r1]
@@ -104,20 +128,10 @@ tn_switch_context_exit
   ALIGN
 }
 
-__asm
-void tn_disable_irq(void)
-{
-  cpsid  I
-  bx     lr
-}
-
-__asm
-void tn_enable_irq(void)
-{
-  cpsie I
-  bx   lr
-}
-
+/**
+ * @fn      void tn_switch_context_request(void)
+ * @brief
+ */
 __asm
 void tn_switch_context_request(void)
 {
@@ -131,16 +145,24 @@ void tn_switch_context_request(void)
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
+/**
+ * @fn      uint32_t tn_cpu_save_sr(void)
+ * @brief
+ */
 __asm
-int tn_cpu_save_sr(void)
+uint32_t tn_cpu_save_sr(void)
 {
   mrs    r0, PRIMASK
   cpsid  I
   bx     lr
 }
 
+/**
+ * @fn      void tn_cpu_restore_sr(uint32_t sr)
+ * @brief
+ */
 __asm
-void tn_cpu_restore_sr(int sr)
+void tn_cpu_restore_sr(uint32_t sr)
 {
   msr    PRIMASK, r0
   bx     lr
@@ -149,8 +171,12 @@ void tn_cpu_restore_sr(int sr)
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
+/**
+ * @fn      uint32_t tn_cpu_set_basepri(uint32_t basepri)
+ * @brief
+ */
 __asm
-int tn_cpu_set_basepri(int basepri)
+uint32_t tn_cpu_set_basepri(uint32_t basepri)
 {
   mrs    r1, BASEPRI
   msr    BASEPRI, r0
@@ -158,15 +184,23 @@ int tn_cpu_set_basepri(int basepri)
   bx     lr
 }
 
+/**
+ * @fn      void tn_cpu_restore_basepri(uint32_t basepri)
+ * @brief
+ */
 __asm
-void tn_cpu_restore_basepri(int basepri)
+void tn_cpu_restore_basepri(uint32_t basepri)
 {
   msr    BASEPRI, r0
   bx     lr
 }
 
+/**
+ * @fn      int32_t ffs_asm(uint32_t val)
+ * @brief
+ */
 __asm
-int ffs_asm(unsigned int val)
+int32_t ffs_asm(uint32_t val)
 {
   mov    r1, r0                    ;-- tmp = in
   rsbs   r0, r1, #0                ;-- in = -in
@@ -178,18 +212,26 @@ int ffs_asm(unsigned int val)
 
 #endif
 
-unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *param)
+/**
+ * @fn      uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param)
+ * @brief
+ * @param task_func
+ * @param stack_start
+ * @param param
+ * @return
+ */
+uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param)
 {
-  unsigned int *stk = ++stack_start;            //-- Load stack pointer
+  uint32_t *stk = ++stack_start;                //-- Load stack pointer
 
   *(--stk) = 0x01000000L;                       //-- xPSR
-  *(--stk) = (unsigned int)task_func;           //-- Entry Point (1 for THUMB mode)
-  *(--stk) = (unsigned int)task_exit;           //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)task_func;               //-- Entry Point (1 for THUMB mode)
+  *(--stk) = (uint32_t)task_exit;               //-- R14 (LR)    (1 for THUMB mode)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2
   *(--stk) = 0x01010101L;                       //-- R1
-  *(--stk) = (unsigned int)param;               //-- R0 - task's function argument
+  *(--stk) = (uint32_t)param;                   //-- R0 - task's function argument
   *(--stk) = 0x11111111L;                       //-- R11
   *(--stk) = 0x10101010L;                       //-- R10
   *(--stk) = 0x09090909L;                       //-- R9
@@ -202,6 +244,10 @@ unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *p
   return stk;
 }
 
+/**
+ * @fn      void PendSV_Handler(void)
+ * @brief
+ */
 __asm
 void PendSV_Handler(void)
 {
@@ -277,6 +323,32 @@ exit_context_switch
   bx     r0
 
   ALIGN
+}
+
+/**
+ * @fn      void SVC_Handler(void)
+ * @brief
+ */
+__asm
+void SVC_Handler(void)
+{
+  MRS     R0,PSP                  ; Read PSP
+  LDR     R1,[R0,#24]             ; Read Saved PC from Stack
+  SUBS    R1,R1,#2                ; Point to SVC Instruction
+  LDRB    R1,[R1]                 ; Load SVC Number
+  CMP     R1,#0
+  BNE     SVC_Exit                ; User SVC Number > 0
+
+  MOV     LR,R4
+  LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
+  MOV     R12,R4
+  MOV     R4,LR
+  BLX     R12                     ; Call SVC Function
+
+SVC_Exit
+  MOVS    R0,#:NOT:0xFFFFFFFD     ; Set EXC_RETURN value
+  MVNS    R0,R0
+  BX      R0                      ; RETI to Thread Mode, use PSP
 }
 
 /* ----------------------------- End of file ---------------------------------*/

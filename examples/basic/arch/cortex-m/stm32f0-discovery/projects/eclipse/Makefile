@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015 Sergey Koshkin <koshkin.sergey@gmail.com>
+# Copyright (C) 2015-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
 # All rights reserved
 #
 # File Name  :	Makefile
@@ -11,7 +11,7 @@ include path.mk
 OUTNAME = test
 AXF = $(OUTNAME).axf
 
-CPU := --cpu=CORTEX-M0
+CPU := --cpu=cortex-m0
 
 # set variable to compile with ARM compiler
 CC = armcc
@@ -31,11 +31,11 @@ LIBS :=
 DIRS := $(SRC) \
         $(SRC)/init \
         $(DIR_RTOS_SRC)/kernel \
-        $(DIR_RTOS_SRC)/arch/cortex_m0
+        $(DIR_RTOS_SRC)/arch/cortex_m
         
 CFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
 SFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.s))
-OBJS := $(CFILES:.c=.o) $(SFILES:.s=.o)
+OBJS := $(patsubst %.c,$(OBJ_FOLDER)/%.o, $(notdir $(CFILES))) $(patsubst %.s,$(OBJ_FOLDER)/%.o,$(notdir $(SFILES)))
 DEPS := $(OBJS:.o=.d)
 
 DEFINES := -D STM32F051
@@ -46,27 +46,32 @@ CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O0 -g
 ASFLAGS = $(CPU) $(DEPFLAGS) -g
 LDFLAGS = $(CPU) --scatter=stm32f051r8.scat --info=totals --strict
 
+VPATH = $(DIRS)
+
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
 endif
 
-all: $(DIR_BIN) $(DIR_BIN)/$(AXF)
+all: $(OBJ_FOLDER) $(DIR_BIN) $(DIR_BIN)/$(AXF)
 
 clean:
 	@echo Cleaning ...
-	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.o))
-	@$(RM) -f $(foreach dir,$(DIRS),$(wildcard $(dir)/*.d))
-	@$(RM) -f $(wildcard *.dep *.bak *.uvgui.*)
-	@$(RM) -drf $(DIR_BIN) ./Debug
+	@$(RM) -drf $(DIR_BIN) $(OBJ_FOLDER)
 	@echo Done 
 
 .PHONY: all clean
 
 $(DIR_BIN):
-	@$(MKDIR) -p $(subst /,\,$@)
+	@$(MKDIR) -p $@
+	
+$(OBJ_FOLDER):
+	@$(MKDIR) -p $@
 
 $(DIR_BIN)/$(AXF): $(OBJS) $(LIBS)
 	@$(LD) $(LDFLAGS) -o $@ $^
 
-%.o: %.c
+$(OBJ_FOLDER)/%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+	
+$(OBJ_FOLDER)/%.o: %.s
+	$(AS) $(ASFLAGS) -o $@ $<

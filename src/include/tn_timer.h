@@ -46,15 +46,13 @@
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
-typedef unsigned long TIME;
-
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
 
-extern volatile TIME    jiffies;
+extern volatile TIME_t  jiffies;
 extern unsigned long    os_period;
-extern unsigned long    HZ;
+extern uint32_t         HZ;
 #if defined(ROUND_ROBIN_ENABLE)
 extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
 #endif
@@ -64,7 +62,7 @@ extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
  ******************************************************************************/
 
 extern void create_timer_task(void *par);
-extern void timer_insert(TMEB *event, TIME time, CBACK callback, void *arg);
+extern void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg);
 extern void timer_delete(TMEB *event);
 
 #endif  // _TN_TIMER_H_

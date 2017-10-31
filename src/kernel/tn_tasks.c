@@ -272,6 +272,19 @@ void task_wait_release_handler(TN_TCB *task)
     *task->wercd = TERR_TIMEOUT;
 }
 
+__svc_indirect(0)
+int32_t svc_task_sleep(int32_t (*)(TIME_t), TIME_t);
+
+int32_t task_sleep(TIME_t timeout)
+{
+  TN_TCB *task = run_task.curr;
+
+  task->wercd = NULL;
+  task_to_wait_action(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
+
+  return TERR_NO_ERR;
+}
+
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -452,22 +465,12 @@ int tn_task_resume(TN_TCB *task)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int tn_task_sleep(unsigned long timeout)
+int32_t tn_task_sleep(TIME_t timeout)
 {
-  TN_TCB *task;
-
   if (timeout == 0)
     return TERR_WRONG_PARAM;
 
-  BEGIN_CRITICAL_SECTION
-
-  task = run_task.curr;
-  task->wercd = NULL;
-  task_to_wait_action(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svc_task_sleep(task_sleep, timeout);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -605,7 +608,7 @@ void tn_task_exit(int attr)
 
   TN_TCB *task;
 
-  tn_disable_irq();  //-- For ARM - disable interrupts without saving SPSR
+  __disable_irq();
 
   task = run_task.curr;
 

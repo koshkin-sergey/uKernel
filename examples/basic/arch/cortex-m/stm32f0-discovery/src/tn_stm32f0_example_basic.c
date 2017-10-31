@@ -145,9 +145,6 @@ int main(void)
 {
   TN_OPTIONS  tn_opt;
 
-  /* Отключаем прерывания в ядре Cortex-M4 */
-  tn_disable_irq();
-
   /* Старт операционной системы */
   tn_opt.app_init       = app_init;
   tn_opt.freq_timer     = HZ;
