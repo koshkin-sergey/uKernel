@@ -39,18 +39,13 @@
 /* pendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-/* System Handler Priority Register 2 Address */
-#define SHPR2_ADDR                    (0xE000ED1C)
-/* System Handler Priority Register 3 Address */
-#define SHPR3_ADDR                    (0xE000ED20)
-
 /* PendSV priority is minimal (0xFF) */
 #define PENDSV_PRIORITY               (0x00FF0000)
-/* SVCall priority is minimal (0xFF) */
-#define SVCALL_PRIORITY               (0xFF000000)
 
 #define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
+/* System Handler Priority Register 2 Address */
 #define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
+/* System Handler Priority Register 3 Address */
 #define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
 
 /*******************************************************************************
@@ -77,12 +72,12 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-void svc_init(void)
+void system_isr_init(void)
 {
 #if !defined(__TARGET_ARCH_6S_M)
   uint32_t sh, prigroup;
 #endif
-  NVIC_SYS_PRI3 |= 0x00FF0000U;
+  NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
 #if defined(__TARGET_ARCH_6S_M)
   NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
 #else
@@ -96,15 +91,15 @@ void svc_init(void)
 }
 
 /**
- * @fn      void tn_start_exe(void)
+ * @fn      void start_kernel(void)
  * @brief
  */
 __asm
-void tn_start_exe(void)
+void start_kernel(void)
 {
-  EXPORT tn_switch_context_exit
+  EXPORT switch_context_exit
 
-  ldr    r0, =__cpp(svc_init)
+  ldr    r0, =__cpp(system_isr_init)
   blx    r0
 
   ldr    r1, =__cpp(&run_task)
@@ -113,7 +108,7 @@ void tn_start_exe(void)
   adds   r0, #32
   msr    PSP, r0
 
-tn_switch_context_exit
+switch_context_exit
 
   ldr    r1,  =ICSR_ADDR           ;  Trigger PendSV exception
   ldr    r0,  =PENDSVSET
@@ -129,11 +124,11 @@ tn_switch_context_exit
 }
 
 /**
- * @fn      void tn_switch_context_request(void)
+ * @fn      void switch_context_request(void)
  * @brief
  */
 __asm
-void tn_switch_context_request(void)
+void switch_context_request(void)
 {
   ldr    r1,  =ICSR_ADDR
   ldr    r0,  =PENDSVSET
@@ -213,14 +208,14 @@ int32_t ffs_asm(uint32_t val)
 #endif
 
 /**
- * @fn      uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param)
+ * @fn      uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param)
  * @brief
  * @param task_func
  * @param stack_start
  * @param param
  * @return
  */
-uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param)
+uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param)
 {
   uint32_t *stk = ++stack_start;                //-- Load stack pointer
 
@@ -332,6 +327,8 @@ exit_context_switch
 __asm
 void SVC_Handler(void)
 {
+  PRESERVE8
+
   MRS     R0,PSP                  ; Read PSP
   LDR     R1,[R0,#24]             ; Read Saved PC from Stack
   SUBS    R1,R1,#2                ; Point to SVC Instruction
@@ -349,6 +346,8 @@ SVC_Exit
   MOVS    R0,#:NOT:0xFFFFFFFD     ; Set EXC_RETURN value
   MVNS    R0,R0
   BX      R0                      ; RETI to Thread Mode, use PSP
+
+  ALIGN
 }
 
 /* ----------------------------- End of file ---------------------------------*/

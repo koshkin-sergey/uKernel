@@ -200,7 +200,7 @@ void tick_int_processing(void)
   tn_ready_to_run_bmp |= 1;  // priority 0;
 
   run_task.next = &timer_task;
-  tn_switch_context_request();
+  switch_context_request();
 }
 
 /*-----------------------------------------------------------------------------*

@@ -75,6 +75,9 @@ CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) t
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
+__svc_indirect(0)
+int32_t svc_task_sleep(int32_t (*)(TIME_t), TIME_t);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
@@ -85,7 +88,7 @@ CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) t
  * @return
  */
 static
-void find_next_task_to_run(void)
+void ThreadDispatch(void)
 {
   int tmp;
 
@@ -103,7 +106,7 @@ void find_next_task_to_run(void)
 #endif
 
   run_task.next = get_task_by_tsk_queue(tn_ready_list[tmp].next);
-  tn_switch_context_request();
+  switch_context_request();
 }
 
 /**
@@ -118,7 +121,7 @@ void task_to_runnable(TN_TCB *task)
 
   if (task->task_state == TSK_STATE_DORMANT) {
     //--- Init task stack
-    task->task_stk = tn_stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
+    task->task_stk = stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
   }
 
   task->task_state = TSK_STATE_RUNNABLE;
@@ -133,7 +136,7 @@ void task_to_runnable(TN_TCB *task)
 
   if (priority < run_task.next->priority) {
     run_task.next = task;
-    tn_switch_context_request();
+    switch_context_request();
   }
 }
 
@@ -160,12 +163,12 @@ void task_to_non_runnable(TN_TCB *task)
 
     //-- Find highest priority ready to run -
     //-- at least, MSB bit must be set for the idle task
-    find_next_task_to_run();   //-- v.2.6
+    ThreadDispatch();   //-- v.2.6
   }
   else { //-- There are 'ready to run' task(s) for the curr priority
     if (run_task.next == task) {
       run_task.next = get_task_by_tsk_queue(que->next);
-      tn_switch_context_request();
+      switch_context_request();
     }
   }
 }
@@ -272,9 +275,7 @@ void task_wait_release_handler(TN_TCB *task)
     *task->wercd = TERR_TIMEOUT;
 }
 
-__svc_indirect(0)
-int32_t svc_task_sleep(int32_t (*)(TIME_t), TIME_t);
-
+static
 int32_t task_sleep(TIME_t timeout)
 {
   TN_TCB *task = run_task.curr;
@@ -632,7 +633,7 @@ void tn_task_exit(int attr)
     task->id_task = 0;
   }
 
-  tn_switch_context_exit(); // interrupts will be enabled inside tn_switch_context_exit()
+  switch_context_exit(); // interrupts will be enabled inside switch_context_exit()
 }
 
 /*-----------------------------------------------------------------------------*
@@ -811,7 +812,7 @@ void change_running_task_priority(TN_TCB * task, int new_priority)
 
   queue_add_tail(&(tn_ready_list[new_priority]), &(task->task_queue));
   tn_ready_to_run_bmp |= 1 << new_priority;
-  find_next_task_to_run();
+  ThreadDispatch();
 }
 
 #ifdef USE_MUTEXES

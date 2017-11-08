@@ -152,10 +152,10 @@ extern uint32_t max_syscall_interrupt_priority;
 extern "C"  {
 #endif
 
-extern void tn_start_exe(void);
-extern uint32_t* tn_stack_init(void *task_func, uint32_t *stack_start, void *param);
-extern void tn_switch_context_request(void);
-extern void tn_switch_context_exit(void);
+extern void start_kernel(void);
+extern uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param);
+extern void switch_context_request(void);
+extern void switch_context_exit(void);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 
