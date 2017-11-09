@@ -40,8 +40,8 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -114,12 +114,10 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
   unsigned char *p_block;
   unsigned long i,j;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp == TN_ID_FSMEMORYPOOL)
     return TERR_WRONG_PARAM;
-#endif
 
   if (start_addr == NULL || num_blocks < 2 || block_size < sizeof(int)) {
     fmp->fblkcnt = 0;
@@ -174,16 +172,14 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
 //----------------------------------------------------------------------------
 int tn_fmem_delete(TN_FMP *fmp)
 {
-#if TN_CHECK_PARAM
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&fmp->wait_queue);
+  knlThreadWaitDelete(&fmp->wait_queue);
 
   fmp->id_fmp = 0;   //-- Fixed-size memory pool not exists now
 
@@ -199,12 +195,10 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
   void * ptr;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -215,9 +209,9 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == TN_POLLING)
       rc = TERR_TIMEOUT;
     else {
-      task = run_task.curr;
+      task = knlThreadGetCurrent();
       task->wercd = &rc;
-      task_to_wait_action(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
+      knlThreadToWaitAction(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
                           timeout);
       
       END_CRITICAL_SECTION
@@ -238,12 +232,10 @@ int tn_fmem_release(TN_FMP *fmp,void *p_data)
   CDLL_QUEUE * que;
   TN_TCB * task;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -251,7 +243,7 @@ int tn_fmem_release(TN_FMP *fmp,void *p_data)
     que = queue_remove_head(&(fmp->wait_queue));
     task = get_task_by_tsk_queue(que);
     task->winfo.fmem.data_elem = p_data;
-    task_wait_complete(task);
+    knlThreadWaitComplete(task);
   }
   else
     fm_put(fmp,p_data);

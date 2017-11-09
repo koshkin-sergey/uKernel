@@ -1,33 +1,21 @@
-/*******************************************************************************
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
  *
- * TNKernel real-time kernel
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2013-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
+ * www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
+ * Project: uKernel real-time kernel
+ */
 
 /**
  * @file
@@ -43,10 +31,9 @@
  *  includes
  ******************************************************************************/
 
-#include "tn.h"
-#include "tn_tasks.h"
-#include "tn_timer.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "timer.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -63,6 +50,8 @@
 /*******************************************************************************
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
+
+knlInfo_t knlInfo;
 
 CDLL_QUEUE tn_create_queue;            /**< All created tasks */
 uint32_t HZ;                           /**< Frequency system timer */
@@ -112,7 +101,7 @@ static void create_idle_task(void)
   tn_task_create(
     &idle_task,                               // task TCB
     tn_idle_task_func,                        // task function
-    TN_NUM_PRIORITY-1,                        // task priority
+    NUM_PRIORITY-1,                           // task priority
     &(tn_idle_task_stack[stack_size-1]),      // task stack first addr in memory
     stack_size,                               // task stack size (in int,not bytes)
     NULL,                                     // task function parameter
@@ -135,8 +124,8 @@ void tn_start_system(TN_OPTIONS *opt)
 
   tn_system_state = TN_ST_STATE_NOT_RUN;
 
-  for (int i=0; i < TN_NUM_PRIORITY; i++) {
-    queue_reset(&(tn_ready_list[i]));
+  for (int i=0; i < NUM_PRIORITY; i++) {
+    queue_reset(&knlInfo.ready_list[i]);
 #if defined(ROUND_ROBIN_ENABLE)
     tslice_ticks[i] = NO_TIME_SLICE;
 #endif
@@ -146,8 +135,9 @@ void tn_start_system(TN_OPTIONS *opt)
   HZ = opt->freq_timer;
   os_period = 1000/HZ;
   max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
-  run_task.curr = &idle_task;
-  run_task.next = &idle_task;
+
+  knlThreadSetCurrent(&idle_task);
+  knlThreadSetNext(&idle_task);
 
   //--- Idle task
   create_idle_task();
@@ -171,11 +161,9 @@ void tn_start_system(TN_OPTIONS *opt)
  */
 int tn_sys_tslice_ticks(int priority, int value)
 {
-#if TN_CHECK_PARAM
   if (priority <= 0 || priority >= TN_NUM_PRIORITY-1 ||
       value < 0 || value > MAX_TIME_SLICE)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 

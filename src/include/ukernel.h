@@ -86,7 +86,6 @@
 #endif
 
 /* - The system configuration (change it for your particular project) --------*/
-#define TN_CHECK_PARAM        1
 #define TN_MEAS_PERFORMANCE   1
 #define USE_MUTEXES           1
 #define USE_EVENTS            1
@@ -166,6 +165,7 @@
 #define TERR_ILUSE                    (-8) //-- Illegal using
 #define TERR_NOEXS                    (-9) //-- Non-valid or Non-existent object
 #define TERR_DLT                     (-10) //-- Waiting object deleted
+#define TERR_ISR                     (-11)
 
 #define NO_TIME_SLICE                  (0)
 #define MAX_TIME_SLICE            (0xFFFE)

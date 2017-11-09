@@ -21,9 +21,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn.h"
-#include "tn_arch.h"
-#include "tn_tasks.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -102,7 +100,7 @@ void start_kernel(void)
   ldr    r0, =__cpp(system_isr_init)
   blx    r0
 
-  ldr    r1, =__cpp(&run_task)
+  ldr    r1, =__cpp(&knlInfo.run)
   ldr    r2, [r1]
   ldr    r0, [r2]                  ;-- in r0 - new task SP
   adds   r0, #32
@@ -221,7 +219,7 @@ uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param)
 
   *(--stk) = 0x01000000L;                       //-- xPSR
   *(--stk) = (uint32_t)task_func;               //-- Entry Point (1 for THUMB mode)
-  *(--stk) = (uint32_t)task_exit;               //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)knlThreadExit;               //-- R14 (LR)    (1 for THUMB mode)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2
@@ -249,18 +247,18 @@ void PendSV_Handler(void)
   PRESERVE8
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-  cpsid  I                          ;   Disable core int
+  cpsid  I                          ; Disable core int
 
-  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3!, {r1,r2}
-  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
   beq    exit_context_switch
 
   subs   r3, #8
   mrs    r0, psp                    ; in PSP - process(task) stack pointer
 
   subs   r0, #32                    ; allocate space for r4-r11
-  str    r0, [r1]                   ;  save own SP in TCB
+  str    r0, [r1]                   ; save own SP in TCB
   stmia  r0!, {r4-r7}
   mov    r4, r8
   mov    r5, r9
@@ -268,8 +266,8 @@ void PendSV_Handler(void)
   mov    r7, r11
   stmia  r0!, {r4-r7}
 
-  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ;  in r0 - new task SP
+  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
+  ldr    r0, [r2]                   ; in r0 - new task SP
 
   adds   r0, #16
   ldmia  r0!, {r4-r7}
@@ -283,7 +281,7 @@ void PendSV_Handler(void)
 
 exit_context_switch
 
-  cpsie  I                          ;  enable core int
+  cpsie  I                          ; enable core int
 
   ldr    r0, =0xFFFFFFFD
 
@@ -291,25 +289,25 @@ exit_context_switch
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
   ldr    r0, =__cpp(&max_syscall_interrupt_priority)
-  msr    BASEPRI, r0                ;  Start critical section
+  msr    BASEPRI, r0                ; Start critical section
 
-  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3, {r1,r2}
-  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
   beq    exit_context_switch
 
   mrs    r0, psp                    ; in PSP - process(task) stack pointer
   stmdb  r0!, {r4-r11}
-  str    r0, [r1]                   ;  save own SP in TCB
-  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ;  in r0 - new task SP
+  str    r0, [r1]                   ; save own SP in TCB
+  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
+  ldr    r0, [r2]                   ; in r0 - new task SP
   ldmia  r0!, {r4-r11}
   msr    psp, r0
 
 exit_context_switch
 
   mov    r0, #0
-  msr    BASEPRI, r0                ;  End critical section
+  msr    BASEPRI, r0                ; End critical section
 
   ldr    r0, =0xFFFFFFFD
 

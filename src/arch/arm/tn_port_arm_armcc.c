@@ -28,9 +28,9 @@
  *
  ******************************************************************************/
 
-#include "tn.h"
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include <task.h>
+#include <ukernel.h>
+#include <utils.h>
 
 
 #if defined (__CC_ARM)

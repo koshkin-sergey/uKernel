@@ -40,9 +40,9 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_timer.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "timer.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -62,10 +62,6 @@ extern int do_unlock_mutex(TN_MUTEX *mutex);
 /*******************************************************************************
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
-
-struct RUN_TASK run_task;
-unsigned int tn_ready_to_run_bmp;
-CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];     //-- all ready to run(RUNNABLE) tasks
 
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
@@ -90,22 +86,23 @@ int32_t svc_task_sleep(int32_t (*)(TIME_t), TIME_t);
 static
 void ThreadDispatch(void)
 {
-  int tmp;
+  int32_t priority = 0;
 
 #if defined USE_ASM_FFS
-  tmp = ffs_asm(tn_ready_to_run_bmp);
-  tmp--;
+  priority = ffs_asm(knlInfo.ready_to_run_bmp);
+  priority--;
 #else
-  tmp = 0;
-  for (int i = 0; i < TN_BITS_IN_INT; ++i) {
-    if (tn_ready_to_run_bmp & (1UL << i)) {
-      tmp = i;
+  uint32_t run_bmp = knlInfo.ready_to_run_bmp;
+
+  for (int i = 0; i < BITS_IN_INT; ++i) {
+    if (run_bmp & (1UL << i)) {
+      priority = i;
       break;
     }
   }
 #endif
 
-  run_task.next = get_task_by_tsk_queue(tn_ready_list[tmp].next);
+  knlThreadSetNext(get_task_by_tsk_queue(knlInfo.ready_list[priority].next));
   switch_context_request();
 }
 
@@ -117,8 +114,6 @@ void ThreadDispatch(void)
 static
 void task_to_runnable(TN_TCB *task)
 {
-  int priority;
-
   if (task->task_state == TSK_STATE_DORMANT) {
     //--- Init task stack
     task->task_stk = stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
@@ -128,14 +123,12 @@ void task_to_runnable(TN_TCB *task)
   task->pwait_queue = NULL;
 
   //-- Add the task to the end of 'ready queue' for the current priority
-  priority = task->priority;
-  queue_add_tail(&(tn_ready_list[priority]), &(task->task_queue));
-  tn_ready_to_run_bmp |= 1 << priority;
+  knlThreadSetReady(task);
 
   //-- less value - greater priority, so '<' operation is used here
 
-  if (priority < run_task.next->priority) {
-    run_task.next = task;
+  if (task->priority < knlThreadGetNext()->priority) {
+    knlThreadSetNext(task);
     switch_context_request();
   }
 }
@@ -152,22 +145,22 @@ void task_to_non_runnable(TN_TCB *task)
   CDLL_QUEUE *que;
 
   priority = task->priority;
-  que = &(tn_ready_list[priority]);
+  que = &(knlInfo.ready_list[priority]);
 
   //-- remove the curr task from any queue (now - from ready queue)
   queue_remove_entry(&(task->task_queue));
 
   if (is_queue_empty(que)) { //-- No ready tasks for the curr priority
     //-- remove 'ready to run' from the curr priority
-    tn_ready_to_run_bmp &= ~(1 << priority);
+    knlInfo.ready_to_run_bmp &= ~(1 << priority);
 
     //-- Find highest priority ready to run -
     //-- at least, MSB bit must be set for the idle task
     ThreadDispatch();   //-- v.2.6
   }
   else { //-- There are 'ready to run' task(s) for the curr priority
-    if (run_task.next == task) {
-      run_task.next = get_task_by_tsk_queue(que->next);
+    if (knlThreadGetNext() == task) {
+      knlThreadSetNext(get_task_by_tsk_queue(que->next));
       switch_context_request();
     }
   }
@@ -224,7 +217,7 @@ bool task_wait_release(TN_TCB *task)
         curr_priority = find_max_blocked_priority(
           mutex, mt_holder_task->base_priority);
 
-        set_current_priority(mt_holder_task, curr_priority);
+        knlThreadSetPriority(mt_holder_task, curr_priority);
         rc = true;
       }
     }
@@ -278,10 +271,10 @@ void task_wait_release_handler(TN_TCB *task)
 static
 int32_t task_sleep(TIME_t timeout)
 {
-  TN_TCB *task = run_task.curr;
+  TN_TCB *task = knlThreadGetCurrent();
 
   task->wercd = NULL;
-  task_to_wait_action(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
+  knlThreadToWaitAction(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
 
   return TERR_NO_ERR;
 }
@@ -290,12 +283,146 @@ int32_t task_sleep(TIME_t timeout)
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
+/**
+ * @fn    void knlThreadSetReady(TN_TCB *thread)
+ * @brief Adds task to the end of ready queue for current priority
+ * @param thread
+ */
+void knlThreadSetReady(TN_TCB *thread)
+{
+  knlInfo_t *info = &knlInfo;
+  int32_t priority = thread->priority;
+
+  queue_add_tail(&info->ready_list[priority], &thread->task_queue);
+  info->ready_to_run_bmp |= (1 << priority);
+}
+
 /*-----------------------------------------------------------------------------*
- * Название : tn_task_create
- * Описание :
- * Параметры:
- * Результат:
+ * Название : knlThreadWaitComplete
+ * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
+ * Параметры: task - Указатель на задачу
+ * Результат: Возвращает true при успешном выполнении, иначе возвращает false
  *----------------------------------------------------------------------------*/
+bool knlThreadWaitComplete(TN_TCB *task)
+{
+  bool rc;
+
+  if (task == NULL)
+    return false;
+
+  timer_delete(&task->wtmeb);
+  rc = task_wait_release(task);
+
+  if (task->wercd != NULL)
+    *task->wercd = TERR_NO_ERR;
+
+  return rc;
+}
+
+void knlThreadChangePriority(TN_TCB * task, int32_t new_priority)
+{
+  knlInfo_t *info = &knlInfo;
+  int32_t old_priority = task->priority;
+
+  //-- remove curr task from any (wait/ready) queue
+  queue_remove_entry(&(task->task_queue));
+
+  //-- If there are no ready tasks for the old priority
+  //-- clear ready bit for old priority
+  if (is_queue_empty(&info->ready_list[old_priority]))
+    info->ready_to_run_bmp &= ~(1 << old_priority);
+
+  task->priority = new_priority;
+
+  //-- Add task to the end of ready queue for current priority
+  knlThreadSetReady(task);
+  ThreadDispatch();
+}
+
+#ifdef USE_MUTEXES
+
+void knlThreadSetPriority(TN_TCB * task, int32_t priority)
+{
+  TN_MUTEX * mutex;
+
+  //-- transitive priority changing
+
+  // if we have a task A that is blocked by the task B and we changed priority
+  // of task A,priority of task B also have to be changed. I.e, if we have
+  // the task A that is waiting for the mutex M1 and we changed priority
+  // of this task, a task B that holds a mutex M1 now, also needs priority's
+  // changing.  Then, if a task B now is waiting for the mutex M2, the same
+  // procedure have to be applied to the task C that hold a mutex M2 now
+  // and so on.
+
+  //-- This function in ver 2.6 is more "lightweight".
+  //-- The code is derived from Vyacheslav Ovsiyenko version
+
+  for (;;) {
+    if (task->priority <= priority)
+      return;
+
+    if (task->task_state == TSK_STATE_RUNNABLE) {
+      knlThreadChangePriority(task, priority);
+      return;
+    }
+
+    if (task->task_state & TSK_STATE_WAIT) {
+      if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I) {
+        task->priority = priority;
+
+        mutex = get_mutex_by_wait_queque(task->pwait_queue);
+        task = mutex->holder;
+
+        continue;
+      }
+    }
+
+    task->priority = priority;
+    return;
+  }
+}
+
+#endif
+
+void knlThreadExit(void)
+{
+  tn_task_exit(0);
+}
+
+void knlThreadWaitDelete(CDLL_QUEUE *wait_que)
+{
+  CDLL_QUEUE *que;
+  TN_TCB *task;
+
+  while (!is_queue_empty(wait_que)) {
+    que = queue_remove_head(wait_que);
+    task = get_task_by_tsk_queue(que);
+    knlThreadWaitComplete(task);
+    if (task->wercd != NULL)
+      *task->wercd = TERR_DLT;
+  }
+}
+
+void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
+                         TIME_t timeout)
+{
+  task_to_non_runnable(task);
+
+  task->task_state = TSK_STATE_WAIT;
+  task->task_wait_reason = wait_reason;
+
+  //--- Add to the wait queue  - FIFO
+  if (wait_que != NULL) {
+    queue_add_tail(wait_que, &(task->task_queue));
+    task->pwait_queue = wait_que;
+  }
+
+  //--- Add to the timers queue
+  if (timeout != TN_WAIT_INFINITE)
+    timer_insert(&task->wtmeb, timeout, (CBACK)task_wait_release_handler, task);
+}
+
 int tn_task_create(TN_TCB * task,                 //-- task TCB
   void (*task_func)(void *param),  //-- task function
   int priority,                    //-- task priority
@@ -311,13 +438,13 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
 
   //-- Light weight checking of system tasks recreation
 
-  if ((priority == 0 && ((option & TN_TASK_TIMER) == 0))
-    || (priority == TN_NUM_PRIORITY - 1 && (option & TN_TASK_IDLE) == 0))
+  if ( ((priority == 0) && ((option & TN_TASK_TIMER) == 0))
+    || ((priority == (NUM_PRIORITY-1)) && ((option & TN_TASK_IDLE) == 0)) )
     return TERR_WRONG_PARAM;
 
-  if ((priority < 0 || priority > TN_NUM_PRIORITY - 1)
-    || task_stack_size < TN_MIN_STACK_SIZE || task_func == NULL || task == NULL
-    || task_stack_start == NULL || task->id_task != 0)  //-- recreation
+  if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
+    || (task_stack_size < TN_MIN_STACK_SIZE) || (task_func == NULL) || (task == NULL)
+    || (task_stack_start == NULL) || (task->id_task != 0) )  //-- recreation
     return TERR_WRONG_PARAM;
 
   rc = TERR_NO_ERR;
@@ -365,12 +492,10 @@ int tn_task_delete(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -398,12 +523,10 @@ int tn_task_suspend(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -437,12 +560,10 @@ int tn_task_resume(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -468,6 +589,10 @@ int tn_task_resume(TN_TCB *task)
  *----------------------------------------------------------------------------*/
 int32_t tn_task_sleep(TIME_t timeout)
 {
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    return TERR_ISR;
+  }
+
   if (timeout == 0)
     return TERR_WRONG_PARAM;
 
@@ -484,12 +609,10 @@ unsigned long tn_task_time(TN_TCB *task)
 {
   unsigned long time;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return 0;
   if (task->id_task != TN_ID_TASK)
     return 0;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -515,17 +638,15 @@ int tn_task_wakeup(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
   if ((task->task_state & TSK_STATE_WAIT) && task->task_wait_reason == TSK_WAIT_REASON_SLEEP)
-    task_wait_complete(task);
+    knlThreadWaitComplete(task);
   else
     rc = TERR_WSTATE;
 
@@ -544,12 +665,10 @@ int tn_task_activate(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -573,12 +692,10 @@ int tn_task_release_wait(TN_TCB *task)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -586,7 +703,7 @@ int tn_task_release_wait(TN_TCB *task)
     rc = TERR_WCONTEXT;
   else {
     queue_remove_entry(&(task->task_queue));
-    task_wait_complete(task);
+    knlThreadWaitComplete(task);
   }
 
   END_CRITICAL_SECTION
@@ -611,7 +728,7 @@ void tn_task_exit(int attr)
 
   __disable_irq();
 
-  task = run_task.curr;
+  task = knlThreadGetCurrent();
 
   //-- Unlock all mutexes, locked by the task
 
@@ -637,17 +754,6 @@ void tn_task_exit(int attr)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : task_exit
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-void task_exit(void)
-{
-  tn_task_exit(0);
-}
-
-/*-----------------------------------------------------------------------------*
  * Название : tn_task_terminate
  * Описание :
  * Параметры:
@@ -662,16 +768,14 @@ int tn_task_terminate(TN_TCB *task)
   TN_MUTEX * mutex;
 #endif
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
-  if (task->task_state == TSK_STATE_DORMANT || run_task.curr == task)
+  if (task->task_state == TSK_STATE_DORMANT || knlThreadGetCurrent() == task)
     rc = TERR_WCONTEXT; //-- Cannot terminate running task
   else {
     if (task->task_state == TSK_STATE_RUNNABLE) {
@@ -711,14 +815,12 @@ int tn_task_change_priority(TN_TCB * task, int new_priority)
 {
   int rc = TERR_NO_ERR;
 
-#if TN_CHECK_PARAM
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-  if (new_priority < 0 || new_priority > TN_NUM_PRIORITY - 2) //-- try to set pri
-    return TERR_WRONG_PARAM;                                // reserved by sys
-#endif
+  if ( (new_priority < 0) || (new_priority > (NUM_PRIORITY - 2)) )
+    return TERR_WRONG_PARAM;
 
   BEGIN_CRITICAL_SECTION
 
@@ -728,163 +830,12 @@ int tn_task_change_priority(TN_TCB * task, int new_priority)
   if (task->task_state == TSK_STATE_DORMANT)
     rc = TERR_WCONTEXT;
   else if (task->task_state == TSK_STATE_RUNNABLE)
-    change_running_task_priority(task, new_priority);
+    knlThreadChangePriority(task, new_priority);
   else
     task->priority = new_priority;
 
   END_CRITICAL_SECTION
   return rc;
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : task_wait_complete
- * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
- * Параметры: task - Указатель на задачу
- * Результат: Возвращает true при успешном выполнении, иначе возвращает false
- *----------------------------------------------------------------------------*/
-bool task_wait_complete(TN_TCB *task)
-{
-  bool rc;
-
-  if (task == NULL)
-    return false;
-
-  timer_delete(&task->wtmeb);
-  rc = task_wait_release(task);
-
-  if (task->wercd != NULL)
-    *task->wercd = TERR_NO_ERR;
-
-  return rc;
-}
-
-/**
- *
- * @param task
- * @param wait_que
- * @param wait_reason
- * @param timeout
- */
-void task_to_wait_action(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
-                         unsigned long timeout)
-{
-  task_to_non_runnable(task);
-
-  task->task_state = TSK_STATE_WAIT;
-  task->task_wait_reason = wait_reason;
-
-  //--- Add to the wait queue  - FIFO
-  if (wait_que != NULL) {
-    queue_add_tail(wait_que, &(task->task_queue));
-    task->pwait_queue = wait_que;
-  }
-
-  //--- Add to the timers queue
-  if (timeout != TN_WAIT_INFINITE)
-    timer_insert(&task->wtmeb, timeout, (CBACK)task_wait_release_handler, task);
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : change_running_task_priority
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-void change_running_task_priority(TN_TCB * task, int new_priority)
-{
-  int old_priority;
-
-  old_priority = task->priority;
-
-  //-- remove curr task from any (wait/ready) queue
-
-  queue_remove_entry(&(task->task_queue));
-
-  //-- If there are no ready tasks for the old priority
-  //-- clear ready bit for old priority
-
-  if (is_queue_empty(&(tn_ready_list[old_priority])))
-    tn_ready_to_run_bmp &= ~(1 << old_priority);
-
-  task->priority = new_priority;
-
-  //-- Add task to the end of ready queue for current priority
-
-  queue_add_tail(&(tn_ready_list[new_priority]), &(task->task_queue));
-  tn_ready_to_run_bmp |= 1 << new_priority;
-  ThreadDispatch();
-}
-
-#ifdef USE_MUTEXES
-
-/*-----------------------------------------------------------------------------*
- * Название : set_current_priority
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-void set_current_priority(TN_TCB * task, int priority)
-{
-  TN_MUTEX * mutex;
-
-  //-- transitive priority changing
-
-  // if we have a task A that is blocked by the task B and we changed priority
-  // of task A,priority of task B also have to be changed. I.e, if we have
-  // the task A that is waiting for the mutex M1 and we changed priority
-  // of this task, a task B that holds a mutex M1 now, also needs priority's
-  // changing.  Then, if a task B now is waiting for the mutex M2, the same
-  // procedure have to be applied to the task C that hold a mutex M2 now
-  // and so on.
-
-  //-- This function in ver 2.6 is more "lightweight".
-  //-- The code is derived from Vyacheslav Ovsiyenko version
-
-  for (;;) {
-    if (task->priority <= priority)
-      return;
-
-    if (task->task_state == TSK_STATE_RUNNABLE) {
-      change_running_task_priority(task, priority);
-      return;
-    }
-
-    if (task->task_state & TSK_STATE_WAIT) {
-      if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I) {
-        task->priority = priority;
-
-        mutex = get_mutex_by_wait_queque(task->pwait_queue);
-        task = mutex->holder;
-
-        continue;
-      }
-    }
-
-    task->priority = priority;
-    return;
-  }
-}
-
-#endif
-
-/*-----------------------------------------------------------------------------*
- * Название : task_wait_delete
- * Описание : Удаляет задачу из очереди ожидания.
- * Параметры: que - Указатель на очередь
- * Результат: Нет
- *----------------------------------------------------------------------------*/
-void task_wait_delete(CDLL_QUEUE *wait_que)
-{
-  CDLL_QUEUE *que;
-  TN_TCB *task;
-
-  while (!is_queue_empty(wait_que)) {
-    que = queue_remove_head(wait_que);
-    task = get_task_by_tsk_queue(que);
-    task_wait_complete(task);
-    if (task->wercd != NULL)
-      *task->wercd = TERR_DLT;
-  }
 }
 
 /* ----------------------------- End of file ---------------------------------*/

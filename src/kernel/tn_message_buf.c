@@ -39,8 +39,8 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -172,12 +172,10 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -187,7 +185,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
     que = queue_remove_head(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
     tn_memcpy(task->winfo.rmbf.msg, msg, mbf->msz);
-    task_wait_complete(task);
+    knlThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -198,11 +196,11 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
+        task = knlThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.smbf.msg = msg;
         task->winfo.smbf.send_to_first = send_to_first;
-        task_to_wait_action(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
+        knlThreadToWaitAction(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
                             timeout);
       }
     }
@@ -232,12 +230,10 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  *----------------------------------------------------------------------------*/
 int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (bufsz < 0 || msz <= 0 || mbf->id_mbf == TN_ID_MESSAGEBUF)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -267,17 +263,15 @@ int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
  *----------------------------------------------------------------------------*/
 int tn_mbf_delete(TN_MBF *mbf)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf == 0)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&mbf->send_queue);
-  task_wait_delete(&mbf->recv_queue);
+  knlThreadWaitDelete(&mbf->send_queue);
+  knlThreadWaitDelete(&mbf->recv_queue);
 
   mbf->id_mbf = 0;
 
@@ -343,12 +337,10 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL || msg == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -358,7 +350,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
       que = queue_remove_head(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       mbf_fifo_write(mbf, task->winfo.smbf.msg, task->winfo.smbf.send_to_first);
-      task_wait_complete(task);
+      knlThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
@@ -366,7 +358,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
       que = queue_remove_head(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       tn_memcpy(msg, task->winfo.smbf.msg, mbf->msz);
-      task_wait_complete(task);
+      knlThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -374,10 +366,10 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
+        task = knlThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.rmbf.msg = msg;
-        task_to_wait_action(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
+        knlThreadToWaitAction(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
                             timeout);
       }
     }
@@ -399,12 +391,10 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
  *----------------------------------------------------------------------------*/
 int tn_mbf_flush(TN_MBF *mbf)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -429,12 +419,10 @@ int tn_mbf_empty(TN_MBF *mbf)
 {
   int rc;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -462,12 +450,10 @@ int tn_mbf_full(TN_MBF *mbf)
 {
   int rc;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -494,12 +480,10 @@ int tn_mbf_full(TN_MBF *mbf)
  *----------------------------------------------------------------------------*/
 int tn_mbf_cnt(TN_MBF *mbf, int *cnt)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 

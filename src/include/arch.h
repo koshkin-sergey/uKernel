@@ -1,73 +1,42 @@
-/*******************************************************************************
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
  *
- * TNKernel real-time kernel
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2013-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
+ * www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
+ * Project: uKernel real-time kernel
+ */
 
-#ifndef  _TN_ARCH_H_
-#define  _TN_ARCH_H_
+#ifndef  _ARCH_H_
+#define  _ARCH_H_
 
 /*******************************************************************************
  *  includes
  ******************************************************************************/
 
 #include <stdint.h>
+#include "compiler.h"
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#if (defined (__TARGET_ARCH_4T) && (__TARGET_ARCH_4T == 1))
-  #define __ARM_ARCH_4T__           1
-#endif
-
-#if ((defined (__TARGET_ARCH_6_M  ) && (__TARGET_ARCH_6_M   == 1)) || \
-     (defined (__TARGET_ARCH_6S_M ) && (__TARGET_ARCH_6S_M  == 1))   )
-  #define __ARM_ARCH_6M__           1
-#endif
-
-#if (defined (__TARGET_ARCH_7_M ) && (__TARGET_ARCH_7_M  == 1))
-  #define __ARM_ARCH_7M__           1
-#endif
-
-#if (defined (__TARGET_ARCH_7E_M) && (__TARGET_ARCH_7E_M == 1))
-  #define __ARM_ARCH_7EM__          1
-#endif
-
 #define TN_TIMER_STACK_SIZE           64
 #define TN_IDLE_STACK_SIZE            48
 #define TN_MIN_STACK_SIZE             40      //--  +20 for exit func when ver GCC > 4
 
-#define TN_BITS_IN_INT                32
 #define TN_ALIG                       sizeof(void*)
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
-
-#define TN_NUM_PRIORITY               TN_BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
@@ -87,8 +56,11 @@
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
-  /* - Assembler functions prototypes ----------------------------------------*/
-  #define  tn_switch_context()
+  #include "core_cm.h"
+
+  #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
+  #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
+  #define IS_IRQ_MASKED()         (__get_PRIMASK() != 0U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
@@ -102,10 +74,13 @@
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
+  #include "core_cm.h"
+
   #define USE_ASM_FFS
 
-  /* - Assembler functions prototypes ----------------------------------------*/
-  #define  tn_switch_context()
+  #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
+  #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
+  #define IS_IRQ_MASKED()         ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U))
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(max_syscall_interrupt_priority);
@@ -148,10 +123,6 @@ extern uint32_t max_syscall_interrupt_priority;
  *  exported function prototypes
  ******************************************************************************/
 
-#ifdef __cplusplus
-extern "C"  {
-#endif
-
 extern void start_kernel(void);
 extern uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param);
 extern void switch_context_request(void);
@@ -186,10 +157,6 @@ extern void switch_context_exit(void);
 
 #endif
 
-#ifdef __cplusplus
-}  /* extern "C" */
-#endif
-
-#endif  // _TN_ARCH_H_
+#endif  // _ARCH_H_
 
 /*------------------------------ End of file ---------------------------------*/

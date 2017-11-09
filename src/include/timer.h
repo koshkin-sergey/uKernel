@@ -28,15 +28,14 @@
  *
  ******************************************************************************/
 
-#ifndef TN_TASKS_H_
-#define TN_TASKS_H_
+#ifndef _TN_TIMER_H_
+#define _TN_TIMER_H_
 
 /*******************************************************************************
  *  includes
  ******************************************************************************/
 
-#include "tn_arch.h"
-#include "tn.h"
+#include <ukernel.h>
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -46,36 +45,25 @@
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
-typedef struct RUN_TASK {
-  TN_TCB *curr;                     //-- Task that is running now
-  TN_TCB *next;                     //-- Task to be run after switch context
-} *pRUN_TASK;
-
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
 
-extern struct RUN_TASK run_task;
-extern unsigned int tn_ready_to_run_bmp;
-extern CDLL_QUEUE tn_ready_list[TN_NUM_PRIORITY];
+extern volatile TIME_t  jiffies;
+extern unsigned long    os_period;
+extern uint32_t         HZ;
+#if defined(ROUND_ROBIN_ENABLE)
+extern unsigned short   tslice_ticks[TN_NUM_PRIORITY];
+#endif
 
 /*******************************************************************************
  *  exported function prototypes
  ******************************************************************************/
-extern
-bool task_wait_complete(TN_TCB *task);
-extern
-void task_to_wait_action(TN_TCB *task, CDLL_QUEUE *wait_que, int wait_reason,
-                         unsigned long timeout);
-extern
-void change_running_task_priority(TN_TCB *task, int new_priority);
-extern
-void set_current_priority(TN_TCB *task, int priority);
-extern
-void task_wait_delete(CDLL_QUEUE *que);
-extern
-void task_exit(void);
 
-#endif /* TN_TASKS_H_ */
+extern void create_timer_task(void *par);
+extern void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg);
+extern void timer_delete(TMEB *event);
 
-/* ----------------------------- End of file ---------------------------------*/
+#endif  // _TN_TIMER_H_
+
+/*------------------------------ End of file ---------------------------------*/

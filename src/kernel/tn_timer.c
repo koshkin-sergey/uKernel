@@ -39,10 +39,10 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_delay.h"
-#include "tn_tasks.h"
-#include "tn_timer.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "delay.h"
+#include "timer.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -148,7 +148,7 @@ TASK_FUNC timer_task_func(void *par)
       }
     }
 
-    task_to_wait_action(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
+    knlThreadToWaitAction(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
 
     END_CRITICAL_SECTION
   }
@@ -167,7 +167,7 @@ void tick_int_processing(void)
   volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
   volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
   volatile int        priority;
-  TN_TCB *task = run_task.curr;
+  TN_TCB *task = knlThreadGetCurrent();
 
   //-------  Round -robin (if is used)  
   priority = task->priority;
@@ -177,14 +177,14 @@ void tick_int_processing(void)
     if (task->tslice_count > tslice_ticks[priority]) {
       task->tslice_count = 0;
   
-      pri_queue = &(tn_ready_list[priority]);
+      pri_queue = &(knlInfo.ready_list[priority]);
       //-- If ready queue is not empty and qty  of queue's tasks > 1
       if (!(is_queue_empty((CDLL_QUEUE *)pri_queue)) &&
             pri_queue->next->next != pri_queue) {
         //-- Remove task from tail and add it to the head of
         //-- ready queue for current priority
-        curr_que = queue_remove_tail(&(tn_ready_list[priority]));
-        queue_add_head(&(tn_ready_list[priority]),(CDLL_QUEUE *)curr_que);
+        curr_que = queue_remove_tail(&(knlInfo.ready_list[priority]));
+        queue_add_head(&(knlInfo.ready_list[priority]),(CDLL_QUEUE *)curr_que);
       }
     }
   }
@@ -193,13 +193,12 @@ void tick_int_processing(void)
 
   queue_remove_entry(&(timer_task.task_queue));
 
-  timer_task.task_state       = TSK_STATE_RUNNABLE;
-  timer_task.pwait_queue      = NULL;
+  timer_task.task_state = TSK_STATE_RUNNABLE;
+  timer_task.pwait_queue = NULL;
 
-  queue_add_tail(&(tn_ready_list[0]), &(timer_task.task_queue));
-  tn_ready_to_run_bmp |= 1;  // priority 0;
+  knlThreadSetReady(&timer_task);
 
-  run_task.next = &timer_task;
+  knlThreadSetNext(&timer_task);
   switch_context_request();
 }
 
@@ -333,7 +332,7 @@ void tn_timer(void)
 
   jiffies += os_period;
   if (tn_system_state == TN_ST_STATE_RUNNING) {
-    run_task.curr->time += os_period;
+    knlThreadGetCurrent()->time += os_period;
     tick_int_processing();
   }
 
@@ -385,12 +384,10 @@ void timer_delete(TMEB *event)
 *-----------------------------------------------------------------------------*/
 int tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
-#if TN_CHECK_PARAM
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id == TN_ID_ALARM || handler == NULL)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -411,12 +408,10 @@ int tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
 *-----------------------------------------------------------------------------*/
 int tn_alarm_delete(TN_ALARM *alarm)
 {
-#if TN_CHECK_PARAM
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -439,12 +434,10 @@ int tn_alarm_delete(TN_ALARM *alarm)
 *-----------------------------------------------------------------------------*/
 int tn_alarm_start(TN_ALARM *alarm, TIME_t time)
 {
-#if TN_CHECK_PARAM
   if (alarm == NULL || time == 0)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -466,12 +459,10 @@ int tn_alarm_start(TN_ALARM *alarm, TIME_t time)
 *-----------------------------------------------------------------------------*/
 int tn_alarm_stop(TN_ALARM *alarm)
 {
-#if TN_CHECK_PARAM
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -496,12 +487,10 @@ int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
 {
   TIME_t  tm;
 
-#if TN_CHECK_PARAM
   if (cyc == NULL || handler == NULL || cyctime == 0)
     return TERR_WRONG_PARAM;
   if (cyc->id == TN_ID_CYCLIC)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -534,12 +523,10 @@ int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
 *-----------------------------------------------------------------------------*/
 int tn_cyclic_delete(TN_CYCLIC *cyc)
 {
-#if TN_CHECK_PARAM
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -564,12 +551,10 @@ int tn_cyclic_start(TN_CYCLIC *cyc)
 {
   TIME_t  tm;
 
-#if TN_CHECK_PARAM
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -602,12 +587,10 @@ int tn_cyclic_start(TN_CYCLIC *cyc)
 *-----------------------------------------------------------------------------*/
 int tn_cyclic_stop(TN_CYCLIC *cyc)
 {
-#if TN_CHECK_PARAM
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 

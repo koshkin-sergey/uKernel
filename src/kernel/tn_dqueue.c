@@ -40,8 +40,8 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -162,12 +162,10 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -177,7 +175,7 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
     que = queue_remove_head(&(dque->wait_receive_list));
     task = get_task_by_tsk_queue(que);
     *task->winfo.rdque.data_elem = data_ptr;
-    task_wait_complete(task);
+    knlThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -188,11 +186,11 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
+        task = knlThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
         task->winfo.sdque.send_to_first = send_to_first;
-        task_to_wait_action(task, &(dque->wait_send_list),
+        knlThreadToWaitAction(task, &(dque->wait_send_list),
                             TSK_WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
@@ -221,12 +219,10 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
  *----------------------------------------------------------------------------*/
 int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -260,17 +256,15 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
  *----------------------------------------------------------------------------*/
 int tn_queue_delete(TN_DQUE *dque)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&dque->wait_send_list);
-  task_wait_delete(&dque->wait_receive_list);
+  knlThreadWaitDelete(&dque->wait_send_list);
+  knlThreadWaitDelete(&dque->wait_receive_list);
 
   dque->id_dque = 0; // Data queue not exists now
 
@@ -334,12 +328,10 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (dque == NULL || data_ptr == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -350,7 +342,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
       task = get_task_by_tsk_queue(que);
       dque_fifo_write(dque, task->winfo.sdque.data_elem,
           task->winfo.sdque.send_to_first);
-      task_wait_complete(task);
+      knlThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
@@ -358,7 +350,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
       que = queue_remove_head(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
       *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
-      task_wait_complete(task);
+      knlThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -366,10 +358,10 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
+        task = knlThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.rdque.data_elem = data_ptr;
-        task_to_wait_action(task, &(dque->wait_receive_list),
+        knlThreadToWaitAction(task, &(dque->wait_receive_list),
             TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
       }
     }
@@ -391,12 +383,10 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
  *----------------------------------------------------------------------------*/
 int tn_queue_flush(TN_DQUE *dque)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -423,12 +413,10 @@ int tn_queue_empty(TN_DQUE *dque)
 {
   int rc;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -456,12 +444,10 @@ int tn_queue_full(TN_DQUE *dque)
 {
   int rc;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -488,12 +474,10 @@ int tn_queue_full(TN_DQUE *dque)
  *----------------------------------------------------------------------------*/
 int tn_queue_cnt(TN_DQUE *dque, int *cnt)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 

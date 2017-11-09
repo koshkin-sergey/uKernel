@@ -40,8 +40,8 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
+#include "utils.h"
 
 #ifdef  USE_EVENTS
 
@@ -103,7 +103,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
     if (fCond) {
       queue_remove_entry(&task->task_queue);
       *task->winfo.event.flags_pattern = evf->pattern;
-      return task_wait_complete(task);
+      return knlThreadWaitComplete(task);
     }
   }
 
@@ -169,16 +169,14 @@ int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
  *----------------------------------------------------------------------------*/
 int tn_event_delete(TN_EVENT *evf)
 {
-#if TN_CHECK_PARAM
   if (evf == NULL)
     return TERR_WRONG_PARAM;
   if (evf->id_event != TN_ID_EVENT)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&evf->wait_queue);
+  knlThreadWaitDelete(&evf->wait_queue);
 
   evf->id_event = 0; // Event not exists now
 
@@ -216,12 +214,10 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
   int rc;
   int fCond;
 
-#if TN_CHECK_PARAM
   if (evf == NULL || wait_pattern == 0 || p_flags_pattern == NULL)
     return TERR_WRONG_PARAM;
   if (evf->id_event != TN_ID_EVENT)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -249,12 +245,12 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
         rc = TERR_TIMEOUT;
       }
       else {
-        TN_TCB *task = run_task.curr;
+        TN_TCB *task = knlThreadGetCurrent();
         task->winfo.event.mode = wait_mode;
         task->winfo.event.pattern = wait_pattern;
         task->winfo.event.flags_pattern = p_flags_pattern;
         task->wercd = &rc;
-        task_to_wait_action(task, &evf->wait_queue, TSK_WAIT_REASON_EVENT,
+        knlThreadToWaitAction(task, &evf->wait_queue, TSK_WAIT_REASON_EVENT,
                             timeout);
       }
     }
@@ -278,12 +274,10 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
  *----------------------------------------------------------------------------*/
 int tn_event_set(TN_EVENT *evf, unsigned int pattern)
 {
-#if TN_CHECK_PARAM
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;
   if (evf->id_event != TN_ID_EVENT)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -312,12 +306,10 @@ int tn_event_set(TN_EVENT *evf, unsigned int pattern)
  *----------------------------------------------------------------------------*/
 int tn_event_clear(TN_EVENT *evf, unsigned int pattern)
 {
-#if TN_CHECK_PARAM
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;
   if (evf->id_event != TN_ID_EVENT)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
