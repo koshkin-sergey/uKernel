@@ -124,7 +124,7 @@ extern uint32_t max_syscall_interrupt_priority;
  ******************************************************************************/
 
 extern void start_kernel(void);
-extern uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param);
+uint32_t* stack_init(const TN_TCB *task);
 extern void switch_context_request(void);
 extern void switch_context_exit(void);
 

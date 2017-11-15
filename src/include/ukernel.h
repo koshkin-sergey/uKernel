@@ -53,36 +53,23 @@
 #define align_attr_start
   #define align_attr_end
 
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   _Pragma("inline=forced")
-#endif
-
 #elif defined (__GNUC__)    //-- GNU Compiler
 
   #define align_attr_start
   #define align_attr_end     __attribute__((aligned(0x8)))
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
-
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   static inline __attribute__ ((always_inline))
-#endif
+  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #elif defined ( __CC_ARM )  //-- RealView Compiler
 
   #define align_attr_start   __align(8)
   #define align_attr_end
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
-
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   __forceinline
-#endif
+  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #else
   #error "Unknown compiler"
   #define align_attr_start
   #define align_attr_end
-  #define INLINE_FORCED
-  #define tn_stack_t     unsigned int
+  #define tn_stack_t        uint32_t
 #endif
 
 /* - The system configuration (change it for your particular project) --------*/
@@ -152,20 +139,21 @@
 #define TN_POLLING                      0x0
 
 //-- Errors
-
-#define TERR_TRUE                      (1)
-#define TERR_NO_ERR                    (0)
-#define TERR_OVERFLOW                 (-1) //-- OOV
-#define TERR_WCONTEXT                 (-2) //-- Wrong context error
-#define TERR_WSTATE                   (-3) //-- Wrong state error
-#define TERR_TIMEOUT                  (-4) //-- Polling failure or timeout
-#define TERR_WRONG_PARAM              (-5)
-#define TERR_UNDERFLOW                (-6)
-#define TERR_OUT_OF_MEM               (-7)
-#define TERR_ILUSE                    (-8) //-- Illegal using
-#define TERR_NOEXS                    (-9) //-- Non-valid or Non-existent object
-#define TERR_DLT                     (-10) //-- Waiting object deleted
-#define TERR_ISR                     (-11)
+typedef enum {
+  TERR_TRUE         =  1,
+  TERR_NO_ERR       =  0,
+  TERR_OVERFLOW     = -1, //-- OOV
+  TERR_WCONTEXT     = -2, //-- Wrong context error
+  TERR_WSTATE       = -3, //-- Wrong state error
+  TERR_TIMEOUT      = -4, //-- Polling failure or timeout
+  TERR_WRONG_PARAM  = -5,
+  TERR_UNDERFLOW    = -6,
+  TERR_OUT_OF_MEM   = -7,
+  TERR_ILUSE        = -8, //-- Illegal using
+  TERR_NOEXS        = -9, //-- Non-valid or Non-existent object
+  TERR_DLT          = -10, //-- Waiting object deleted
+  TERR_ISR          = -11,
+} osError_t;
 
 #define NO_TIME_SLICE                  (0)
 #define MAX_TIME_SLICE            (0xFFFE)
@@ -236,7 +224,7 @@ typedef union {
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct _TN_TCB {
-  unsigned int *task_stk;        //-- Pointer to task's top of stack
+  uint32_t *task_stk;        //-- Pointer to task's top of stack
   CDLL_QUEUE task_queue;  //-- Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;  //-- Ptr to object's(semaphor,event,etc.) wait list,
                             // that task has been included for waiting (ver 2.x)
@@ -245,10 +233,10 @@ typedef struct _TN_TCB {
   CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
 #endif
   TMEB wtmeb;
-  unsigned int *stk_start;       //-- Base address of task's stack space
-  int stk_size;         //-- Task's stack size (in sizeof(void*),not bytes)
-  void *task_func_addr;  //-- filled on creation  (ver 2.x)
-  void *task_func_param; //-- filled on creation  (ver 2.x)
+  uint32_t *stk_start;       //-- Base address of task's stack space
+  uint32_t stk_size;         //-- Task's stack size (in sizeof(void*),not bytes)
+  const void *func_addr;  //-- filled on creation  (ver 2.x)
+  const void *func_param; //-- filled on creation  (ver 2.x)
   int base_priority;    //-- Task base priority  (ver 2.x)
   int priority;         //-- Task current priority
   int id_task;         //-- ID for verification(is it a task or another object?)
@@ -258,7 +246,7 @@ typedef struct _TN_TCB {
   int *wercd;           //-- Waiting return code(reason why waiting  finished)
   WINFO winfo;          // Wait information
   int tslice_count;     //-- Time slice counter
-  unsigned long time;             //-- Time work task
+  TIME_t time;             //-- Time work task
 // Other implementation specific fields may be added below
 } TN_TCB;
 
@@ -432,14 +420,8 @@ int tn_cyclic_start(TN_CYCLIC *cyc);
 int tn_cyclic_stop(TN_CYCLIC *cyc);
 
 /* - tn_tasks.c --------------------------------------------------------------*/
-int tn_task_create(TN_TCB *task,                   //-- task TCB
-  void (*task_func)(void *param), //-- task function
-  int priority,                   //-- task priority
-  unsigned int *task_stack_start, //-- task stack first addr in memory (bottom)
-  int task_stack_size,         //-- task stack size (in sizeof(void*),not bytes)
-  void *param,                    //-- task function parameter
-  int option                      //-- Creation option
-  );
+osError_t os_task_create(TN_TCB *task, void (*func)(void *), int32_t priority,
+  const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
 int tn_task_suspend(TN_TCB *task);
 int tn_task_resume(TN_TCB *task);
 int32_t tn_task_sleep(TIME_t timeout);

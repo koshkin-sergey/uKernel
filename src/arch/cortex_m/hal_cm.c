@@ -206,25 +206,24 @@ int32_t ffs_asm(uint32_t val)
 #endif
 
 /**
- * @fn      uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param)
+ * @fn    uint32_t* stack_init(const TN_TCB *task)
  * @brief
- * @param task_func
- * @param stack_start
- * @param param
+ * @param[in] task
  * @return
  */
-uint32_t* stack_init(void *task_func, uint32_t *stack_start, void *param)
+uint32_t* stack_init(const TN_TCB *task)
 {
-  uint32_t *stk = ++stack_start;                //-- Load stack pointer
+  uint32_t *stk = task->stk_start;              //-- Load stack pointer
+  stk++;
 
   *(--stk) = 0x01000000L;                       //-- xPSR
-  *(--stk) = (uint32_t)task_func;               //-- Entry Point (1 for THUMB mode)
-  *(--stk) = (uint32_t)knlThreadExit;               //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
+  *(--stk) = (uint32_t)knlThreadExit;           //-- R14 (LR)    (1 for THUMB mode)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2
   *(--stk) = 0x01010101L;                       //-- R1
-  *(--stk) = (uint32_t)param;                   //-- R0 - task's function argument
+  *(--stk) = (uint32_t)task->func_param;        //-- R0 - task's function argument
   *(--stk) = 0x11111111L;                       //-- R11
   *(--stk) = 0x10101010L;                       //-- R10
   *(--stk) = 0x09090909L;                       //-- R9

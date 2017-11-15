@@ -98,7 +98,7 @@ static void create_idle_task(void)
 {
   unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
 
-  tn_task_create(
+  os_task_create(
     &idle_task,                               // task TCB
     tn_idle_task_func,                        // task function
     NUM_PRIORITY-1,                           // task priority

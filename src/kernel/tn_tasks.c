@@ -116,7 +116,7 @@ void task_to_runnable(TN_TCB *task)
 {
   if (task->task_state == TSK_STATE_DORMANT) {
     //--- Init task stack
-    task->task_stk = stack_init(task->task_func_addr, task->stk_start, task->task_func_param);
+    task->task_stk = stack_init(task);
   }
 
   task->task_state = TSK_STATE_RUNNABLE;
@@ -423,18 +423,27 @@ void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
     timer_insert(&task->wtmeb, timeout, (CBACK)task_wait_release_handler, task);
 }
 
-int tn_task_create(TN_TCB * task,                 //-- task TCB
-  void (*task_func)(void *param),  //-- task function
-  int priority,                    //-- task priority
-  unsigned int * task_stack_start, //-- task stack first addr in memory (bottom)
-  int task_stack_size,         //-- task stack size (in sizeof(void*),not bytes)
-  void * param,                    //-- task function parameter
-  int option)                      //-- Creation option
+/**
+ * @fn
+ * @brief
+ * @param[out]  task          Task TCB
+ * @param[in]   func          Task function
+ * @param[in]   priority      Task priority
+ * @param[in]   stack_start   Task stack first addr in memory (bottom)
+ * @param[in]   stack_size    Task stack size (in sizeof(void*),not bytes)
+ * @param[in]   param         Task function parameter
+ * @param[in]   option        Creation option
+ * @return
+ */
+osError_t os_task_create(TN_TCB *task,
+                         void (*func)(void *),
+                         int32_t priority,
+                         const uint32_t *stack_start,
+                         int32_t stack_size,
+                         const void *param,
+                         int32_t option)
 {
-  int rc;
-
-  unsigned int * ptr_stack;
-  int i;
+  osError_t rc;
 
   //-- Light weight checking of system tasks recreation
 
@@ -443,8 +452,8 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
     return TERR_WRONG_PARAM;
 
   if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
-    || (task_stack_size < TN_MIN_STACK_SIZE) || (task_func == NULL) || (task == NULL)
-    || (task_stack_start == NULL) || (task->id_task != 0) )  //-- recreation
+    || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
+    || (stack_start == NULL) || (task->id_task != 0) )  //-- recreation
     return TERR_WRONG_PARAM;
 
   rc = TERR_NO_ERR;
@@ -453,19 +462,20 @@ int tn_task_create(TN_TCB * task,                 //-- task TCB
 
   //--- Init task TCB
 
-  task->task_func_addr = (void*)task_func;
-  task->task_func_param = param;
-  task->stk_start = (unsigned int*)task_stack_start; //-- Base address of task stack space
-  task->stk_size = task_stack_size;              //-- Task stack size (in bytes)
-  task->base_priority = priority;                        //-- Task base priority
+  task->func_addr = (void *)func;
+  task->func_param = param;
+  task->stk_start = (uint32_t *)stack_start;
+  task->stk_size = stack_size;
+  task->base_priority = priority;
   task->id_task = TN_ID_TASK;
   task->time = 0;
   task->wercd = NULL;
 
   //-- Fill all task stack space by TN_FILL_STACK_VAL - only inside create_task
-
-  for (ptr_stack = task->stk_start, i = 0; i < task->stk_size; i++)
-    *ptr_stack-- = TN_FILL_STACK_VAL;
+  uint32_t *ptr = task->stk_start;
+  for (uint32_t i = 0; i < task->stk_size; i++) {
+    *ptr-- = TN_FILL_STACK_VAL;
+  }
 
   task_set_dormant_state(task);
 

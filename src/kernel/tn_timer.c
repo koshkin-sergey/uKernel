@@ -307,7 +307,7 @@ void create_timer_task(void *par)
 {
   unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
 
-  tn_task_create(
+  os_task_create(
     &timer_task,                              // task TCB
     timer_task_func,                          // task function
     0,                                        // task priority

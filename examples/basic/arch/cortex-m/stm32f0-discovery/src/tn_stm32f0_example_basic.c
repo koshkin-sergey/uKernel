@@ -110,7 +110,7 @@ static void app_init(void)
 
   GPIOC->MODER |= (GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
 
-  tn_task_create(
+  os_task_create(
     &task_A,                   // TCB задачи
     task_A_func,               // Функция задачи
     TASK_A_PRIORITY,           // Приоритет задачи
@@ -120,7 +120,7 @@ static void app_init(void)
     TN_TASK_START_ON_CREATION  // Параметр создания задачи
   );
 
-  tn_task_create(
+  os_task_create(
     &task_B,                   // TCB задачи
     task_B_func,               // Функция задачи
     TASK_B_PRIORITY,           // Приоритет задачи

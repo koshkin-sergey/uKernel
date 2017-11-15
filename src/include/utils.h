@@ -36,8 +36,7 @@
  *  includes
  ******************************************************************************/
 
-#include <stddef.h>
-#include <ukernel.h>
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -67,7 +66,8 @@ extern "C" {
  * Параметры: que - Указатель на список
  * Результат: Нет
  *-----------------------------------------------------------------------------*/
-INLINE_FORCED void queue_reset(CDLL_QUEUE *que)
+__STATIC_FORCEINLINE
+void queue_reset(CDLL_QUEUE *que)
 {
   que->prev = que->next = que;
 }
@@ -78,7 +78,8 @@ INLINE_FORCED void queue_reset(CDLL_QUEUE *que)
  * Параметры: que - Указатель на очередь
  * Результат: Возвращает true если очередь пуста, в противном случае false
  *-----------------------------------------------------------------------------*/
-INLINE_FORCED bool is_queue_empty(CDLL_QUEUE *que)
+__STATIC_FORCEINLINE
+bool is_queue_empty(CDLL_QUEUE *que)
 {
   return ((que->next == que) ? true : false);
 }
@@ -89,7 +90,8 @@ INLINE_FORCED bool is_queue_empty(CDLL_QUEUE *que)
  * Параметры:
  * Результат:
  *-----------------------------------------------------------------------------*/
-INLINE_FORCED void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+__STATIC_FORCEINLINE
+void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
   //--  Insert an entry at the head of the queue.
 
@@ -105,7 +107,8 @@ INLINE_FORCED void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
  * Параметры:
  * Результат:
  *-----------------------------------------------------------------------------*/
-INLINE_FORCED void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+__STATIC_FORCEINLINE
+void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
   //-- Insert an entry at the tail of the queue.
 
@@ -121,7 +124,8 @@ INLINE_FORCED void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-INLINE_FORCED CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
+__STATIC_FORCEINLINE
+CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
 {
   //-- Remove and return an entry at the head of the queue.
 
@@ -142,7 +146,8 @@ INLINE_FORCED CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-INLINE_FORCED CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
+__STATIC_FORCEINLINE
+CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
 {
   //-- Remove and return an entry at the tail of the queue.
 
@@ -163,7 +168,8 @@ INLINE_FORCED CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-INLINE_FORCED void queue_remove_entry(CDLL_QUEUE *entry)
+__STATIC_FORCEINLINE
+void queue_remove_entry(CDLL_QUEUE *entry)
 {
   //--  Remove an entry from the queue.
   if (!is_queue_empty(entry)) {
