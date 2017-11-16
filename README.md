@@ -1,5 +1,5 @@
 # uKernel
-uKernel is a compact and very fast real-time kernel for the embedded 32 microprocessors. It performs a preemptive priority-based scheduling and a round-robin scheduling for the tasks with identical priority.
+uKernel is a compact and very fast real-time kernel for the embedded 32 bits microprocessors. It performs a preemptive priority-based scheduling and a round-robin scheduling for the tasks with identical priority.
 
 uKernel was born as a thorough review and re-implementation of TNKernel v2.7.
 
