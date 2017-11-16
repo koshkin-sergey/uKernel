@@ -50,7 +50,7 @@ static TN_TCB task_B;
 tn_stack_t task_A_stack[TASK_A_STK_SIZE];
 tn_stack_t task_B_stack[TASK_B_STK_SIZE];
 
-static bool done_a;
+static volatile bool done_a;
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -72,7 +72,7 @@ static void task_A_func(void *param)
 
   while (done_a != true) {
     GPIOC->ODR ^= (1UL << 8);
-    tn_task_sleep(100);
+    osTaskSleep(100);
   }
 
   GPIOC->ODR &= ~(1UL << 8);
@@ -91,9 +91,9 @@ static void task_B_func(void *param)
     if ((GPIOC->ODR & (1UL << 9)) != 0)
       done_a = true;
     else
-      tn_task_activate(&task_A);
+      osTaskActivate(&task_A);
 
-    tn_task_sleep(2000);
+    osTaskSleep(2000);
   }
 }
 
@@ -110,7 +110,7 @@ static void app_init(void)
 
   GPIOC->MODER |= (GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
 
-  os_task_create(
+  osTaskCreate(
     &task_A,                   // TCB задачи
     task_A_func,               // Функция задачи
     TASK_A_PRIORITY,           // Приоритет задачи
@@ -120,7 +120,7 @@ static void app_init(void)
     TN_TASK_START_ON_CREATION  // Параметр создания задачи
   );
 
-  os_task_create(
+  osTaskCreate(
     &task_B,                   // TCB задачи
     task_B_func,               // Функция задачи
     TASK_B_PRIORITY,           // Приоритет задачи

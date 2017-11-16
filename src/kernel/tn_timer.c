@@ -305,17 +305,17 @@ static void cyclic_handler(TN_CYCLIC *cyc)
 *-----------------------------------------------------------------------------*/
 void create_timer_task(void *par)
 {
-  unsigned int stack_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
+  task_create_attr_t attr;
 
-  os_task_create(
-    &timer_task,                              // task TCB
-    timer_task_func,                          // task function
-    0,                                        // task priority
-    &(tn_timer_task_stack[stack_size-1]),     // task stack first addr in memory
-    stack_size,                               // task stack size (in int,not bytes)
-    par,                                      // task function parameter
-    TN_TASK_TIMER | TN_TASK_START_ON_CREATION // Creation option
-  );
+  attr.func_addr = (void *)timer_task_func;
+  attr.func_param = par;
+  attr.stk_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
+  attr.stk_start = (uint32_t *)&tn_timer_task_stack[attr.stk_size-1];
+  attr.priority = 0;
+  attr.option = (TN_TASK_TIMER | TN_TASK_START_ON_CREATION);
+
+  TaskCreate(&timer_task, &attr);
+
   queue_reset(&timer_queue);
 }
 

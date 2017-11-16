@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -72,7 +91,15 @@ extern int do_unlock_mutex(TN_MUTEX *mutex);
  ******************************************************************************/
 
 __svc_indirect(0)
-int32_t svc_task_sleep(int32_t (*)(TIME_t), TIME_t);
+void svcTaskCreate(void (*)(TN_TCB*, const task_create_attr_t*), TN_TCB*, const task_create_attr_t*);
+__svc_indirect(0)
+osError_t svcTaskDelete(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
+osError_t svcTaskActivate(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
+osError_t svcTaskTerminate(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
+osError_t svcTaskSleep(osError_t (*)(TIME_t), TIME_t);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -112,7 +139,7 @@ void ThreadDispatch(void)
  * @return
  */
 static
-void task_to_runnable(TN_TCB *task)
+void TaskToRunnable(TN_TCB *task)
 {
   if (task->task_state == TSK_STATE_DORMANT) {
     //--- Init task stack
@@ -139,7 +166,7 @@ void task_to_runnable(TN_TCB *task)
  * @return
  */
 static
-void task_to_non_runnable(TN_TCB *task)
+void TaskToNonRunnable(TN_TCB *task)
 {
   int priority;
   CDLL_QUEUE *que;
@@ -195,7 +222,7 @@ bool task_wait_release(TN_TCB *task)
   task->pwait_queue = NULL;
 
   if (!(task->task_state & TSK_STATE_SUSPEND)) {
-    task_to_runnable(task);
+    TaskToRunnable(task);
     rc = true;
   }
   else
@@ -269,7 +296,7 @@ void task_wait_release_handler(TN_TCB *task)
 }
 
 static
-int32_t task_sleep(TIME_t timeout)
+osError_t TaskSleep(TIME_t timeout)
 {
   TN_TCB *task = knlThreadGetCurrent();
 
@@ -407,7 +434,7 @@ void knlThreadWaitDelete(CDLL_QUEUE *wait_que)
 void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
                          TIME_t timeout)
 {
-  task_to_non_runnable(task);
+  TaskToNonRunnable(task);
 
   task->task_state = TSK_STATE_WAIT;
   task->task_wait_reason = wait_reason;
@@ -424,49 +451,18 @@ void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
 }
 
 /**
- * @fn
- * @brief
- * @param[out]  task          Task TCB
- * @param[in]   func          Task function
- * @param[in]   priority      Task priority
- * @param[in]   stack_start   Task stack first addr in memory (bottom)
- * @param[in]   stack_size    Task stack size (in sizeof(void*),not bytes)
- * @param[in]   param         Task function parameter
- * @param[in]   option        Creation option
- * @return
+ * @fn          void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
+ * @param[out]  task  Pointer to the task TCB to be created
+ * @param[in]   attr  Pointer to the structure with the attributes of the task to be created
  */
-osError_t os_task_create(TN_TCB *task,
-                         void (*func)(void *),
-                         int32_t priority,
-                         const uint32_t *stack_start,
-                         int32_t stack_size,
-                         const void *param,
-                         int32_t option)
+void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
 {
-  osError_t rc;
-
-  //-- Light weight checking of system tasks recreation
-
-  if ( ((priority == 0) && ((option & TN_TASK_TIMER) == 0))
-    || ((priority == (NUM_PRIORITY-1)) && ((option & TN_TASK_IDLE) == 0)) )
-    return TERR_WRONG_PARAM;
-
-  if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
-    || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
-    || (stack_start == NULL) || (task->id_task != 0) )  //-- recreation
-    return TERR_WRONG_PARAM;
-
-  rc = TERR_NO_ERR;
-
-  BEGIN_DISABLE_INTERRUPT
-
   //--- Init task TCB
-
-  task->func_addr = (void *)func;
-  task->func_param = param;
-  task->stk_start = (uint32_t *)stack_start;
-  task->stk_size = stack_size;
-  task->base_priority = priority;
+  task->func_addr = attr->func_addr;
+  task->func_param = attr->func_param;
+  task->stk_start = attr->stk_start;
+  task->stk_size = attr->stk_size;
+  task->base_priority = attr->priority;
   task->id_task = TN_ID_TASK;
   task->time = 0;
   task->wercd = NULL;
@@ -480,45 +476,205 @@ osError_t os_task_create(TN_TCB *task,
   task_set_dormant_state(task);
 
   //-- Add task to created task queue
-
   queue_add_tail(&tn_create_queue, &(task->create_queue));
   tn_created_tasks_qty++;
 
-  if ((option & TN_TASK_START_ON_CREATION) != 0)
-    task_to_runnable(task);
-
-  END_DISABLE_INTERRUPT
-
-  return rc;
+  if ((attr->option & TN_TASK_START_ON_CREATION) != 0)
+    TaskToRunnable(task);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_delete
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_delete(TN_TCB *task)
+/**
+ * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @brief       Creates a task.
+ * @param[out]  task          Pointer to the task TCB to be created
+ * @param[in]   func          Task body function
+ * @param[in]   priority      Task priority. User tasks may have priorities 1…30
+ * @param[in]   stack_start   Task's stack bottom address
+ * @param[in]   stack_size    Task's stack size – number of task stack elements (not bytes)
+ * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
+ * @param[in]   option        Creation option. Option values:
+ *                              0                           After creation task has a DORMANT state
+ *                              TN_TASK_START_ON_CREATION   After creation task is switched to the runnable state (READY/RUNNING)
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskCreate(TN_TCB *task,
+                       void (*func)(void *),
+                       int32_t priority,
+                       const uint32_t *stack_start,
+                       int32_t stack_size,
+                       const void *param,
+                       int32_t option)
 {
-  int rc = TERR_NO_ERR;
+  //-- Light weight checking of system tasks recreation
 
-  if (task == NULL)
+  if ( ((priority == 0) && ((option & TN_TASK_TIMER) == 0))
+    || ((priority == (NUM_PRIORITY-1)) && ((option & TN_TASK_IDLE) == 0)) )
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
-    return TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
+    || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
+    || (stack_start == NULL) || (task->id_task != 0) )  //-- recreation
+    return TERR_WRONG_PARAM;
 
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  task_create_attr_t task_create_attr;
+
+  task_create_attr.func_addr = (void *)func;
+  task_create_attr.func_param = param;
+  task_create_attr.stk_start = (uint32_t *)stack_start;
+  task_create_attr.stk_size = stack_size;
+  task_create_attr.priority = priority;
+  task_create_attr.option = option;
+
+  svcTaskCreate(TaskCreate, task, &task_create_attr);
+
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t TaskDelete(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WCONTEXT     Unacceptable system's state for this request
+ */
+osError_t TaskDelete(TN_TCB *task)
+{
   if (task->task_state != TSK_STATE_DORMANT)
-    rc = TERR_WCONTEXT;  //-- Cannot delete not-terminated task
+    return TERR_WCONTEXT;  //-- Cannot delete not-terminated task
   else {
     queue_remove_entry(&(task->create_queue));
     tn_created_tasks_qty--;
     task->id_task = 0;
   }
 
-  END_DISABLE_INTERRUPT
-  return rc;
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osTaskDelete(TN_TCB *task)
+ * @brief       Deletes the task specified by the task.
+ * @param[out]  task  Pointer to the task TCB to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system's state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskDelete(TN_TCB *task)
+{
+  if (task == NULL)
+    return TERR_WRONG_PARAM;
+  if (task->id_task != TN_ID_TASK)
+    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskDelete(TaskDelete, task);
+}
+
+/**
+ * @fn          osError_t TaskActivate(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be activated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
+ */
+osError_t TaskActivate(TN_TCB *task)
+{
+  if (task->task_state == TSK_STATE_DORMANT)
+    TaskToRunnable(task);
+  else
+    return TERR_OVERFLOW;
+
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osTaskActivate(TN_TCB *task)
+ * @brief       Activates a task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be activated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskActivate(TN_TCB *task)
+{
+  if (task == NULL)
+    return TERR_WRONG_PARAM;
+  if (task->id_task != TN_ID_TASK)
+    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskActivate(TaskActivate, task);
+}
+
+/**
+ * @fn          osError_t TaskTerminate(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be terminated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WCONTEXT     Unacceptable system state for this request
+ */
+osError_t TaskTerminate(TN_TCB *task)
+{
+#ifdef USE_MUTEXES
+  CDLL_QUEUE *que;
+  TN_MUTEX *mutex;
+#endif
+
+  if (task->task_state == TSK_STATE_DORMANT || knlThreadGetCurrent() == task)
+    return TERR_WCONTEXT; //-- Cannot terminate running task
+  else {
+    if (task->task_state == TSK_STATE_RUNNABLE) {
+      TaskToNonRunnable(task);
+    }
+    else if (task->task_state & TSK_STATE_WAIT) {
+      //-- Free all queues, involved in the 'waiting'
+      queue_remove_entry(&(task->task_queue));
+      //-----------------------------------------
+      timer_delete(&task->wtmeb);
+    }
+
+    //-- Unlock all mutexes, locked by the task
+#ifdef USE_MUTEXES
+    while (!is_queue_empty(&(task->mutex_queue))) {
+      que = queue_remove_head(&(task->mutex_queue));
+      mutex = get_mutex_by_mutex_queque(que);
+      do_unlock_mutex(mutex);
+    }
+#endif
+
+    task_set_dormant_state(task);
+  }
+
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osTaskTerminate(TN_TCB *task)
+ * @brief       Terminates the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be terminated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskTerminate(TN_TCB *task)
+{
+  if (task == NULL)
+    return TERR_WRONG_PARAM;
+  if (task->id_task != TN_ID_TASK)
+    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskTerminate(TaskTerminate, task);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -548,7 +704,7 @@ int tn_task_suspend(TN_TCB *task)
     else {
       if (task->task_state == TSK_STATE_RUNNABLE) {
         task->task_state = TSK_STATE_SUSPEND;
-        task_to_non_runnable(task);
+        TaskToNonRunnable(task);
       }
       else {
         task->task_state |= TSK_STATE_SUSPEND;
@@ -581,7 +737,7 @@ int tn_task_resume(TN_TCB *task)
     rc = TERR_WSTATE;
   else {
     if (!(task->task_state & TSK_STATE_WAIT)) //- The task is not in the WAIT-SUSPEND state
-      task_to_runnable(task);
+      TaskToRunnable(task);
     else
       //-- Just remove TSK_STATE_SUSPEND from the task state
       task->task_state &= ~TSK_STATE_SUSPEND;
@@ -591,22 +747,25 @@ int tn_task_resume(TN_TCB *task)
   return rc;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_sleep
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int32_t tn_task_sleep(TIME_t timeout)
+/**
+ * @fn        osError_t osTaskSleep(TIME_t timeout)
+ * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
+ * @param[in] timeout   Timeout value must be greater than 0.
+ *                      A value of TN_WAIT_INFINITE causes an infinite delay.
+ * @return    TERR_NO_ERR       Normal completion
+ *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *            TERR_NOEXS        Object is not a task or non-existent
+ *            TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSleep(TIME_t timeout)
 {
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
-    return TERR_ISR;
-  }
-
   if (timeout == 0)
     return TERR_WRONG_PARAM;
 
-  return svc_task_sleep(task_sleep, timeout);
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskSleep(TaskSleep, timeout);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -659,33 +818,6 @@ int tn_task_wakeup(TN_TCB *task)
     knlThreadWaitComplete(task);
   else
     rc = TERR_WSTATE;
-
-  END_CRITICAL_SECTION
-
-  return rc;
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_activate
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_activate(TN_TCB *task)
-{
-  int rc = TERR_NO_ERR;
-
-  if (task == NULL)
-    return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
-  if (task->task_state == TSK_STATE_DORMANT)
-    task_to_runnable(task);
-  else
-    rc = TERR_OVERFLOW;
 
   END_CRITICAL_SECTION
 
@@ -750,7 +882,7 @@ void tn_task_exit(int attr)
   }
 #endif
 
-  task_to_non_runnable(task);
+  TaskToNonRunnable(task);
 
   task_set_dormant_state(task);
 
@@ -761,58 +893,6 @@ void tn_task_exit(int attr)
   }
 
   switch_context_exit(); // interrupts will be enabled inside switch_context_exit()
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_terminate
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_terminate(TN_TCB *task)
-{
-  int rc = TERR_NO_ERR;
-
-#ifdef USE_MUTEXES
-  CDLL_QUEUE * que;
-  TN_MUTEX * mutex;
-#endif
-
-  if (task == NULL)
-    return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
-    return TERR_NOEXS;
-
-  BEGIN_DISABLE_INTERRUPT
-
-  if (task->task_state == TSK_STATE_DORMANT || knlThreadGetCurrent() == task)
-    rc = TERR_WCONTEXT; //-- Cannot terminate running task
-  else {
-    if (task->task_state == TSK_STATE_RUNNABLE) {
-      task_to_non_runnable(task);
-    }
-    else if (task->task_state & TSK_STATE_WAIT) {
-      //-- Free all queues, involved in the 'waiting'
-      queue_remove_entry(&(task->task_queue));
-      //-----------------------------------------
-      timer_delete(&task->wtmeb);
-    }
-
-    //-- Unlock all mutexes, locked by the task
-#ifdef USE_MUTEXES
-    while (!is_queue_empty(&(task->mutex_queue))) {
-      que = queue_remove_head(&(task->mutex_queue));
-      mutex = get_mutex_by_mutex_queque(que);
-      do_unlock_mutex(mutex);
-    }
-#endif
-
-    task_set_dormant_state(task);
-  }
-
-  END_DISABLE_INTERRUPT
-
-  return rc;
 }
 
 /*-----------------------------------------------------------------------------*

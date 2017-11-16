@@ -420,38 +420,79 @@ int tn_cyclic_start(TN_CYCLIC *cyc);
 int tn_cyclic_stop(TN_CYCLIC *cyc);
 
 /* - tn_tasks.c --------------------------------------------------------------*/
-osError_t os_task_create(TN_TCB *task, void (*func)(void *), int32_t priority,
-  const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
+
+/**
+ * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @brief       Creates a task.
+ * @param[out]  task          Pointer to the task TCB to be created
+ * @param[in]   func          Task body function
+ * @param[in]   priority      Task priority. User tasks may have priorities 1…30
+ * @param[in]   stack_start   Task's stack bottom address
+ * @param[in]   stack_size    Task's stack size – number of task stack elements (not bytes)
+ * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
+ * @param[in]   option        Creation option. Option values:
+ *                              0                           After creation task has a DORMANT state
+ *                              TN_TASK_START_ON_CREATION   After creation task is switched to the runnable state (READY/RUNNING)
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
+
+/**
+ * @fn          osError_t osTaskDelete(TN_TCB *task)
+ * @brief       Deletes the task specified by the task.
+ * @param[out]  task  Pointer to the task TCB to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system's state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskDelete(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskActivate(TN_TCB *task)
+ * @brief       Activates a task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be activated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskActivate(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskTerminate(TN_TCB *task)
+ * @brief       Terminates the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be terminated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskTerminate(TN_TCB *task);
+
+/**
+ * @fn        osError_t osTaskSleep(TIME_t timeout)
+ * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
+ * @param[in] timeout   Timeout value must be greater than 0.
+ *                      A value of TN_WAIT_INFINITE causes an infinite delay.
+ * @return    TERR_NO_ERR       Normal completion
+ *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *            TERR_NOEXS        Object is not a task or non-existent
+ *            TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSleep(TIME_t timeout);
+
 int tn_task_suspend(TN_TCB *task);
 int tn_task_resume(TN_TCB *task);
-int32_t tn_task_sleep(TIME_t timeout);
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_time
- * Описание : Возвращает время работы задачи с момента ее создания
- * Параметры: task  - Указатель на дескриптор задачи
- * Результат: Возвращает беззнаковое 32 битное число
- *----------------------------------------------------------------------------*/
 unsigned long tn_task_time(TN_TCB *task);
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_wakeup
- * Описание : Пробуждает заданную задачу, если заданная задача усыпила себя
- *            вызовом tn_task_sleep
- * Параметры: task  - Указатель на дескриптор задачи.
- * Результат: Возвращает следующие значения:
- *              TERR_NO_ERR - если выполнена без ошибок
- *              TERR_WRONG_PARAM - если задан неверный параметр функции
- *              TERR_NOEXS - если задача, которую надо пробудить, не существует
- *              TERR_WSTATE - если задача не находится в состоянии SLEEP
- *----------------------------------------------------------------------------*/
-extern int tn_task_wakeup(TN_TCB *task);
-
-int tn_task_activate(TN_TCB *task);
+int tn_task_wakeup(TN_TCB *task);
 int tn_task_release_wait(TN_TCB *task);
 void tn_task_exit(int attr);
-int tn_task_terminate(TN_TCB *task);
-int tn_task_delete(TN_TCB *task);
 int tn_task_change_priority(TN_TCB *task, int new_priority);
 
 /* - tn_sem.c ----------------------------------------------------------------*/

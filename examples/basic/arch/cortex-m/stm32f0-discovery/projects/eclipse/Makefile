@@ -42,7 +42,7 @@ DEFINES := -D STM32F051
 
 DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
 
-CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O0 -g
+CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --c99 -O0 -g --split_sections
 ASFLAGS = $(CPU) $(DEPFLAGS) -g
 LDFLAGS = $(CPU) --scatter=stm32f051r8.scat --info=totals --strict
 

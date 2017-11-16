@@ -94,19 +94,19 @@ __attribute__((weak)) void tn_idle_task_func(void *par)
  *
  * Idle task priority (TN_NUM_PRIORITY-1) - lowest.
  */
-static void create_idle_task(void)
+static
+void create_idle_task(void)
 {
-  unsigned int stack_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
+  task_create_attr_t attr;
 
-  os_task_create(
-    &idle_task,                               // task TCB
-    tn_idle_task_func,                        // task function
-    NUM_PRIORITY-1,                           // task priority
-    &(tn_idle_task_stack[stack_size-1]),      // task stack first addr in memory
-    stack_size,                               // task stack size (in int,not bytes)
-    NULL,                                     // task function parameter
-    TN_TASK_IDLE | TN_TASK_START_ON_CREATION  // Creation option
-  );
+  attr.func_addr = (void *)tn_idle_task_func;
+  attr.func_param = NULL;
+  attr.stk_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
+  attr.stk_start = (uint32_t *)&tn_idle_task_stack[attr.stk_size-1];
+  attr.priority = NUM_PRIORITY-1;
+  attr.option = (TN_TASK_IDLE | TN_TASK_START_ON_CREATION);
+
+  TaskCreate(&idle_task, &attr);
 }
 
 /*******************************************************************************

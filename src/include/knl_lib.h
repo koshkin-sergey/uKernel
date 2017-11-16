@@ -49,6 +49,15 @@ typedef struct {
   CDLL_QUEUE ready_list[NUM_PRIORITY];    // all ready to run(RUNNABLE) tasks
 } knlInfo_t;
 
+typedef struct {
+  uint32_t *stk_start;
+  uint32_t stk_size;
+  const void *func_addr;
+  const void *func_param;
+  int priority;
+  int32_t option;
+} task_create_attr_t;
+
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
@@ -92,5 +101,7 @@ void knlThreadChangePriority(TN_TCB *task, int32_t new_priority);
 void knlThreadSetPriority(TN_TCB *task, int32_t priority);
 void knlThreadWaitDelete(CDLL_QUEUE *que);
 void knlThreadExit(void);
+
+void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
 
 #endif /* _KNL_LIB_H_ */
