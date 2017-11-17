@@ -379,11 +379,6 @@
           <GroupName>uKernel</GroupName>
           <Files>
             <File>
-              <FileName>tn.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn.c</FilePath>
-            </File>
-            <File>
               <FileName>tn_delay.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_delay.c</FilePath>
@@ -442,6 +437,11 @@
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
+            </File>
+            <File>
+              <FileName>system.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\system.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -841,11 +841,6 @@
           <GroupName>uKernel</GroupName>
           <Files>
             <File>
-              <FileName>tn.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn.c</FilePath>
-            </File>
-            <File>
               <FileName>tn_delay.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_delay.c</FilePath>
@@ -904,6 +899,11 @@
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
+            </File>
+            <File>
+              <FileName>system.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\system.c</FilePath>
             </File>
           </Files>
         </Group>

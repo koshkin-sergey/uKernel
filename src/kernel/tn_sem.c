@@ -112,7 +112,7 @@ int tn_sem_delete(TN_SEM *sem)
 
   BEGIN_CRITICAL_SECTION
 
-  knlThreadWaitDelete(&sem->wait_queue);
+  ThreadWaitDelete(&sem->wait_queue);
 
   sem->id_sem = 0; // Semaphore not exists now
 
@@ -144,7 +144,7 @@ int tn_sem_signal(TN_SEM *sem)
     //--- delete from the sem wait queue
     que = queue_remove_head(&(sem->wait_queue));
     task = get_task_by_tsk_queue(que);
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   }
   else {
     if (sem->count < sem->max_count) {
@@ -187,9 +187,9 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
       rc = TERR_TIMEOUT;
     }
     else {
-      task = knlThreadGetCurrent();
+      task = ThreadGetCurrent();
       task->wercd = &rc;
-      knlThreadToWaitAction(task, &(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
+      ThreadToWaitAction(task, &(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
     }
   }
 

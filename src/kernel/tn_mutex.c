@@ -112,7 +112,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 {
   CDLL_QUEUE *curr_que;
   TN_MUTEX *tmp_mutex;
-  TN_TCB *task = knlThreadGetCurrent();
+  TN_TCB *task = ThreadGetCurrent();
   int pr;
 
   //-- Delete curr mutex from task's locked mutexes queue
@@ -140,7 +140,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 
   //-- Restore original priority
   if (pr != task->priority)
-    knlThreadChangePriority(task, pr);
+    ThreadChangePriority(task, pr);
 
   //-- Check for the task(s) that want to lock the mutex
   if (is_queue_empty(&(mutex->wait_queue))) {
@@ -159,7 +159,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     && (task->priority > mutex->ceil_priority))
     task->priority = mutex->ceil_priority;
 
-  knlThreadWaitComplete(task);
+  ThreadWaitComplete(task);
   queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
 
   return true;
@@ -228,13 +228,13 @@ int tn_mutex_delete(TN_MUTEX *mutex)
 
   BEGIN_CRITICAL_SECTION
 
-  if (mutex->holder != NULL && mutex->holder != knlThreadGetCurrent()) {
+  if (mutex->holder != NULL && mutex->holder != ThreadGetCurrent()) {
     END_DISABLE_INTERRUPT
     return TERR_ILUSE;
   }
 
   //-- Remove all tasks(if any) from mutex's wait queue
-  knlThreadWaitDelete(&mutex->wait_queue);
+  ThreadWaitDelete(&mutex->wait_queue);
 
   if (mutex->holder != NULL) {  //-- If the mutex is locked
     do_unlock_mutex(mutex);
@@ -260,7 +260,7 @@ int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 
   BEGIN_CRITICAL_SECTION
 
-  task = knlThreadGetCurrent();
+  task = ThreadGetCurrent();
 
   if (task == mutex->holder) {
     if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE) {
@@ -292,7 +292,7 @@ int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
       //-- Ceiling protocol
       if (task->priority > mutex->ceil_priority)
-        knlThreadChangePriority(task, mutex->ceil_priority);
+        ThreadChangePriority(task, mutex->ceil_priority);
     }
     else { //-- the mutex is already locked
       if (timeout == TN_POLLING)
@@ -300,7 +300,7 @@ int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       else {
         task->wercd = &rc;
         //--- Task -> to the mutex wait queue
-        knlThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_C,
+        ThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_C,
                             timeout);
       }
     }
@@ -321,9 +321,9 @@ int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         //-- Base priority inheritance protocol
         //-- if run_task curr priority higher holder's curr priority
         if (task->priority < mutex->holder->priority)
-          knlThreadSetPriority(mutex->holder, task->priority);
+          ThreadSetPriority(mutex->holder, task->priority);
         task->wercd = &rc;
-        knlThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_I,
+        ThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_I,
                             timeout);
       }
     }
@@ -344,7 +344,7 @@ int tn_mutex_unlock(TN_MUTEX *mutex)
   BEGIN_CRITICAL_SECTION
 
   //-- Unlocking is enabled only for the owner and already locked mutex
-  if (knlThreadGetCurrent() != mutex->holder) {
+  if (ThreadGetCurrent() != mutex->holder) {
     END_DISABLE_INTERRUPT
     return TERR_ILUSE;
   }

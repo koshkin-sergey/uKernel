@@ -148,7 +148,7 @@ TASK_FUNC timer_task_func(void *par)
       }
     }
 
-    knlThreadToWaitAction(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
+    ThreadToWaitAction(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
 
     END_CRITICAL_SECTION
   }
@@ -167,7 +167,7 @@ void tick_int_processing(void)
   volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
   volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
   volatile int        priority;
-  TN_TCB *task = knlThreadGetCurrent();
+  TN_TCB *task = ThreadGetCurrent();
 
   //-------  Round -robin (if is used)  
   priority = task->priority;
@@ -196,10 +196,10 @@ void tick_int_processing(void)
   timer_task.task_state = TSK_STATE_RUNNABLE;
   timer_task.pwait_queue = NULL;
 
-  knlThreadSetReady(&timer_task);
+  ThreadSetReady(&timer_task);
 
   knlThreadSetNext(&timer_task);
-  switch_context_request();
+  SwitchContextRequest();
 }
 
 /*-----------------------------------------------------------------------------*
@@ -332,7 +332,7 @@ void tn_timer(void)
 
   jiffies += os_period;
   if (tn_system_state == TN_ST_STATE_RUNNING) {
-    knlThreadGetCurrent()->time += os_period;
+    ThreadGetCurrent()->time += os_period;
     tick_int_processing();
   }
 

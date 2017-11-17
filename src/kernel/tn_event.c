@@ -103,7 +103,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
     if (fCond) {
       queue_remove_entry(&task->task_queue);
       *task->winfo.event.flags_pattern = evf->pattern;
-      return knlThreadWaitComplete(task);
+      return ThreadWaitComplete(task);
     }
   }
 
@@ -176,7 +176,7 @@ int tn_event_delete(TN_EVENT *evf)
 
   BEGIN_CRITICAL_SECTION
 
-  knlThreadWaitDelete(&evf->wait_queue);
+  ThreadWaitDelete(&evf->wait_queue);
 
   evf->id_event = 0; // Event not exists now
 
@@ -245,12 +245,12 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
         rc = TERR_TIMEOUT;
       }
       else {
-        TN_TCB *task = knlThreadGetCurrent();
+        TN_TCB *task = ThreadGetCurrent();
         task->winfo.event.mode = wait_mode;
         task->winfo.event.pattern = wait_pattern;
         task->winfo.event.flags_pattern = p_flags_pattern;
         task->wercd = &rc;
-        knlThreadToWaitAction(task, &evf->wait_queue, TSK_WAIT_REASON_EVENT,
+        ThreadToWaitAction(task, &evf->wait_queue, TSK_WAIT_REASON_EVENT,
                             timeout);
       }
     }

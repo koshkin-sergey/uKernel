@@ -31,14 +31,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-/* Interrupt Control State Register Address */
-#define ICSR_ADDR                     (0xE000ED04)
-
-/* pendSV bit in the Interrupt Control State Register */
-#define PENDSVSET                     (0x10000000)
-
 /* PendSV priority is minimal (0xFF) */
-#define PENDSV_PRIORITY               (0x00FF0000)
+#define PENDSV_PRIORITY (0x00FF0000)
 
 #define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
 /* System Handler Priority Register 2 Address */
@@ -70,7 +64,8 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-void system_isr_init(void)
+static
+void SystemIsrInit(void)
 {
 #if !defined(__TARGET_ARCH_6S_M)
   uint32_t sh, prigroup;
@@ -89,51 +84,15 @@ void system_isr_init(void)
 }
 
 /**
- * @fn      void start_kernel(void)
+ * @fn      void StartKernel(void)
  * @brief
  */
-__asm
-void start_kernel(void)
+void StartKernel(void)
 {
-  EXPORT switch_context_exit
-
-  ldr    r0, =__cpp(system_isr_init)
-  blx    r0
-
-  ldr    r1, =__cpp(&knlInfo.run)
-  ldr    r2, [r1]
-  ldr    r0, [r2]                  ;-- in r0 - new task SP
-  adds   r0, #32
-  msr    PSP, r0
-
-switch_context_exit
-
-  ldr    r1,  =ICSR_ADDR           ;  Trigger PendSV exception
-  ldr    r0,  =PENDSVSET
-  str    r0,  [r1]
-
-  cpsie  I                         ;  Enable core interrupts
-
-; - Should never reach
-
-  b  .
-
-  ALIGN
-}
-
-/**
- * @fn      void switch_context_request(void)
- * @brief
- */
-__asm
-void switch_context_request(void)
-{
-  ldr    r1,  =ICSR_ADDR
-  ldr    r0,  =PENDSVSET
-  str    r0,  [r1]
-  bx     lr
-
-  ALIGN
+  SystemIsrInit();
+  __set_PSP((uint32_t)knlInfo.run.curr->task_stk + 32UL);
+  SwitchContextRequest();
+  __enable_irq();
 }
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
@@ -206,19 +165,19 @@ int32_t ffs_asm(uint32_t val)
 #endif
 
 /**
- * @fn    uint32_t* stack_init(const TN_TCB *task)
+ * @fn    uint32_t* StackInit(const TN_TCB *task)
  * @brief
  * @param[in] task
  * @return
  */
-uint32_t* stack_init(const TN_TCB *task)
+uint32_t* StackInit(const TN_TCB *task)
 {
   uint32_t *stk = task->stk_start;              //-- Load stack pointer
   stk++;
 
   *(--stk) = 0x01000000L;                       //-- xPSR
   *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
-  *(--stk) = (uint32_t)knlThreadExit;           //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)ThreadExit;              //-- R14 (LR)    (1 for THUMB mode)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2

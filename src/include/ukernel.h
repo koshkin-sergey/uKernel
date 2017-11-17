@@ -97,8 +97,6 @@
 #define TN_ID_CYCLIC            ((int)0xAB8F746B)
 #define TN_ID_MESSAGEBUF        ((int)0x9C9A6C89)
 
-#define  TN_EXIT_AND_DELETE_TASK          1
-
 //-- Task states
 #define TSK_STATE_RUNNABLE            0x01
 #define TSK_STATE_WAIT                0x04
@@ -154,6 +152,11 @@ typedef enum {
   TERR_DLT          = -10, //-- Waiting object deleted
   TERR_ISR          = -11,
 } osError_t;
+
+typedef enum {
+  TASK_EXIT,
+  TASK_EXIT_AND_DELETE,
+} task_exit_attr_t;
 
 #define NO_TIME_SLICE                  (0)
 #define MAX_TIME_SLICE            (0xFFFE)
@@ -476,6 +479,15 @@ osError_t osTaskActivate(TN_TCB *task);
 osError_t osTaskTerminate(TN_TCB *task);
 
 /**
+ * @fn        void osTaskExit(task_exit_attr_t attr)
+ * @brief     Terminates the currently running task
+ * @param[in] attr  Exit option. Option values:
+ *                    TASK_EXIT             Currently running task will be terminated.
+ *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ */
+void osTaskExit(task_exit_attr_t attr);
+
+/**
  * @fn        osError_t osTaskSleep(TIME_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
@@ -492,7 +504,6 @@ int tn_task_resume(TN_TCB *task);
 unsigned long tn_task_time(TN_TCB *task);
 int tn_task_wakeup(TN_TCB *task);
 int tn_task_release_wait(TN_TCB *task);
-void tn_task_exit(int attr);
 int tn_task_change_priority(TN_TCB *task, int new_priority);
 
 /* - tn_sem.c ----------------------------------------------------------------*/

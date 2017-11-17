@@ -1,6 +1,6 @@
-# This makefile accepts two params: TN_ARCH and TN_COMPILER. Both are mandatory.
+# This makefile accepts two params: ARCH and COMPILER. Both are mandatory.
 #
-#  TN_ARCH: the following values are valid:
+#  ARCH: the following values are valid:
 # 
 #     arm7
 #     cortex_m0
@@ -10,32 +10,32 @@
 #     cortex_m4
 #     cortex_m4f       // it's not implemented
 #
-#  TN_COMPILER: the following values are valid:
+#  COMPILER: the following values are valid:
 #
 #     armcc
 #     armclang         // it's not implemented
 #
 #  Example invocation:
 #
-#     $ make TN_ARCH=cortex_m3 TN_COMPILER=armcc
+#     $ make ARCH=cortex_m3 COMPILER=armcc
 #
 
 ERR_MSG_STD = See comments in the Makefile
 
 ifneq ($(MAKECMDGOALS),clean)
-  ifeq ($(TN_ARCH),)
-    $(error TN_ARCH is undefined. $(ERR_MSG_STD))
+  ifeq ($(ARCH),)
+    $(error ARCH is undefined. $(ERR_MSG_STD))
   endif
 
-  ifeq ($(TN_COMPILER),)
-     $(error TN_COMPILER is undefined. $(ERR_MSG_STD))
+  ifeq ($(COMPILER),)
+     $(error COMPILER is undefined. $(ERR_MSG_STD))
   endif
   
 endif
 
 # set the locations of the bin and lib output directories
 ifndef BIN_FOLDER
-BIN_FOLDER = ./bin/$(TN_ARCH)/$(TN_COMPILER)
+BIN_FOLDER = ./bin/$(ARCH)/$(COMPILER)
 endif
 
 ifndef SRC
@@ -43,7 +43,7 @@ SRC = ../../src
 endif
 
 ifndef OBJ_FOLDER
-OBJ_FOLDER = ./obj/$(TN_ARCH)/$(TN_COMPILER)
+OBJ_FOLDER = ./obj/$(ARCH)/$(COMPILER)
 endif
 
 TOOLS_FOLDER = ../../tools
@@ -54,21 +54,21 @@ RM = $(TOOLS_FOLDER)/rm
 # Cortex-M series
 #---------------------------------------------------------------------------
 
-ifeq ($(TN_ARCH), $(filter $(TN_ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cortex_m4 cortex_m4f))
+ifeq ($(ARCH), $(filter $(ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cortex_m4 cortex_m4f))
   
-  ifeq ($(TN_COMPILER), armcc)
+  ifeq ($(COMPILER), armcc)
   
     ARCH_DIR = $(SRC)/arch/cortex_m
     
-    ifeq ($(TN_ARCH), cortex_m0)
+    ifeq ($(ARCH), cortex_m0)
       CPU := --cpu=cortex-m0
     endif
 
-    ifeq ($(TN_ARCH), cortex_m3)
+    ifeq ($(ARCH), cortex_m3)
       CPU := --cpu=cortex-m3
     endif
 
-    ifeq ($(TN_ARCH), cortex_m4)
+    ifeq ($(ARCH), cortex_m4)
       CPU := --cpu=cortex-m4
     endif
 
@@ -89,9 +89,9 @@ endif
 # ARM7
 #---------------------------------------------------------------------------
 
-ifeq ($(TN_ARCH), arm7)
+ifeq ($(ARCH), arm7)
 
-  ifeq ($(TN_COMPILER), armcc)
+  ifeq ($(COMPILER), armcc)
     CPU := --cpu=arm7tdmi
     ARCH_DIR = $(SRC)/arch/arm
 
@@ -108,7 +108,7 @@ ifeq ($(TN_ARCH), arm7)
 
 endif
 
-BINARY = $(BIN_FOLDER)/tnkernel.lib
+BINARY = $(BIN_FOLDER)/ukernel.lib
 
 INC := -I $(SRC)/include
 

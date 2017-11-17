@@ -58,6 +58,11 @@
 
   #include "core_cm.h"
 
+  /* Interrupt Control State Register Address */
+  #define ICSR                    (*((volatile uint32_t *)0xE000ED04))
+  /* pendSV bit in the Interrupt Control State Register */
+  #define PENDSVSET               (0x10000000)
+
   #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
   #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
   #define IS_IRQ_MASKED()         (__get_PRIMASK() != 0U)
@@ -69,12 +74,23 @@
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
 
+  __STATIC_FORCEINLINE
+  void SwitchContextRequest(void)
+  {
+    ICSR = PENDSVSET;
+  }
+
 #endif
 
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
   #include "core_cm.h"
+
+  /* Interrupt Control State Register Address */
+  #define ICSR                    (*((volatile uint32_t *)0xE000ED04))
+  /* pendSV bit in the Interrupt Control State Register */
+  #define PENDSVSET               (0x10000000)
 
   #define USE_ASM_FFS
 
@@ -91,6 +107,12 @@
 
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
+
+  __STATIC_FORCEINLINE
+  void SwitchContextRequest(void)
+  {
+    ICSR = PENDSVSET;
+  }
 
 #endif
 
@@ -123,10 +145,8 @@ extern uint32_t max_syscall_interrupt_priority;
  *  exported function prototypes
  ******************************************************************************/
 
-extern void start_kernel(void);
-uint32_t* stack_init(const TN_TCB *task);
-extern void switch_context_request(void);
-extern void switch_context_exit(void);
+void StartKernel(void);
+uint32_t* StackInit(const TN_TCB *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 

@@ -99,7 +99,9 @@ osError_t svcTaskActivate(osError_t (*)(TN_TCB*), TN_TCB*);
 __svc_indirect(0)
 osError_t svcTaskTerminate(osError_t (*)(TN_TCB*), TN_TCB*);
 __svc_indirect(0)
-osError_t svcTaskSleep(osError_t (*)(TIME_t), TIME_t);
+void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
+__svc_indirect(0)
+void svcTaskSleep(void (*)(TIME_t), TIME_t);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -130,7 +132,7 @@ void ThreadDispatch(void)
 #endif
 
   knlThreadSetNext(get_task_by_tsk_queue(knlInfo.ready_list[priority].next));
-  switch_context_request();
+  SwitchContextRequest();
 }
 
 /**
@@ -143,20 +145,20 @@ void TaskToRunnable(TN_TCB *task)
 {
   if (task->task_state == TSK_STATE_DORMANT) {
     //--- Init task stack
-    task->task_stk = stack_init(task);
+    task->task_stk = StackInit(task);
   }
 
   task->task_state = TSK_STATE_RUNNABLE;
   task->pwait_queue = NULL;
 
   //-- Add the task to the end of 'ready queue' for the current priority
-  knlThreadSetReady(task);
+  ThreadSetReady(task);
 
   //-- less value - greater priority, so '<' operation is used here
 
   if (task->priority < knlThreadGetNext()->priority) {
     knlThreadSetNext(task);
-    switch_context_request();
+    SwitchContextRequest();
   }
 }
 
@@ -188,7 +190,7 @@ void TaskToNonRunnable(TN_TCB *task)
   else { //-- There are 'ready to run' task(s) for the curr priority
     if (knlThreadGetNext() == task) {
       knlThreadSetNext(get_task_by_tsk_queue(que->next));
-      switch_context_request();
+      SwitchContextRequest();
     }
   }
 }
@@ -244,7 +246,7 @@ bool task_wait_release(TN_TCB *task)
         curr_priority = find_max_blocked_priority(
           mutex, mt_holder_task->base_priority);
 
-        knlThreadSetPriority(mt_holder_task, curr_priority);
+        ThreadSetPriority(mt_holder_task, curr_priority);
         rc = true;
       }
     }
@@ -295,27 +297,16 @@ void task_wait_release_handler(TN_TCB *task)
     *task->wercd = TERR_TIMEOUT;
 }
 
-static
-osError_t TaskSleep(TIME_t timeout)
-{
-  TN_TCB *task = knlThreadGetCurrent();
-
-  task->wercd = NULL;
-  knlThreadToWaitAction(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
-
-  return TERR_NO_ERR;
-}
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
 /**
- * @fn    void knlThreadSetReady(TN_TCB *thread)
+ * @fn    void ThreadSetReady(TN_TCB *thread)
  * @brief Adds task to the end of ready queue for current priority
  * @param thread
  */
-void knlThreadSetReady(TN_TCB *thread)
+void ThreadSetReady(TN_TCB *thread)
 {
   knlInfo_t *info = &knlInfo;
   int32_t priority = thread->priority;
@@ -325,12 +316,12 @@ void knlThreadSetReady(TN_TCB *thread)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : knlThreadWaitComplete
+ * Название : ThreadWaitComplete
  * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
  * Параметры: task - Указатель на задачу
  * Результат: Возвращает true при успешном выполнении, иначе возвращает false
  *----------------------------------------------------------------------------*/
-bool knlThreadWaitComplete(TN_TCB *task)
+bool ThreadWaitComplete(TN_TCB *task)
 {
   bool rc;
 
@@ -346,7 +337,7 @@ bool knlThreadWaitComplete(TN_TCB *task)
   return rc;
 }
 
-void knlThreadChangePriority(TN_TCB * task, int32_t new_priority)
+void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
   int32_t old_priority = task->priority;
@@ -362,13 +353,13 @@ void knlThreadChangePriority(TN_TCB * task, int32_t new_priority)
   task->priority = new_priority;
 
   //-- Add task to the end of ready queue for current priority
-  knlThreadSetReady(task);
+  ThreadSetReady(task);
   ThreadDispatch();
 }
 
 #ifdef USE_MUTEXES
 
-void knlThreadSetPriority(TN_TCB * task, int32_t priority)
+void ThreadSetPriority(TN_TCB * task, int32_t priority)
 {
   TN_MUTEX * mutex;
 
@@ -390,7 +381,7 @@ void knlThreadSetPriority(TN_TCB * task, int32_t priority)
       return;
 
     if (task->task_state == TSK_STATE_RUNNABLE) {
-      knlThreadChangePriority(task, priority);
+      ThreadChangePriority(task, priority);
       return;
     }
 
@@ -412,12 +403,7 @@ void knlThreadSetPriority(TN_TCB * task, int32_t priority)
 
 #endif
 
-void knlThreadExit(void)
-{
-  tn_task_exit(0);
-}
-
-void knlThreadWaitDelete(CDLL_QUEUE *wait_que)
+void ThreadWaitDelete(CDLL_QUEUE *wait_que)
 {
   CDLL_QUEUE *que;
   TN_TCB *task;
@@ -425,13 +411,13 @@ void knlThreadWaitDelete(CDLL_QUEUE *wait_que)
   while (!is_queue_empty(wait_que)) {
     que = queue_remove_head(wait_que);
     task = get_task_by_tsk_queue(que);
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
     if (task->wercd != NULL)
       *task->wercd = TERR_DLT;
   }
 }
 
-void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
+void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
                          TIME_t timeout)
 {
   TaskToNonRunnable(task);
@@ -541,6 +527,7 @@ osError_t osTaskCreate(TN_TCB *task,
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WCONTEXT     Unacceptable system's state for this request
  */
+static
 osError_t TaskDelete(TN_TCB *task)
 {
   if (task->task_state != TSK_STATE_DORMANT)
@@ -582,6 +569,7 @@ osError_t osTaskDelete(TN_TCB *task)
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
  */
+static
 osError_t TaskActivate(TN_TCB *task)
 {
   if (task->task_state == TSK_STATE_DORMANT)
@@ -620,14 +608,10 @@ osError_t osTaskActivate(TN_TCB *task)
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WCONTEXT     Unacceptable system state for this request
  */
+static
 osError_t TaskTerminate(TN_TCB *task)
 {
-#ifdef USE_MUTEXES
-  CDLL_QUEUE *que;
-  TN_MUTEX *mutex;
-#endif
-
-  if (task->task_state == TSK_STATE_DORMANT || knlThreadGetCurrent() == task)
+  if (task->task_state == TSK_STATE_DORMANT || ThreadGetCurrent() == task)
     return TERR_WCONTEXT; //-- Cannot terminate running task
   else {
     if (task->task_state == TSK_STATE_RUNNABLE) {
@@ -636,12 +620,14 @@ osError_t TaskTerminate(TN_TCB *task)
     else if (task->task_state & TSK_STATE_WAIT) {
       //-- Free all queues, involved in the 'waiting'
       queue_remove_entry(&(task->task_queue));
-      //-----------------------------------------
       timer_delete(&task->wtmeb);
     }
 
     //-- Unlock all mutexes, locked by the task
 #ifdef USE_MUTEXES
+    CDLL_QUEUE *que;
+    TN_MUTEX *mutex;
+
     while (!is_queue_empty(&(task->mutex_queue))) {
       que = queue_remove_head(&(task->mutex_queue));
       mutex = get_mutex_by_mutex_queque(que);
@@ -675,6 +661,65 @@ osError_t osTaskTerminate(TN_TCB *task)
     return TERR_ISR;
 
   return svcTaskTerminate(TaskTerminate, task);
+}
+
+/**
+ * @fn        void TaskExit(task_exit_attr_t attr)
+ * @brief     Terminates the currently running task
+ * @param[in] attr  Exit option. Option values:
+ *                    TASK_EXIT             Currently running task will be terminated.
+ *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ */
+static
+void TaskExit(task_exit_attr_t attr)
+{
+  TN_TCB *task = ThreadGetCurrent();
+
+  //-- Unlock all mutexes, locked by the task
+#ifdef USE_MUTEXES
+  CDLL_QUEUE *que;
+  TN_MUTEX *mutex;
+
+  while (!is_queue_empty(&(task->mutex_queue))) {
+    que = queue_remove_head(&(task->mutex_queue));
+    mutex = get_mutex_by_mutex_queque(que);
+    do_unlock_mutex(mutex);
+  }
+#endif
+
+  TaskToNonRunnable(task);
+  task_set_dormant_state(task);
+
+  if (attr == TASK_EXIT_AND_DELETE) {
+    queue_remove_entry(&(task->create_queue));
+    tn_created_tasks_qty--;
+    task->id_task = 0;
+  }
+
+  SwitchContextRequest();
+}
+
+/**
+ * @fn        void osTaskExit(task_exit_attr_t attr)
+ * @brief     Terminates the currently running task
+ * @param[in] attr  Exit option. Option values:
+ *                    TASK_EXIT             Currently running task will be terminated.
+ *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ */
+void osTaskExit(task_exit_attr_t attr)
+{
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return;
+
+  svcTaskExit(TaskExit, attr);
+}
+
+/**
+ * @fn    void ThreadExit(void)
+ */
+void ThreadExit(void)
+{
+  osTaskExit(TASK_EXIT);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -748,24 +793,37 @@ int tn_task_resume(TN_TCB *task)
 }
 
 /**
+ * @fn        void TaskSleep(TIME_t timeout)
+ * @param[in] timeout   Timeout value must be greater than 0.
+ */
+static
+void TaskSleep(TIME_t timeout)
+{
+  TN_TCB *task = ThreadGetCurrent();
+
+  task->wercd = NULL;
+  ThreadToWaitAction(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
+}
+
+/**
  * @fn        osError_t osTaskSleep(TIME_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
  *                      A value of TN_WAIT_INFINITE causes an infinite delay.
  * @return    TERR_NO_ERR       Normal completion
  *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *            TERR_NOEXS        Object is not a task or non-existent
  *            TERR_ISR          The function cannot be called from interrupt service routines
  */
 osError_t osTaskSleep(TIME_t timeout)
 {
   if (timeout == 0)
     return TERR_WRONG_PARAM;
-
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskSleep(TaskSleep, timeout);
+  svcTaskSleep(TaskSleep, timeout);
+
+  return TERR_NO_ERR;
 }
 
 /*-----------------------------------------------------------------------------*
@@ -815,7 +873,7 @@ int tn_task_wakeup(TN_TCB *task)
   BEGIN_CRITICAL_SECTION
 
   if ((task->task_state & TSK_STATE_WAIT) && task->task_wait_reason == TSK_WAIT_REASON_SLEEP)
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   else
     rc = TERR_WSTATE;
 
@@ -845,54 +903,12 @@ int tn_task_release_wait(TN_TCB *task)
     rc = TERR_WCONTEXT;
   else {
     queue_remove_entry(&(task->task_queue));
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   }
 
   END_CRITICAL_SECTION
 
   return rc;
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_exit
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-void tn_task_exit(int attr)
-{
-#ifdef USE_MUTEXES
-  CDLL_QUEUE *que;
-  TN_MUTEX *mutex;
-#endif
-
-  TN_TCB *task;
-
-  __disable_irq();
-
-  task = knlThreadGetCurrent();
-
-  //-- Unlock all mutexes, locked by the task
-
-#ifdef USE_MUTEXES
-  while (!is_queue_empty(&(task->mutex_queue))) {
-    que = queue_remove_head(&(task->mutex_queue));
-    mutex = get_mutex_by_mutex_queque(que);
-    do_unlock_mutex(mutex);
-  }
-#endif
-
-  TaskToNonRunnable(task);
-
-  task_set_dormant_state(task);
-
-  if (attr == TN_EXIT_AND_DELETE_TASK) {
-    queue_remove_entry(&(task->create_queue));
-    tn_created_tasks_qty--;
-    task->id_task = 0;
-  }
-
-  switch_context_exit(); // interrupts will be enabled inside switch_context_exit()
 }
 
 /*-----------------------------------------------------------------------------*
@@ -920,7 +936,7 @@ int tn_task_change_priority(TN_TCB * task, int new_priority)
   if (task->task_state == TSK_STATE_DORMANT)
     rc = TERR_WCONTEXT;
   else if (task->task_state == TSK_STATE_RUNNABLE)
-    knlThreadChangePriority(task, new_priority);
+    ThreadChangePriority(task, new_priority);
   else
     task->priority = new_priority;
 

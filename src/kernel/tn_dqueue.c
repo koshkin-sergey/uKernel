@@ -175,7 +175,7 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
     que = queue_remove_head(&(dque->wait_receive_list));
     task = get_task_by_tsk_queue(que);
     *task->winfo.rdque.data_elem = data_ptr;
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -186,11 +186,11 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = knlThreadGetCurrent();
+        task = ThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
         task->winfo.sdque.send_to_first = send_to_first;
-        knlThreadToWaitAction(task, &(dque->wait_send_list),
+        ThreadToWaitAction(task, &(dque->wait_send_list),
                             TSK_WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
@@ -263,8 +263,8 @@ int tn_queue_delete(TN_DQUE *dque)
 
   BEGIN_CRITICAL_SECTION
 
-  knlThreadWaitDelete(&dque->wait_send_list);
-  knlThreadWaitDelete(&dque->wait_receive_list);
+  ThreadWaitDelete(&dque->wait_send_list);
+  ThreadWaitDelete(&dque->wait_receive_list);
 
   dque->id_dque = 0; // Data queue not exists now
 
@@ -342,7 +342,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
       task = get_task_by_tsk_queue(que);
       dque_fifo_write(dque, task->winfo.sdque.data_elem,
           task->winfo.sdque.send_to_first);
-      knlThreadWaitComplete(task);
+      ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
@@ -350,7 +350,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
       que = queue_remove_head(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
       *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
-      knlThreadWaitComplete(task);
+      ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -358,10 +358,10 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = knlThreadGetCurrent();
+        task = ThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.rdque.data_elem = data_ptr;
-        knlThreadToWaitAction(task, &(dque->wait_receive_list),
+        ThreadToWaitAction(task, &(dque->wait_receive_list),
             TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
       }
     }

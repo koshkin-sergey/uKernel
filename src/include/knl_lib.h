@@ -69,7 +69,7 @@ extern knlInfo_t knlInfo;
  ******************************************************************************/
 
 __STATIC_FORCEINLINE
-TN_TCB* knlThreadGetCurrent(void)
+TN_TCB* ThreadGetCurrent(void)
 {
   return knlInfo.run.curr;
 }
@@ -93,14 +93,14 @@ void knlThreadSetNext(TN_TCB *thread)
 }
 
 /* Thread */
-void knlThreadSetReady(TN_TCB *thread);
-bool knlThreadWaitComplete(TN_TCB *task);
-void knlThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, int wait_reason,
+void ThreadSetReady(TN_TCB *thread);
+bool ThreadWaitComplete(TN_TCB *task);
+void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, int wait_reason,
                            TIME_t timeout);
-void knlThreadChangePriority(TN_TCB *task, int32_t new_priority);
-void knlThreadSetPriority(TN_TCB *task, int32_t priority);
-void knlThreadWaitDelete(CDLL_QUEUE *que);
-void knlThreadExit(void);
+void ThreadChangePriority(TN_TCB *task, int32_t new_priority);
+void ThreadSetPriority(TN_TCB *task, int32_t priority);
+void ThreadWaitDelete(CDLL_QUEUE *que);
+void ThreadExit(void);
 
 void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
 

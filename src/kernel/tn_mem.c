@@ -179,7 +179,7 @@ int tn_fmem_delete(TN_FMP *fmp)
 
   BEGIN_CRITICAL_SECTION
 
-  knlThreadWaitDelete(&fmp->wait_queue);
+  ThreadWaitDelete(&fmp->wait_queue);
 
   fmp->id_fmp = 0;   //-- Fixed-size memory pool not exists now
 
@@ -209,9 +209,9 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == TN_POLLING)
       rc = TERR_TIMEOUT;
     else {
-      task = knlThreadGetCurrent();
+      task = ThreadGetCurrent();
       task->wercd = &rc;
-      knlThreadToWaitAction(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
+      ThreadToWaitAction(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
                           timeout);
       
       END_CRITICAL_SECTION
@@ -243,7 +243,7 @@ int tn_fmem_release(TN_FMP *fmp,void *p_data)
     que = queue_remove_head(&(fmp->wait_queue));
     task = get_task_by_tsk_queue(que);
     task->winfo.fmem.data_elem = p_data;
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   }
   else
     fm_put(fmp,p_data);

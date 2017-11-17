@@ -145,7 +145,7 @@ void tn_start_system(TN_OPTIONS *opt)
   create_timer_task((void *)opt);
 
   //-- Run OS - first context switch
-  start_kernel();
+  StartKernel();
 }
 
 #if defined(ROUND_ROBIN_ENABLE)

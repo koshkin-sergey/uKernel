@@ -185,7 +185,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
     que = queue_remove_head(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
     tn_memcpy(task->winfo.rmbf.msg, msg, mbf->msz);
-    knlThreadWaitComplete(task);
+    ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -196,11 +196,11 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = knlThreadGetCurrent();
+        task = ThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.smbf.msg = msg;
         task->winfo.smbf.send_to_first = send_to_first;
-        knlThreadToWaitAction(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
+        ThreadToWaitAction(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
                             timeout);
       }
     }
@@ -270,8 +270,8 @@ int tn_mbf_delete(TN_MBF *mbf)
 
   BEGIN_CRITICAL_SECTION
 
-  knlThreadWaitDelete(&mbf->send_queue);
-  knlThreadWaitDelete(&mbf->recv_queue);
+  ThreadWaitDelete(&mbf->send_queue);
+  ThreadWaitDelete(&mbf->recv_queue);
 
   mbf->id_mbf = 0;
 
@@ -350,7 +350,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
       que = queue_remove_head(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       mbf_fifo_write(mbf, task->winfo.smbf.msg, task->winfo.smbf.send_to_first);
-      knlThreadWaitComplete(task);
+      ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
@@ -358,7 +358,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
       que = queue_remove_head(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       tn_memcpy(msg, task->winfo.smbf.msg, mbf->msz);
-      knlThreadWaitComplete(task);
+      ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -366,10 +366,10 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = knlThreadGetCurrent();
+        task = ThreadGetCurrent();
         task->wercd = &rc;
         task->winfo.rmbf.msg = msg;
-        knlThreadToWaitAction(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
+        ThreadToWaitAction(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
                             timeout);
       }
     }
