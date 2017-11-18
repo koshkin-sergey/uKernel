@@ -101,6 +101,10 @@ osError_t svcTaskTerminate(osError_t (*)(TN_TCB*), TN_TCB*);
 __svc_indirect(0)
 void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
 __svc_indirect(0)
+osError_t svcTaskSuspend(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
+osError_t svcTaskResume(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
 void svcTaskSleep(void (*)(TIME_t), TIME_t);
 
 /*******************************************************************************
@@ -425,13 +429,13 @@ void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
   task->task_state = TSK_STATE_WAIT;
   task->task_wait_reason = wait_reason;
 
-  //--- Add to the wait queue  - FIFO
+  /* Add to the wait queue - FIFO */
   if (wait_que != NULL) {
     queue_add_tail(wait_que, &(task->task_queue));
     task->pwait_queue = wait_que;
   }
 
-  //--- Add to the timers queue
+  /* Add to the timers queue */
   if (timeout != TN_WAIT_INFINITE)
     timer_insert(&task->wtmeb, timeout, (CBACK)task_wait_release_handler, task);
 }
@@ -443,7 +447,7 @@ void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
  */
 void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
 {
-  //--- Init task TCB
+  /* Init task TCB */
   task->func_addr = attr->func_addr;
   task->func_param = attr->func_param;
   task->stk_start = attr->stk_start;
@@ -453,7 +457,7 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
   task->time = 0;
   task->wercd = NULL;
 
-  //-- Fill all task stack space by TN_FILL_STACK_VAL - only inside create_task
+  /* Fill all task stack space by TN_FILL_STACK_VAL - only inside create_task */
   uint32_t *ptr = task->stk_start;
   for (uint32_t i = 0; i < task->stk_size; i++) {
     *ptr-- = TN_FILL_STACK_VAL;
@@ -461,7 +465,7 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
 
   task_set_dormant_state(task);
 
-  //-- Add task to created task queue
+  /* Add task to created task queue */
   queue_add_tail(&tn_create_queue, &(task->create_queue));
   tn_created_tasks_qty++;
 
@@ -493,7 +497,7 @@ osError_t osTaskCreate(TN_TCB *task,
                        const void *param,
                        int32_t option)
 {
-  //-- Light weight checking of system tasks recreation
+  /* Light weight checking of system tasks recreation */
 
   if ( ((priority == 0) && ((option & TN_TASK_TIMER) == 0))
     || ((priority == (NUM_PRIORITY-1)) && ((option & TN_TASK_IDLE) == 0)) )
@@ -501,7 +505,7 @@ osError_t osTaskCreate(TN_TCB *task,
 
   if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
     || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
-    || (stack_start == NULL) || (task->id_task != 0) )  //-- recreation
+    || (stack_start == NULL) || (task->id_task != 0) )
     return TERR_WRONG_PARAM;
 
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
@@ -530,13 +534,13 @@ osError_t osTaskCreate(TN_TCB *task,
 static
 osError_t TaskDelete(TN_TCB *task)
 {
+  /* Cannot delete not-terminated task */
   if (task->task_state != TSK_STATE_DORMANT)
-    return TERR_WCONTEXT;  //-- Cannot delete not-terminated task
-  else {
-    queue_remove_entry(&(task->create_queue));
-    tn_created_tasks_qty--;
-    task->id_task = 0;
-  }
+    return TERR_WCONTEXT;
+
+  queue_remove_entry(&(task->create_queue));
+  tn_created_tasks_qty--;
+  task->id_task = 0;
 
   return TERR_NO_ERR;
 }
@@ -572,10 +576,10 @@ osError_t osTaskDelete(TN_TCB *task)
 static
 osError_t TaskActivate(TN_TCB *task)
 {
-  if (task->task_state == TSK_STATE_DORMANT)
-    TaskToRunnable(task);
-  else
+  if (task->task_state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
+
+  TaskToRunnable(task);
 
   return TERR_NO_ERR;
 }
@@ -611,32 +615,32 @@ osError_t osTaskActivate(TN_TCB *task)
 static
 osError_t TaskTerminate(TN_TCB *task)
 {
-  if (task->task_state == TSK_STATE_DORMANT || ThreadGetCurrent() == task)
-    return TERR_WCONTEXT; //-- Cannot terminate running task
-  else {
-    if (task->task_state == TSK_STATE_RUNNABLE) {
-      TaskToNonRunnable(task);
-    }
-    else if (task->task_state & TSK_STATE_WAIT) {
-      //-- Free all queues, involved in the 'waiting'
-      queue_remove_entry(&(task->task_queue));
-      timer_delete(&task->wtmeb);
-    }
+  /* Cannot terminate running task */
+  if (task->task_state == TSK_STATE_DORMANT || task == ThreadGetCurrent())
+    return TERR_WCONTEXT;
 
-    //-- Unlock all mutexes, locked by the task
+  if (task->task_state == TSK_STATE_RUNNABLE) {
+    TaskToNonRunnable(task);
+  }
+  else if (task->task_state & TSK_STATE_WAIT) {
+    /* Free all queues, involved in the 'waiting' */
+    queue_remove_entry(&(task->task_queue));
+    timer_delete(&task->wtmeb);
+  }
+
+  //-- Unlock all mutexes, locked by the task
 #ifdef USE_MUTEXES
-    CDLL_QUEUE *que;
-    TN_MUTEX *mutex;
+  CDLL_QUEUE *que;
+  TN_MUTEX *mutex;
 
-    while (!is_queue_empty(&(task->mutex_queue))) {
-      que = queue_remove_head(&(task->mutex_queue));
-      mutex = get_mutex_by_mutex_queque(que);
-      do_unlock_mutex(mutex);
-    }
+  while (!is_queue_empty(&(task->mutex_queue))) {
+    que = queue_remove_head(&(task->mutex_queue));
+    mutex = get_mutex_by_mutex_queque(que);
+    do_unlock_mutex(mutex);
+  }
 #endif
 
-    task_set_dormant_state(task);
-  }
+  task_set_dormant_state(task);
 
   return TERR_NO_ERR;
 }
@@ -675,7 +679,7 @@ void TaskExit(task_exit_attr_t attr)
 {
   TN_TCB *task = ThreadGetCurrent();
 
-  //-- Unlock all mutexes, locked by the task
+  /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
   CDLL_QUEUE *que;
   TN_MUTEX *mutex;
@@ -722,74 +726,100 @@ void ThreadExit(void)
   osTaskExit(TASK_EXIT);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_suspend
- * Описание : If the task is runnable, it is moved to the SUSPENDED state.
- *            If the task is in the WAITING state, it is moved to the
- *            WAITING­SUSPENDED state.
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_suspend(TN_TCB *task)
+/**
+ * @fn          osError_t TaskSuspend(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be suspended
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_OVERFLOW     Task already suspended
+ *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
+ */
+static
+osError_t TaskSuspend(TN_TCB *task)
 {
-  int rc = TERR_NO_ERR;
-
-  if (task == NULL)
-    return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
   if (task->task_state & TSK_STATE_SUSPEND)
-    rc = TERR_OVERFLOW;
+    return TERR_OVERFLOW;
+  if (task->task_state == TSK_STATE_DORMANT)
+    return TERR_WSTATE;
+
+  if (task->task_state == TSK_STATE_RUNNABLE) {
+    task->task_state = TSK_STATE_SUSPEND;
+    TaskToNonRunnable(task);
+  }
   else {
-    if (task->task_state == TSK_STATE_DORMANT)
-      rc = TERR_WSTATE;
-    else {
-      if (task->task_state == TSK_STATE_RUNNABLE) {
-        task->task_state = TSK_STATE_SUSPEND;
-        TaskToNonRunnable(task);
-      }
-      else {
-        task->task_state |= TSK_STATE_SUSPEND;
-      }
-    }
+    task->task_state |= TSK_STATE_SUSPEND;
   }
 
-  END_CRITICAL_SECTION
-  return rc;
+  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_resume
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_resume(TN_TCB *task)
+/**
+ * @fn          osError_t osTaskSuspend(TN_TCB *task)
+ * @brief       Suspends the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be suspended
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task already suspended
+ *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSuspend(TN_TCB *task)
 {
-  int rc = TERR_NO_ERR;
-
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
+  return svcTaskSuspend(TaskSuspend, task);
+}
 
+/**
+ * @fn          osError_t TaskResume(TN_TCB *task)
+ * @param[out]  task  Pointer to task TCB to be resumed
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WSTATE       Task is not in SUSPEDED or WAITING_SUSPEDED state
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+static
+osError_t TaskResume(TN_TCB *task)
+{
   if (!(task->task_state & TSK_STATE_SUSPEND))
-    rc = TERR_WSTATE;
-  else {
-    if (!(task->task_state & TSK_STATE_WAIT)) //- The task is not in the WAIT-SUSPEND state
-      TaskToRunnable(task);
-    else
-      //-- Just remove TSK_STATE_SUSPEND from the task state
-      task->task_state &= ~TSK_STATE_SUSPEND;
-  }
+    return TERR_WSTATE;
 
-  END_CRITICAL_SECTION
-  return rc;
+  if (!(task->task_state & TSK_STATE_WAIT))
+    /* The task is not in the WAIT-SUSPEND state */
+    TaskToRunnable(task);
+  else
+    /* Just remove TSK_STATE_SUSPEND from the task state */
+    task->task_state &= ~TSK_STATE_SUSPEND;
+
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osTaskResume(TN_TCB *task)
+ * @brief       Releases the task specified by the task from the SUSPENDED state
+ * @param[out]  task  Pointer to task TCB to be resumed
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WSTATE       Task is not in SUSPEDED or WAITING_SUSPEDED state
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskResume(TN_TCB *task)
+{
+  if (task == NULL)
+    return TERR_WRONG_PARAM;
+  if (task->id_task != TN_ID_TASK)
+    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskResume(TaskResume, task);
 }
 
 /**

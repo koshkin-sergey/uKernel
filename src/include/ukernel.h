@@ -488,6 +488,31 @@ osError_t osTaskTerminate(TN_TCB *task);
 void osTaskExit(task_exit_attr_t attr);
 
 /**
+ * @fn          osError_t osTaskSuspend(TN_TCB *task)
+ * @brief       Suspends the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be suspended
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task already suspended
+ *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSuspend(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskResume(TN_TCB *task)
+ * @brief       Releases the task specified by the task from the SUSPENDED state
+ * @param[out]  task  Pointer to task TCB to be resumed
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WSTATE       Task is not in SUSPEDED or WAITING_SUSPEDED state
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskResume(TN_TCB *task);
+
+/**
  * @fn        osError_t osTaskSleep(TIME_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
@@ -499,8 +524,6 @@ void osTaskExit(task_exit_attr_t attr);
  */
 osError_t osTaskSleep(TIME_t timeout);
 
-int tn_task_suspend(TN_TCB *task);
-int tn_task_resume(TN_TCB *task);
 unsigned long tn_task_time(TN_TCB *task);
 int tn_task_wakeup(TN_TCB *task);
 int tn_task_release_wait(TN_TCB *task);
