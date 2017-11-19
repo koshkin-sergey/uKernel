@@ -97,12 +97,13 @@
 #define TN_ID_CYCLIC            ((int)0xAB8F746B)
 #define TN_ID_MESSAGEBUF        ((int)0x9C9A6C89)
 
-//-- Task states
-#define TSK_STATE_RUNNABLE            0x01
-#define TSK_STATE_WAIT                0x04
-#define TSK_STATE_SUSPEND             0x08
-#define TSK_STATE_WAITSUSP            (TSK_STATE_SUSPEND | TSK_STATE_WAIT)
-#define TSK_STATE_DORMANT             0x10
+/* Task states */
+typedef enum {
+  TSK_STATE_RUNNABLE  = 0x01,
+  TSK_STATE_WAIT      = 0x02,
+  TSK_STATE_SUSPEND   = 0x04,
+  TSK_STATE_DORMANT   = 0x08,
+} task_state_t;
 
 //--- Waiting
 #define TSK_WAIT_REASON_SLEEP            0x0001
@@ -227,29 +228,29 @@ typedef union {
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct _TN_TCB {
-  uint32_t *task_stk;        //-- Pointer to task's top of stack
-  CDLL_QUEUE task_queue;  //-- Queue is used to include task in ready/wait lists
+  uint32_t *task_stk;       //-- Pointer to task's top of stack
+  CDLL_QUEUE task_queue;    //-- Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;  //-- Ptr to object's(semaphor,event,etc.) wait list,
                             // that task has been included for waiting (ver 2.x)
-  CDLL_QUEUE create_queue; //-- Queue is used to include task in create list only
+  CDLL_QUEUE create_queue;  //-- Queue is used to include task in create list only
 #ifdef USE_MUTEXES
   CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
 #endif
   TMEB wtmeb;
-  uint32_t *stk_start;       //-- Base address of task's stack space
-  uint32_t stk_size;         //-- Task's stack size (in sizeof(void*),not bytes)
-  const void *func_addr;  //-- filled on creation  (ver 2.x)
-  const void *func_param; //-- filled on creation  (ver 2.x)
-  int base_priority;    //-- Task base priority  (ver 2.x)
-  int priority;         //-- Task current priority
-  int id_task;         //-- ID for verification(is it a task or another object?)
-                       // All tasks have the same id_task magic number (ver 2.x)
-  int task_state;       //-- Task state
-  int task_wait_reason; //-- Reason for waiting
-  int *wercd;           //-- Waiting return code(reason why waiting  finished)
-  WINFO winfo;          // Wait information
-  int tslice_count;     //-- Time slice counter
-  TIME_t time;             //-- Time work task
+  uint32_t *stk_start;      //-- Base address of task's stack space
+  uint32_t stk_size;        //-- Task's stack size (in sizeof(void*),not bytes)
+  const void *func_addr;    //-- filled on creation  (ver 2.x)
+  const void *func_param;   //-- filled on creation  (ver 2.x)
+  int32_t base_priority;        //-- Task base priority  (ver 2.x)
+  int32_t priority;             //-- Task current priority
+  int id_task;              //-- ID for verification(is it a task or another object?)
+                            // All tasks have the same id_task magic number (ver 2.x)
+  task_state_t task_state;  //-- Task state
+  int task_wait_reason;     //-- Reason for waiting
+  int *wercd;               //-- Waiting return code(reason why waiting  finished)
+  WINFO winfo;              // Wait information
+  int tslice_count;         //-- Time slice counter
+  TIME_t time;              //-- Time work task
 // Other implementation specific fields may be added below
 } TN_TCB;
 

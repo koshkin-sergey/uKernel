@@ -148,18 +148,17 @@ static
 void TaskToRunnable(TN_TCB *task)
 {
   if (task->task_state == TSK_STATE_DORMANT) {
-    //--- Init task stack
-    task->task_stk = StackInit(task);
+    /* Init task stack */
+    StackInit(task);
   }
 
   task->task_state = TSK_STATE_RUNNABLE;
   task->pwait_queue = NULL;
 
-  //-- Add the task to the end of 'ready queue' for the current priority
+  /* Add the task to the end of 'ready queue' for the current priority */
   ThreadSetReady(task);
 
-  //-- less value - greater priority, so '<' operation is used here
-
+  /* less value - greater priority, so '<' operation is used here */
   if (task->priority < knlThreadGetNext()->priority) {
     knlThreadSetNext(task);
     SwitchContextRequest();
@@ -174,24 +173,23 @@ void TaskToRunnable(TN_TCB *task)
 static
 void TaskToNonRunnable(TN_TCB *task)
 {
-  int priority;
-  CDLL_QUEUE *que;
+  int32_t priority = task->priority;
+  CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
 
-  priority = task->priority;
-  que = &(knlInfo.ready_list[priority]);
-
-  //-- remove the curr task from any queue (now - from ready queue)
+  /* Remove the current task from any queue (now - from ready queue) */
   queue_remove_entry(&(task->task_queue));
 
-  if (is_queue_empty(que)) { //-- No ready tasks for the curr priority
-    //-- remove 'ready to run' from the curr priority
+  if (is_queue_empty(que)) {
+    /* No ready tasks for the curr priority */
+    /* Remove 'ready to run' from the curr priority */
     knlInfo.ready_to_run_bmp &= ~(1 << priority);
 
-    //-- Find highest priority ready to run -
-    //-- at least, MSB bit must be set for the idle task
-    ThreadDispatch();   //-- v.2.6
+    /* Find highest priority ready to run -
+       at least, MSB bit must be set for the idle task */
+    ThreadDispatch();
   }
-  else { //-- There are 'ready to run' task(s) for the curr priority
+  else {
+    /* There are 'ready to run' task(s) for the curr priority */
     if (knlThreadGetNext() == task) {
       knlThreadSetNext(get_task_by_tsk_queue(que->next));
       SwitchContextRequest();

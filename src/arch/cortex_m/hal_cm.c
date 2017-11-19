@@ -170,7 +170,7 @@ int32_t ffs_asm(uint32_t val)
  * @param[in] task
  * @return
  */
-uint32_t* StackInit(const TN_TCB *task)
+void StackInit(TN_TCB *task)
 {
   uint32_t *stk = task->stk_start;              //-- Load stack pointer
   stk++;
@@ -192,7 +192,7 @@ uint32_t* StackInit(const TN_TCB *task)
   *(--stk) = 0x05050505L;                       //-- R5
   *(--stk) = 0x04040404L;                       //-- R4
 
-  return stk;
+  task->task_stk = stk;
 }
 
 /**

@@ -146,7 +146,7 @@ extern uint32_t max_syscall_interrupt_priority;
  ******************************************************************************/
 
 void StartKernel(void);
-uint32_t* StackInit(const TN_TCB *task);
+void StackInit(TN_TCB *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 
