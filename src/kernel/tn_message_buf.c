@@ -83,7 +83,7 @@
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
+osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
 {
   int bufsz, msz;
 
@@ -127,7 +127,7 @@ int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int mbf_fifo_read(TN_MBF *mbf, void *msg)
+osError_t mbf_fifo_read(TN_MBF *mbf, void *msg)
 {
   int bufsz, msz;
 
@@ -165,10 +165,10 @@ int mbf_fifo_read(TN_MBF *mbf, void *msg)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
+static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
                        bool send_to_first)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
   TN_TCB *task;
 
@@ -228,7 +228,7 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_OUT_OF_MEM - Ошибка установки размера буфера.
  *----------------------------------------------------------------------------*/
-int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
+osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
@@ -261,7 +261,7 @@ int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не существует;
  *----------------------------------------------------------------------------*/
-int tn_mbf_delete(TN_MBF *mbf)
+osError_t tn_mbf_delete(TN_MBF *mbf)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
@@ -294,7 +294,7 @@ int tn_mbf_delete(TN_MBF *mbf)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
   return do_mbf_send(mbf, msg, timeout, false);
 }
@@ -313,7 +313,7 @@ int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
   return do_mbf_send(mbf, msg, timeout, true);
 }
@@ -331,9 +331,9 @@ int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
-  int rc; //-- return code
+  osError_t rc; //-- return code
   CDLL_QUEUE *que;
   TN_TCB *task;
 
@@ -389,7 +389,7 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_flush(TN_MBF *mbf)
+osError_t tn_mbf_flush(TN_MBF *mbf)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
@@ -415,9 +415,9 @@ int tn_mbf_flush(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_empty(TN_MBF *mbf)
+osError_t tn_mbf_empty(TN_MBF *mbf)
 {
-  int rc;
+  osError_t rc;
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
@@ -446,9 +446,9 @@ int tn_mbf_empty(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_full(TN_MBF *mbf)
+osError_t tn_mbf_full(TN_MBF *mbf)
 {
-  int rc;
+  osError_t rc;
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
@@ -478,7 +478,7 @@ int tn_mbf_full(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_cnt(TN_MBF *mbf, int *cnt)
+osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt)
 {
   if (mbf == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;

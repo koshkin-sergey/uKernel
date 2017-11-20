@@ -91,21 +91,17 @@ extern int do_unlock_mutex(TN_MUTEX *mutex);
  ******************************************************************************/
 
 __svc_indirect(0)
+osError_t svcTask(osError_t (*)(TN_TCB*), TN_TCB*);
+__svc_indirect(0)
 void svcTaskCreate(void (*)(TN_TCB*, const task_create_attr_t*), TN_TCB*, const task_create_attr_t*);
-__svc_indirect(0)
-osError_t svcTaskDelete(osError_t (*)(TN_TCB*), TN_TCB*);
-__svc_indirect(0)
-osError_t svcTaskActivate(osError_t (*)(TN_TCB*), TN_TCB*);
-__svc_indirect(0)
-osError_t svcTaskTerminate(osError_t (*)(TN_TCB*), TN_TCB*);
 __svc_indirect(0)
 void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
 __svc_indirect(0)
-osError_t svcTaskSuspend(osError_t (*)(TN_TCB*), TN_TCB*);
-__svc_indirect(0)
-osError_t svcTaskResume(osError_t (*)(TN_TCB*), TN_TCB*);
-__svc_indirect(0)
 void svcTaskSleep(void (*)(TIME_t), TIME_t);
+__svc_indirect(0)
+osError_t svcTaskSetPriority(osError_t (*)(TN_TCB*, uint32_t), TN_TCB*, uint32_t);
+__svc_indirect(0)
+TIME_t svcTaskGetTime(TIME_t (*)(TN_TCB*), TN_TCB*);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -147,11 +143,6 @@ void ThreadDispatch(void)
 static
 void TaskToRunnable(TN_TCB *task)
 {
-  if (task->task_state == TSK_STATE_DORMANT) {
-    /* Init task stack */
-    StackInit(task);
-  }
-
   task->task_state = TSK_STATE_RUNNABLE;
   task->pwait_queue = NULL;
 
@@ -203,9 +194,8 @@ void TaskToNonRunnable(TN_TCB *task)
  * @return
  */
 static
-bool task_wait_release(TN_TCB *task)
+void task_wait_release(TN_TCB *task)
 {
-  bool rc = false;
 #ifdef USE_MUTEXES
   int fmutex;
   int curr_priority;
@@ -227,11 +217,11 @@ bool task_wait_release(TN_TCB *task)
 
   if (!(task->task_state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);
-    rc = true;
   }
-  else
+  else {
     //-- remove WAIT state
     task->task_state = TSK_STATE_SUSPEND;
+  }
 
 #ifdef USE_MUTEXES
 
@@ -249,15 +239,12 @@ bool task_wait_release(TN_TCB *task)
           mutex, mt_holder_task->base_priority);
 
         ThreadSetPriority(mt_holder_task, curr_priority);
-        rc = true;
       }
     }
   }
 #endif
 
   task->task_wait_reason = 0; //-- Clear wait reason
-
-  return rc;
 }
 
 /**
@@ -293,8 +280,9 @@ void task_wait_release_handler(TN_TCB *task)
   if (task == NULL)
     return;
 
-  queue_remove_entry(&(task->task_queue));
+  queue_remove_entry(&task->task_queue);
   task_wait_release(task);
+
   if (task->wercd != NULL)
     *task->wercd = TERR_TIMEOUT;
 }
@@ -323,20 +311,16 @@ void ThreadSetReady(TN_TCB *thread)
  * Параметры: task - Указатель на задачу
  * Результат: Возвращает true при успешном выполнении, иначе возвращает false
  *----------------------------------------------------------------------------*/
-bool ThreadWaitComplete(TN_TCB *task)
+void ThreadWaitComplete(TN_TCB *task)
 {
-  bool rc;
-
   if (task == NULL)
-    return false;
+    return;
 
   timer_delete(&task->wtmeb);
-  rc = task_wait_release(task);
+  task_wait_release(task);
 
   if (task->wercd != NULL)
     *task->wercd = TERR_NO_ERR;
-
-  return rc;
 }
 
 void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
@@ -467,8 +451,10 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
   queue_add_tail(&tn_create_queue, &(task->create_queue));
   tn_created_tasks_qty++;
 
-  if ((attr->option & TN_TASK_START_ON_CREATION) != 0)
+  if ((attr->option & TN_TASK_START_ON_CREATION) != 0) {
+    StackInit(task);
     TaskToRunnable(task);
+  }
 }
 
 /**
@@ -562,7 +548,7 @@ osError_t osTaskDelete(TN_TCB *task)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskDelete(TaskDelete, task);
+  return svcTask(TaskDelete, task);
 }
 
 /**
@@ -577,6 +563,7 @@ osError_t TaskActivate(TN_TCB *task)
   if (task->task_state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
 
+  StackInit(task);
   TaskToRunnable(task);
 
   return TERR_NO_ERR;
@@ -601,7 +588,7 @@ osError_t osTaskActivate(TN_TCB *task)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskActivate(TaskActivate, task);
+  return svcTask(TaskActivate, task);
 }
 
 /**
@@ -662,7 +649,7 @@ osError_t osTaskTerminate(TN_TCB *task)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskTerminate(TaskTerminate, task);
+  return svcTask(TaskTerminate, task);
 }
 
 /**
@@ -770,7 +757,7 @@ osError_t osTaskSuspend(TN_TCB *task)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskSuspend(TaskSuspend, task);
+  return svcTask(TaskSuspend, task);
 }
 
 /**
@@ -817,7 +804,7 @@ osError_t osTaskResume(TN_TCB *task)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcTaskResume(TaskResume, task);
+  return svcTask(TaskResume, task);
 }
 
 /**
@@ -854,122 +841,132 @@ osError_t osTaskSleep(TIME_t timeout)
   return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_time
- * Описание : Возвращает время работы задачи с момента ее создания
- * Параметры: task  - Указатель на дескриптор задачи
- * Результат: Возвращает беззнаковое 32 битное число
- *----------------------------------------------------------------------------*/
-unsigned long tn_task_time(TN_TCB *task)
+/**
+ * @fn          osError_t TaskWakeup(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be wake up
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WSTATE       Task is not in WAIT state
+ */
+static
+osError_t TaskWakeup(TN_TCB *task)
 {
-  unsigned long time;
-
-  if (task == NULL)
-    return 0;
-  if (task->id_task != TN_ID_TASK)
-    return 0;
-
-  BEGIN_DISABLE_INTERRUPT
-
-  time = task->time;
-
-  END_DISABLE_INTERRUPT
-
-  return time;
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_wakeup
- * Описание : Пробуждает заданную задачу, если заданная задача усыпила себя
- *            вызовом tn_task_sleep
- * Параметры: task  - Указатель на дескриптор задачи.
- * Результат: Возвращает следующие значения:
- *              TERR_NO_ERR - если выполнена без ошибок
- *              TERR_WRONG_PARAM - если задан неверный параметр функции
- *              TERR_NOEXS - если задача, которую надо пробудить, не существует
- *              TERR_WSTATE - если задача не находится в состоянии SLEEP
- *----------------------------------------------------------------------------*/
-int tn_task_wakeup(TN_TCB *task)
-{
-  int rc = TERR_NO_ERR;
-
-  if (task == NULL)
-    return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
-  if ((task->task_state & TSK_STATE_WAIT) && task->task_wait_reason == TSK_WAIT_REASON_SLEEP)
+  if ((task->task_state & TSK_STATE_WAIT) && (task->task_wait_reason == TSK_WAIT_REASON_SLEEP))
     ThreadWaitComplete(task);
   else
-    rc = TERR_WSTATE;
+    return TERR_WSTATE;
 
-  END_CRITICAL_SECTION
-
-  return rc;
+  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_release_wait
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_release_wait(TN_TCB *task)
+/**
+ * @fn          osError_t osTaskWakeup(TN_TCB *task)
+ * @brief       Wakes up the task specified by the task from sleep mode
+ * @param[out]  task  Pointer to the task TCB to be wake up
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_WSTATE       Task is not in WAIT state
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskWakeup(TN_TCB *task)
 {
-  int rc = TERR_NO_ERR;
-
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
-
-  if ((task->task_state & TSK_STATE_WAIT) == 0)
-    rc = TERR_WCONTEXT;
-  else {
-    queue_remove_entry(&(task->task_queue));
-    ThreadWaitComplete(task);
-  }
-
-  END_CRITICAL_SECTION
-
-  return rc;
+  return svcTask(TaskWakeup, task);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_change_priority
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_task_change_priority(TN_TCB * task, int new_priority)
+/**
+ * @fn          osError_t TaskReleaseWait(TN_TCB *task)
+ * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WCONTEXT     Unacceptable system's state for function's request executing
+ */
+static
+osError_t TaskReleaseWait(TN_TCB *task)
 {
-  int rc = TERR_NO_ERR;
+  if (!(task->task_state & TSK_STATE_WAIT))
+    return TERR_WCONTEXT;
 
+  queue_remove_entry(&(task->task_queue));
+  ThreadWaitComplete(task);
+
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osTaskReleaseWait(TN_TCB *task)
+ * @brief       Forcibly releases the task specified by the task from waiting
+ * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system's state for function's request executing
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskReleaseWait(TN_TCB *task)
+{
   if (task == NULL)
     return TERR_WRONG_PARAM;
   if (task->id_task != TN_ID_TASK)
     return TERR_NOEXS;
-  if ( (new_priority < 0) || (new_priority > (NUM_PRIORITY - 2)) )
-    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
+  return svcTask(TaskReleaseWait, task);
+}
 
+static
+osError_t TaskSetPriority(TN_TCB *task, uint32_t new_priority)
+{
   if (new_priority == 0)
     new_priority = task->base_priority;
 
   if (task->task_state == TSK_STATE_DORMANT)
-    rc = TERR_WCONTEXT;
-  else if (task->task_state == TSK_STATE_RUNNABLE)
+    return TERR_WCONTEXT;
+
+  if (task->task_state == TSK_STATE_RUNNABLE)
     ThreadChangePriority(task, new_priority);
   else
     task->priority = new_priority;
 
-  END_CRITICAL_SECTION
-  return rc;
+  return TERR_NO_ERR;
+}
+
+osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority)
+{
+  if (task == NULL)
+    return TERR_WRONG_PARAM;
+  if (task->id_task != TN_ID_TASK)
+    return TERR_NOEXS;
+  if (new_priority > (NUM_PRIORITY - 2))
+    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcTaskSetPriority(TaskSetPriority, task, new_priority);
+}
+
+static
+TIME_t TaskGetTime(TN_TCB *task)
+{
+  return task->time;
+}
+
+TIME_t osTaskGetTime(TN_TCB *task)
+{
+  if (task == NULL)
+    return 0;
+  if (task->id_task != TN_ID_TASK)
+    return 0;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return 0;
+
+  return svcTaskGetTime(TaskGetTime, task);
 }
 
 /* ----------------------------- End of file ---------------------------------*/

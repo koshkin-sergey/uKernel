@@ -108,7 +108,7 @@ static int fm_put(TN_FMP *fmp, void *mem)
 //----------------------------------------------------------------------------
 //  Structure's field fmp->id_id_fmp have to be set to 0
 //----------------------------------------------------------------------------
-int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int num_blocks)
+osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int num_blocks)
 {
   void **p_tmp;
   unsigned char *p_block;
@@ -170,7 +170,7 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_delete(TN_FMP *fmp)
+osError_t tn_fmem_delete(TN_FMP *fmp)
 {
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
@@ -189,9 +189,9 @@ int tn_fmem_delete(TN_FMP *fmp)
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
+osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   void * ptr;
   TN_TCB *task;
 
@@ -227,7 +227,7 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_release(TN_FMP *fmp,void *p_data)
+osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 {
   CDLL_QUEUE * que;
   TN_TCB * task;

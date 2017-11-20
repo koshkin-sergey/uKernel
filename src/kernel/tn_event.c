@@ -85,6 +85,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
   CDLL_QUEUE * que;
   TN_TCB * task;
   int fCond;
+  bool rc = false;
 
   que = evf->wait_queue.next;
   /*  checking ALL of the tasks waiting on the event.
@@ -97,17 +98,17 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
     if (task->winfo.event.mode & TN_EVENT_WCOND_OR)
       fCond = ((evf->pattern & task->winfo.event.pattern) != 0);
     else
-      fCond = ((evf->pattern & task->winfo.event.pattern)
-        == task->winfo.event.pattern);
+      fCond = ((evf->pattern & task->winfo.event.pattern) == task->winfo.event.pattern);
 
     if (fCond) {
       queue_remove_entry(&task->task_queue);
       *task->winfo.event.flags_pattern = evf->pattern;
-      return ThreadWaitComplete(task);
+      ThreadWaitComplete(task);
+      rc = true;
     }
   }
 
-  return false;
+  return rc;
 }
 
 /*******************************************************************************
@@ -138,7 +139,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
  * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
  *            случае TERR_WRONG_PARAM
  *----------------------------------------------------------------------------*/
-int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
+osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
@@ -167,7 +168,7 @@ int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-int tn_event_delete(TN_EVENT *evf)
+osError_t tn_event_delete(TN_EVENT *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
@@ -208,10 +209,10 @@ int tn_event_delete(TN_EVENT *evf)
  *                            а его пытается использовать более одной задачи.
  *              TERR_TIMEOUT  - Время ожидания истекло.
  *----------------------------------------------------------------------------*/
-int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
+osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
                   unsigned int *p_flags_pattern, unsigned long timeout)
 {
-  int rc;
+  osError_t rc;
   int fCond;
 
   if (evf == NULL || wait_pattern == 0 || p_flags_pattern == NULL)
@@ -272,7 +273,7 @@ int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-int tn_event_set(TN_EVENT *evf, unsigned int pattern)
+osError_t tn_event_set(TN_EVENT *evf, unsigned int pattern)
 {
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;
@@ -304,7 +305,7 @@ int tn_event_set(TN_EVENT *evf, unsigned int pattern)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-int tn_event_clear(TN_EVENT *evf, unsigned int pattern)
+osError_t tn_event_clear(TN_EVENT *evf, unsigned int pattern)
 {
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;

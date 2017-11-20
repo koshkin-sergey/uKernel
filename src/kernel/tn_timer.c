@@ -138,7 +138,7 @@ TASK_FUNC timer_task_func(void *par)
     /* Проводим проверку очереди программных таймеров */
     while (!is_queue_empty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
-      if (tn_time_after(tm->time, jiffies))
+      if (time_after(tm->time, jiffies))
         break;
 
       timer_delete(tm);
@@ -215,7 +215,7 @@ static void do_timer_insert(TMEB *event)
 
   for (que = timer_queue.next; que != &timer_queue; que = que->next) {
     tm = get_timer_address(que);
-    if (tn_time_before(event->time, tm->time))
+    if (time_before(event->time, tm->time))
       break;
   }
   queue_add_tail(que, &event->queue);
@@ -252,7 +252,7 @@ static TIME_t cyc_next_time(TN_CYCLIC *cyc)
 
   tm = cyc->tmeb.time + cyc->time;
 
-  if (tn_time_before_eq(tm, jiffies)) {
+  if (time_before_eq(tm, jiffies)) {
     tm = jiffies - cyc->tmeb.time;
     n = tm / cyc->time;
     n++;
@@ -382,7 +382,7 @@ void timer_delete(TMEB *event)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
+osError_t tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -406,7 +406,7 @@ int tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_alarm_delete(TN_ALARM *alarm)
+osError_t tn_alarm_delete(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -432,7 +432,7 @@ int tn_alarm_delete(TN_ALARM *alarm)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_alarm_start(TN_ALARM *alarm, TIME_t time)
+osError_t tn_alarm_start(TN_ALARM *alarm, TIME_t time)
 {
   if (alarm == NULL || time == 0)
     return TERR_WRONG_PARAM;
@@ -457,7 +457,7 @@ int tn_alarm_start(TN_ALARM *alarm, TIME_t time)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_alarm_stop(TN_ALARM *alarm)
+osError_t tn_alarm_stop(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -481,7 +481,7 @@ int tn_alarm_stop(TN_ALARM *alarm)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
+osError_t tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
                      unsigned long cyctime, unsigned long cycphs,
                      unsigned int attr)
 {
@@ -521,7 +521,7 @@ int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_cyclic_delete(TN_CYCLIC *cyc)
+osError_t tn_cyclic_delete(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
@@ -547,7 +547,7 @@ int tn_cyclic_delete(TN_CYCLIC *cyc)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_cyclic_start(TN_CYCLIC *cyc)
+osError_t tn_cyclic_start(TN_CYCLIC *cyc)
 {
   TIME_t  tm;
 
@@ -561,7 +561,7 @@ int tn_cyclic_start(TN_CYCLIC *cyc)
   if (cyc->attr & TN_CYCLIC_ATTR_PHS) {
     if (cyc->stat == CYCLIC_STOP) {
       tm = cyc->tmeb.time;
-      if (tn_time_before_eq(tm, jiffies))
+      if (time_before_eq(tm, jiffies))
         tm = cyc_next_time(cyc);
       cyc_timer_insert(cyc, tm);
     }
@@ -585,7 +585,7 @@ int tn_cyclic_start(TN_CYCLIC *cyc)
   Параметры:  
   Результат:  
 *-----------------------------------------------------------------------------*/
-int tn_cyclic_stop(TN_CYCLIC *cyc)
+osError_t tn_cyclic_stop(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;

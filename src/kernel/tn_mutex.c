@@ -196,7 +196,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
  * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
  *            случае TERR_WRONG_PARAM
  *----------------------------------------------------------------------------*/
-int tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
+osError_t tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
@@ -219,7 +219,7 @@ int tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
 }
 
 //----------------------------------------------------------------------------
-int tn_mutex_delete(TN_MUTEX *mutex)
+osError_t tn_mutex_delete(TN_MUTEX *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
@@ -248,9 +248,9 @@ int tn_mutex_delete(TN_MUTEX *mutex)
 }
 
 //----------------------------------------------------------------------------
-int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
+osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   TN_TCB *task;
 
   if (mutex == NULL)
@@ -334,7 +334,7 @@ int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 }
 
 //----------------------------------------------------------------------------
-int tn_mutex_unlock(TN_MUTEX *mutex)
+osError_t tn_mutex_unlock(TN_MUTEX *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;

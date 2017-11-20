@@ -34,6 +34,29 @@
 #define BITS_IN_INT                32
 #define NUM_PRIORITY               BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
 
+#ifndef CONTAINING_RECORD
+#define CONTAINING_RECORD(address, type, field)     \
+        ((type *)((unsigned char *)(address) - (unsigned char *)(&((type *)0)->field)))
+#endif
+
+#define get_task_by_tsk_queue(que)                  \
+        que ? CONTAINING_RECORD(que, TN_TCB, task_queue) : 0
+
+#define get_mutex_by_mutex_queque(que)              \
+        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
+
+#define get_mutex_by_wait_queque(que)               \
+        que ? CONTAINING_RECORD(que, TN_MUTEX, wait_queue) : 0
+
+#define get_task_by_block_queque(que)  \
+        que ? CONTAINING_RECORD(que, TN_TCB, block_queue) : 0
+
+#define get_mutex_by_lock_mutex_queque(que) \
+        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
+
+#define get_timer_address(que) \
+        que ? CONTAINING_RECORD(que, TMEB, queue) : 0
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -54,7 +77,7 @@ typedef struct {
   uint32_t stk_size;
   const void *func_addr;
   const void *func_param;
-  int priority;
+  uint32_t priority;
   int32_t option;
 } task_create_attr_t;
 
@@ -94,7 +117,7 @@ void knlThreadSetNext(TN_TCB *thread)
 
 /* Thread */
 void ThreadSetReady(TN_TCB *thread);
-bool ThreadWaitComplete(TN_TCB *task);
+void ThreadWaitComplete(TN_TCB *task);
 void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, int wait_reason,
                            TIME_t timeout);
 void ThreadChangePriority(TN_TCB *task, int32_t new_priority);

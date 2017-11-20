@@ -127,9 +127,9 @@ int tn_sem_delete(TN_SEM *sem)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int tn_sem_signal(TN_SEM *sem)
+osError_t tn_sem_signal(TN_SEM *sem)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
   TN_TCB *task;
 
@@ -166,9 +166,9 @@ int tn_sem_signal(TN_SEM *sem)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
+osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 {
-  int rc; //-- return code
+  osError_t rc; //-- return code
   TN_TCB *task;
 
   if (sem == NULL)
