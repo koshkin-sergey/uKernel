@@ -383,8 +383,8 @@ void tn_start_system(TN_OPTIONS *opt);
 int tn_sys_tslice_ticks(int priority, int value);
 #endif
 
-/* - tn_timer.c --------------------------------------------------------------*/
-void tn_timer(void);
+/* - osTimerHandle.c --------------------------------------------------------------*/
+void osTimerHandle(void);
 unsigned long tn_get_tick_count(void);
 osError_t tn_alarm_create(TN_ALARM *alarm,     // Alarm Control Block
   void (*handler)(void *),  // Alarm handler

@@ -176,7 +176,7 @@ void tn_systick_init(unsigned int hz)
 *-----------------------------------------------------------------------------*/
 void SysTick_Handler(void)
 {
-  tn_timer();
+  osTimerHandle();
 }
 
 /* ----------------------------- End of file ---------------------------------*/

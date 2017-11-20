@@ -419,11 +419,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
             </File>
             <File>
-              <FileName>tn_tasks.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_tasks.c</FilePath>
-            </File>
-            <File>
               <FileName>tn_timer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_timer.c</FilePath>
@@ -442,6 +437,11 @@
               <FileName>system.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\system.c</FilePath>
+            </File>
+            <File>
+              <FileName>task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\task.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -881,11 +881,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
             </File>
             <File>
-              <FileName>tn_tasks.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_tasks.c</FilePath>
-            </File>
-            <File>
               <FileName>tn_timer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_timer.c</FilePath>
@@ -904,6 +899,11 @@
               <FileName>system.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\system.c</FilePath>
+            </File>
+            <File>
+              <FileName>task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\task.c</FilePath>
             </File>
           </Files>
         </Group>
