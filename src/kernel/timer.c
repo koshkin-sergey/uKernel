@@ -1,32 +1,21 @@
-/*******************************************************************************
+/*
+ * Copyright (C) 2011-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
  *
- * TNKernel real-time kernel
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
+ * www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
+ * Project: uKernel real-time kernel
+ */
 
 /**
  * @file
@@ -41,7 +30,6 @@
 
 #include "knl_lib.h"
 #include "delay.h"
-#include "timer.h"
 #include "utils.h"
 
 /*******************************************************************************
@@ -66,13 +54,6 @@
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
-volatile TIME_t jiffies;
-unsigned long os_period;
-
-#if defined(ROUND_ROBIN_ENABLE)
-unsigned short tslice_ticks[TN_NUM_PRIORITY];  // for round-robin only
-#endif
-
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
@@ -84,8 +65,7 @@ static CDLL_QUEUE timer_queue;
 #pragma data_alignment=8
 #endif
 
-tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak));
-
+__WEAK tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE];
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -93,20 +73,28 @@ tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE] __attribute__((weak));
 
 static void cyclic_handler(TN_CYCLIC *cyc);
 
+__svc_indirect(0)
+void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
+__svc_indirect(0)
+void svcAlarm(void (*)(TN_ALARM*), TN_ALARM*);
+__svc_indirect(0)
+void svcAlarmStart(void (*)(TN_ALARM*, TIME_t), TN_ALARM*, TIME_t);
+__svc_indirect(0)
+void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
- * Название : tn_systick_init
+ * Название : osSysTickInit
  * Описание : Функция заглушка для перекрытия в коде приложения если необходимо
  *            сконфигурировать системный таймер.
  * Параметры: hz  - частота в Гц. с которой системный таймер должен генерировать
  *            прерывание, в котором необходимо вызывать функцию osTimerHandle().
  * Результат: Нет.
  *----------------------------------------------------------------------------*/
-__attribute__((weak))
-void tn_systick_init(unsigned int hz)
+__WEAK void osSysTickInit(uint32_t hz)
 {
   ;
 }
@@ -127,18 +115,18 @@ TASK_FUNC timer_task_func(void *par)
   if (((TN_OPTIONS *)par)->app_init)
     ((TN_OPTIONS *)par)->app_init();
 
-  tn_systick_init(HZ);
+  osSysTickInit(knlInfo.HZ);
 
   calibrate_delay();
   tn_system_state = TN_ST_STATE_RUNNING;
 
   for (;;) {
-    BEGIN_CRITICAL_SECTION
+//    BEGIN_CRITICAL_SECTION
 
     /* Проводим проверку очереди программных таймеров */
     while (!is_queue_empty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
-      if (time_after(tm->time, jiffies))
+      if (time_after(tm->time, knlInfo.jiffies))
         break;
 
       timer_delete(tm);
@@ -148,9 +136,9 @@ TASK_FUNC timer_task_func(void *par)
       }
     }
 
-    ThreadToWaitAction(&timer_task, NULL, TSK_WAIT_REASON_SLEEP, TN_WAIT_INFINITE);
+    osTaskSleep(TN_WAIT_INFINITE);
 
-    END_CRITICAL_SECTION
+//    END_CRITICAL_SECTION
   }
 }
 
@@ -159,8 +147,7 @@ TASK_FUNC timer_task_func(void *par)
  * @param
  * @return
  */
-__attribute__((always_inline)) static
-void tick_int_processing(void)
+__STATIC_FORCEINLINE void tick_int_processing(void)
 {
 #if defined(ROUND_ROBIN_ENABLE)
 
@@ -168,6 +155,7 @@ void tick_int_processing(void)
   volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
   volatile int        priority;
   TN_TCB *task = ThreadGetCurrent();
+  uint16_t *tslice_ticks = knlInfo.tslice_ticks;
 
   //-------  Round -robin (if is used)  
   priority = task->priority;
@@ -234,9 +222,9 @@ static void alarm_handler(TN_ALARM *alarm)
 
   alarm->stat = ALARM_STOP;
 
-  BEGIN_ENABLE_INTERRUPT
+//  BEGIN_ENABLE_INTERRUPT
   alarm->handler(alarm->exinf);
-  END_ENABLE_INTERRUPT
+//  END_ENABLE_INTERRUPT
 }
 
 /*-----------------------------------------------------------------------------*
@@ -247,10 +235,11 @@ static void alarm_handler(TN_ALARM *alarm)
 *-----------------------------------------------------------------------------*/
 static TIME_t cyc_next_time(TN_CYCLIC *cyc)
 {
-  TIME_t  tm;
-  unsigned int  n;
+  TIME_t tm, jiffies;
+  uint32_t n;
 
   tm = cyc->tmeb.time + cyc->time;
+  jiffies = knlInfo.jiffies;
 
   if (time_before_eq(tm, jiffies)) {
     tm = jiffies - cyc->tmeb.time;
@@ -298,12 +287,12 @@ static void cyclic_handler(TN_CYCLIC *cyc)
  ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
-  Название :  create_timer_task
+  Название :  TimerTaskCreate
   Описание :  Функция создает задачу таймера с наивысшим приоритетом.
   Параметры:  Нет.
   Результат:  Нет.
 *-----------------------------------------------------------------------------*/
-void create_timer_task(void *par)
+void TimerTaskCreate(void *par)
 {
   task_create_attr_t attr;
 
@@ -319,26 +308,6 @@ void create_timer_task(void *par)
   queue_reset(&timer_queue);
 }
 
-void osTimerHandle(void)
-{
-  jiffies += os_period;
-  if (tn_system_state == TN_ST_STATE_RUNNING) {
-    ThreadGetCurrent()->time += os_period;
-    tick_int_processing();
-  }
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  tn_get_tick_count
-  Описание :  Возвращает системное время в тиках RTOS.
-  Параметры:  Нет.
-  Результат:  Возвращает системное время в тиках RTOS.
-*-----------------------------------------------------------------------------*/
-unsigned long tn_get_tick_count(void)
-{
-  return jiffies;
-}
-
 /*-----------------------------------------------------------------------------*
   Название :  timer_insert
   Описание :  
@@ -349,7 +318,7 @@ void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg)
 {
   event->callback = callback;
   event->arg  = arg;
-  event->time = jiffies + time;
+  event->time = knlInfo.jiffies + time;
 
   do_timer_insert(event);
 }
@@ -365,123 +334,45 @@ void timer_delete(TMEB *event)
   queue_remove_entry(&event->queue);
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_alarm_create
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_alarm_create(TN_ALARM *alarm, CBACK handler, void *exinf)
+void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id == TN_ID_ALARM || handler == NULL)
-    return TERR_WRONG_PARAM;
-
-  BEGIN_CRITICAL_SECTION
-
   alarm->exinf    = exinf;
   alarm->handler  = handler;
   alarm->stat     = ALARM_STOP;
   alarm->id       = TN_ID_ALARM;
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_alarm_delete
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_alarm_delete(TN_ALARM *alarm)
+void AlarmDelete(TN_ALARM *alarm)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
   if (alarm->stat == ALARM_START)
     timer_delete(&alarm->tmeb);
 
   alarm->handler = NULL;
   alarm->stat = ALARM_STOP;
   alarm->id = 0;
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_alarm_start
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_alarm_start(TN_ALARM *alarm, TIME_t time)
+void AlarmStart(TN_ALARM *alarm, TIME_t time)
 {
-  if (alarm == NULL || time == 0)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
   if (alarm->stat == ALARM_START)
     timer_delete(&alarm->tmeb);
 
   timer_insert(&alarm->tmeb, time, (CBACK)alarm_handler, alarm);
   alarm->stat = ALARM_START;
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_alarm_stop
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_alarm_stop(TN_ALARM *alarm)
+void AlarmStop(TN_ALARM *alarm)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
   if (alarm->stat == ALARM_START) {
     timer_delete(&alarm->tmeb);
     alarm->stat = ALARM_STOP;
   }
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_cyclic_create
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
-                     unsigned long cyctime, unsigned long cycphs,
-                     unsigned int attr)
+void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf, uint32_t cyctime,
+    uint32_t cycphs, uint32_t attr)
 {
   TIME_t  tm;
-
-  if (cyc == NULL || handler == NULL || cyctime == 0)
-    return TERR_WRONG_PARAM;
-  if (cyc->id == TN_ID_CYCLIC)
-    return TERR_WRONG_PARAM;
-
-  BEGIN_CRITICAL_SECTION
 
   cyc->exinf    = exinf;
   cyc->attr     = attr;
@@ -489,9 +380,9 @@ osError_t tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
   cyc->time     = cyctime;
   cyc->id       = TN_ID_CYCLIC;
 
-  tm = jiffies + cycphs;
+  tm = knlInfo.jiffies + cycphs;
 
-  if (attr & TN_CYCLIC_ATTR_START)  {
+  if (attr & TN_CYCLIC_ATTR_START) {
     cyc->stat = CYCLIC_START;
     cyc_timer_insert(cyc, tm);
   }
@@ -499,53 +390,23 @@ osError_t tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
     cyc->stat = CYCLIC_STOP;
     cyc->tmeb.time = tm;
   }
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_cyclic_delete
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_cyclic_delete(TN_CYCLIC *cyc)
+void CyclicDelete(TN_CYCLIC *cyc)
 {
-  if (cyc == NULL)
-    return TERR_WRONG_PARAM;
-  if (cyc->id != TN_ID_CYCLIC)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
   if (cyc->stat == CYCLIC_START)
     timer_delete(&cyc->tmeb);
 
   cyc->handler = NULL;
   cyc->stat = CYCLIC_STOP;
   cyc->id = 0;
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_cyclic_start
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_cyclic_start(TN_CYCLIC *cyc)
+void CyclicStart(TN_CYCLIC *cyc)
 {
-  TIME_t  tm;
+  TIME_t tm, jiffies;
 
-  if (cyc == NULL)
-    return TERR_WRONG_PARAM;
-  if (cyc->id != TN_ID_CYCLIC)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
+  jiffies = knlInfo.jiffies;
 
   if (cyc->attr & TN_CYCLIC_ATTR_PHS) {
     if (cyc->stat == CYCLIC_STOP) {
@@ -562,33 +423,146 @@ osError_t tn_cyclic_start(TN_CYCLIC *cyc)
     tm = jiffies + cyc->time;
     cyc_timer_insert(cyc, tm);
   }
+
   cyc->stat = CYCLIC_START;
+}
+
+void CyclicStop(TN_CYCLIC *cyc)
+{
+  if (cyc->stat == CYCLIC_START)
+    timer_delete(&cyc->tmeb);
+
+  cyc->stat = CYCLIC_STOP;
+}
+
+void osTimerHandle(void)
+{
+  knlInfo.jiffies += knlInfo.os_period;
+  if (tn_system_state == TN_ST_STATE_RUNNING) {
+    ThreadGetCurrent()->time += knlInfo.os_period;
+    tick_int_processing();
+  }
+}
+
+TIME_t osGetTickCount(void)
+{
+  return knlInfo.jiffies;
+}
+
+osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+{
+  if (alarm == NULL)
+    return TERR_WRONG_PARAM;
+  if (alarm->id == TN_ID_ALARM || handler == NULL)
+    return TERR_WRONG_PARAM;
+
+  svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
+
+  return TERR_NO_ERR;
+}
+
+osError_t osAlarmDelete(TN_ALARM *alarm)
+{
+  if (alarm == NULL)
+    return TERR_WRONG_PARAM;
+  if (alarm->id != TN_ID_ALARM)
+    return TERR_NOEXS;
+
+  svcAlarm(AlarmDelete, alarm);
+
+  return TERR_NO_ERR;
+}
+
+osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time)
+{
+  if (alarm == NULL || time == 0)
+    return TERR_WRONG_PARAM;
+  if (alarm->id != TN_ID_ALARM)
+    return TERR_NOEXS;
+
+  svcAlarmStart(AlarmStart, alarm, time);
+
+  return TERR_NO_ERR;
+}
+
+osError_t osAlarmStop(TN_ALARM *alarm)
+{
+  if (alarm == NULL)
+    return TERR_WRONG_PARAM;
+  if (alarm->id != TN_ID_ALARM)
+    return TERR_NOEXS;
+
+  svcAlarm(AlarmStop, alarm);
+
+  return TERR_NO_ERR;
+}
+
+osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf,
+                           uint32_t cyctime, uint32_t cycphs, uint32_t attr)
+{
+  TIME_t  tm;
+
+  if (cyc == NULL || handler == NULL || cyctime == 0)
+    return TERR_WRONG_PARAM;
+  if (cyc->id == TN_ID_CYCLIC)
+    return TERR_WRONG_PARAM;
+
+  BEGIN_CRITICAL_SECTION
+
+  cyc->exinf    = exinf;
+  cyc->attr     = attr;
+  cyc->handler  = handler;
+  cyc->time     = cyctime;
+  cyc->id       = TN_ID_CYCLIC;
+
+  tm = knlInfo.jiffies + cycphs;
+
+  if (attr & TN_CYCLIC_ATTR_START) {
+    cyc->stat = CYCLIC_START;
+    cyc_timer_insert(cyc, tm);
+  }
+  else {
+    cyc->stat = CYCLIC_STOP;
+    cyc->tmeb.time = tm;
+  }
 
   END_CRITICAL_SECTION
   return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  tn_cyclic_stop
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-osError_t tn_cyclic_stop(TN_CYCLIC *cyc)
+osError_t osCyclicDelete(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
+  svcCyclic(CyclicDelete, cyc);
 
-  if (cyc->stat == CYCLIC_START)
-    timer_delete(&cyc->tmeb);
+  return TERR_NO_ERR;
+}
 
-  cyc->stat = CYCLIC_STOP;
+osError_t osCyclicStart(TN_CYCLIC *cyc)
+{
+  if (cyc == NULL)
+    return TERR_WRONG_PARAM;
+  if (cyc->id != TN_ID_CYCLIC)
+    return TERR_NOEXS;
 
-  END_CRITICAL_SECTION
+  svcCyclic(CyclicStart, cyc);
+
+  return TERR_NO_ERR;
+}
+
+osError_t osCyclicStop(TN_CYCLIC *cyc)
+{
+  if (cyc == NULL)
+    return TERR_WRONG_PARAM;
+  if (cyc->id != TN_ID_CYCLIC)
+    return TERR_NOEXS;
+
+  svcCyclic(CyclicStop, cyc);
+
   return TERR_NO_ERR;
 }
 

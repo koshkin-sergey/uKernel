@@ -383,24 +383,30 @@ void tn_start_system(TN_OPTIONS *opt);
 int tn_sys_tslice_ticks(int priority, int value);
 #endif
 
-/* - osTimerHandle.c --------------------------------------------------------------*/
-void osTimerHandle(void);
-unsigned long tn_get_tick_count(void);
-osError_t tn_alarm_create(TN_ALARM *alarm,     // Alarm Control Block
-  void (*handler)(void *),  // Alarm handler
-  void *exinf      // Extended information
-  );
-osError_t tn_alarm_delete(TN_ALARM *alarm);
-osError_t tn_alarm_start(TN_ALARM *alarm, TIME_t time);
-osError_t tn_alarm_stop(TN_ALARM *alarm);
-osError_t tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
-                     unsigned long cyctime, unsigned long cycphs,
-                     unsigned int attr);
-osError_t tn_cyclic_delete(TN_CYCLIC *cyc);
-osError_t tn_cyclic_start(TN_CYCLIC *cyc);
-osError_t tn_cyclic_stop(TN_CYCLIC *cyc);
+/* - Timer -------------------------------------------------------------------*/
 
-/* - tn_tasks.c --------------------------------------------------------------*/
+void osTimerHandle(void);
+
+TIME_t osGetTickCount(void);
+
+osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf);
+
+osError_t osAlarmDelete(TN_ALARM *alarm);
+
+osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time);
+
+osError_t osAlarmStop(TN_ALARM *alarm);
+
+osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf,
+                         uint32_t cyctime, uint32_t cycphs, uint32_t attr);
+
+osError_t osCyclicDelete(TN_CYCLIC *cyc);
+
+osError_t osCyclicStart(TN_CYCLIC *cyc);
+
+osError_t osCyclicStop(TN_CYCLIC *cyc);
+
+/* - Task --------------------------------------------------------------------*/
 
 /**
  * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)

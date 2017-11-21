@@ -32,7 +32,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "timer.h"
 #include "utils.h"
 
 /*******************************************************************************
@@ -54,7 +53,6 @@
 knlInfo_t knlInfo;
 
 CDLL_QUEUE tn_create_queue;            /**< All created tasks */
-uint32_t HZ;                           /**< Frequency system timer */
 volatile int tn_created_tasks_qty;     /**< Number of created tasks */
 volatile int tn_system_state;          /**< System state -(running/not running/etc.) */
 uint32_t max_syscall_interrupt_priority;
@@ -127,13 +125,13 @@ void tn_start_system(TN_OPTIONS *opt)
   for (int i=0; i < NUM_PRIORITY; i++) {
     queue_reset(&knlInfo.ready_list[i]);
 #if defined(ROUND_ROBIN_ENABLE)
-    tslice_ticks[i] = NO_TIME_SLICE;
+    knlInfo.tslice_ticks[i] = NO_TIME_SLICE;
 #endif
   }
 
   queue_reset(&tn_create_queue);
-  HZ = opt->freq_timer;
-  os_period = 1000/HZ;
+  knlInfo.HZ = opt->freq_timer;
+  knlInfo.os_period = 1000/knlInfo.HZ;
   max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
   knlThreadSetCurrent(&idle_task);
@@ -142,7 +140,7 @@ void tn_start_system(TN_OPTIONS *opt)
   //--- Idle task
   create_idle_task();
   //--- Timer task
-  create_timer_task((void *)opt);
+  TimerTaskCreate((void *)opt);
 
   //-- Run OS - first context switch
   StartKernel();
@@ -161,13 +159,13 @@ void tn_start_system(TN_OPTIONS *opt)
  */
 int tn_sys_tslice_ticks(int priority, int value)
 {
-  if (priority <= 0 || priority >= TN_NUM_PRIORITY-1 ||
+  if (priority <= 0 || priority >= NUM_PRIORITY-1 ||
       value < 0 || value > MAX_TIME_SLICE)
     return TERR_WRONG_PARAM;
 
   BEGIN_DISABLE_INTERRUPT
 
-  tslice_ticks[priority] = value;
+  knlInfo.tslice_ticks[priority] = value;
 
   END_DISABLE_INTERRUPT
   return TERR_NO_ERR;

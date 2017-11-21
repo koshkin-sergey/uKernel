@@ -68,8 +68,14 @@ typedef struct {
 
 typedef struct {
   knlRun_t run;
+  uint32_t HZ;                            ///< Frequency system timer
+  uint32_t os_period;
+  volatile TIME_t jiffies;
   uint32_t ready_to_run_bmp;
-  CDLL_QUEUE ready_list[NUM_PRIORITY];    // all ready to run(RUNNABLE) tasks
+  CDLL_QUEUE ready_list[NUM_PRIORITY];    ///< all ready to run(RUNNABLE) tasks
+#if defined(ROUND_ROBIN_ENABLE)
+  uint16_t tslice_ticks[NUM_PRIORITY];    ///< For round-robin only
+#endif
 } knlInfo_t;
 
 typedef struct {
@@ -126,5 +132,10 @@ void ThreadWaitDelete(CDLL_QUEUE *que);
 void ThreadExit(void);
 
 void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
+
+/* Timer */
+void TimerTaskCreate(void *par);
+void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg);
+void timer_delete(TMEB *event);
 
 #endif /* _KNL_LIB_H_ */

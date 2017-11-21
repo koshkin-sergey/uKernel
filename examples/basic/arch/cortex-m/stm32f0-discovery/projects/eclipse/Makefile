@@ -38,7 +38,7 @@ SFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.s))
 OBJS := $(patsubst %.c,$(OBJ_FOLDER)/%.o, $(notdir $(CFILES))) $(patsubst %.s,$(OBJ_FOLDER)/%.o,$(notdir $(SFILES)))
 DEPS := $(OBJS:.o=.d)
 
-DEFINES := -D STM32F051
+DEFINES := -DSTM32F051
 
 DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
 
