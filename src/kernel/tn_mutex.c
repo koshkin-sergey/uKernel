@@ -41,7 +41,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 #ifdef USE_MUTEXES
 
@@ -117,11 +116,11 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 
   //-- Delete curr mutex from task's locked mutexes queue
 
-  queue_remove_entry(&(mutex->mutex_queue));
+  QueueRemoveEntry(&(mutex->mutex_queue));
   pr = task->base_priority;
 
   //---- No more mutexes, locked by the our task
-  if (!is_queue_empty(&(task->mutex_queue))) {
+  if (!isQueueEmpty(&(task->mutex_queue))) {
     curr_que = task->mutex_queue.next;
     while (curr_que != &(task->mutex_queue)) {
       tmp_mutex = get_mutex_by_mutex_queque(curr_que);
@@ -143,13 +142,13 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     ThreadChangePriority(task, pr);
 
   //-- Check for the task(s) that want to lock the mutex
-  if (is_queue_empty(&(mutex->wait_queue))) {
+  if (isQueueEmpty(&(mutex->wait_queue))) {
     mutex->holder = NULL;
     return true;
   }
 
   //--- Now lock the mutex by the first task in the mutex queue
-  curr_que = queue_remove_head(&(mutex->wait_queue));
+  curr_que = QueueRemoveHead(&(mutex->wait_queue));
   task = get_task_by_tsk_queue(curr_que);
   mutex->holder = task;
   if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
@@ -160,7 +159,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     task->priority = mutex->ceil_priority;
 
   ThreadWaitComplete(task);
-  queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
+  QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
 
   return true;
 }
@@ -206,8 +205,8 @@ osError_t tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
     && ((ceil_priority < 1) || (ceil_priority > (NUM_PRIORITY-2))))
     return TERR_WRONG_PARAM;
 
-  queue_reset(&(mutex->wait_queue));
-  queue_reset(&(mutex->mutex_queue));
+  QueueReset(&(mutex->wait_queue));
+  QueueReset(&(mutex->mutex_queue));
 
   mutex->attr = attribute;
   mutex->holder = NULL;
@@ -238,7 +237,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
 
   if (mutex->holder != NULL) {  //-- If the mutex is locked
     do_unlock_mutex(mutex);
-    queue_reset(&(mutex->mutex_queue));
+    QueueReset(&(mutex->mutex_queue));
   }
   mutex->id_mutex = 0; // Mutex not exists now
 
@@ -289,7 +288,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         mutex->cnt++;
 
       //-- Add mutex to task's locked mutexes queue
-      queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
+      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
       //-- Ceiling protocol
       if (task->priority > mutex->ceil_priority)
         ThreadChangePriority(task, mutex->ceil_priority);
@@ -312,7 +311,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
         mutex->cnt++;
 
-      queue_add_tail(&(task->mutex_queue), &(mutex->mutex_queue));
+      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
     }
     else {  //-- the mutex is already locked
       if (timeout == TN_POLLING)

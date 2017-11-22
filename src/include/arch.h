@@ -99,7 +99,7 @@
   #define IS_IRQ_MASKED()         ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U))
 
   /* - Interrupt processing - processor specific -----------------------------*/
-  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(max_syscall_interrupt_priority);
+  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(knlInfo.max_syscall_interrupt_priority);
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
 
   #define BEGIN_ENABLE_INTERRUPT  uint32_t tn_save_status_reg = tn_cpu_set_basepri(0);
@@ -138,8 +138,6 @@
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
-
-extern uint32_t max_syscall_interrupt_priority;
 
 /*******************************************************************************
  *  exported function prototypes

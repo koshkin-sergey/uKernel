@@ -32,7 +32,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -51,11 +50,6 @@
  ******************************************************************************/
 
 knlInfo_t knlInfo;
-
-CDLL_QUEUE tn_create_queue;            /**< All created tasks */
-volatile int tn_created_tasks_qty;     /**< Number of created tasks */
-volatile int tn_system_state;          /**< System state -(running/not running/etc.) */
-uint32_t max_syscall_interrupt_priority;
 
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
@@ -93,7 +87,7 @@ __attribute__((weak)) void tn_idle_task_func(void *par)
  * Idle task priority (TN_NUM_PRIORITY-1) - lowest.
  */
 static
-void create_idle_task(void)
+void IdleTaskCreate(void)
 {
   task_create_attr_t attr;
 
@@ -120,25 +114,24 @@ void tn_start_system(TN_OPTIONS *opt)
 {
   __disable_irq();
 
-  tn_system_state = TN_ST_STATE_NOT_RUN;
+  knlInfo.kernel_state = KERNEL_STATE_NOT_RUN;
 
   for (int i=0; i < NUM_PRIORITY; i++) {
-    queue_reset(&knlInfo.ready_list[i]);
+    QueueReset(&knlInfo.ready_list[i]);
 #if defined(ROUND_ROBIN_ENABLE)
     knlInfo.tslice_ticks[i] = NO_TIME_SLICE;
 #endif
   }
 
-  queue_reset(&tn_create_queue);
   knlInfo.HZ = opt->freq_timer;
   knlInfo.os_period = 1000/knlInfo.HZ;
-  max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
+  knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
   knlThreadSetCurrent(&idle_task);
   knlThreadSetNext(&idle_task);
 
   //--- Idle task
-  create_idle_task();
+  IdleTaskCreate();
   //--- Timer task
   TimerTaskCreate((void *)opt);
 

@@ -36,7 +36,7 @@
 
 #ifndef CONTAINING_RECORD
 #define CONTAINING_RECORD(address, type, field)     \
-        ((type *)((unsigned char *)(address) - (unsigned char *)(&((type *)0)->field)))
+        ((type *)((uint8_t *)(address) - (uint8_t *)(&((type *)0)->field)))
 #endif
 
 #define get_task_by_tsk_queue(que)                  \
@@ -61,6 +61,12 @@
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
+typedef enum {
+  KERNEL_STATE_NOT_RUN = 0,
+  KERNEL_STATE_RUNNING = 1,
+  kernel_state_reserved = 0x7fffffff
+} kernel_state_t;
+
 typedef struct {
   TN_TCB *curr;                     // Task that is running now
   TN_TCB *next;                     // Task to be run after switch context
@@ -71,6 +77,8 @@ typedef struct {
   uint32_t HZ;                            ///< Frequency system timer
   uint32_t os_period;
   volatile TIME_t jiffies;
+  uint32_t max_syscall_interrupt_priority;
+  kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
   CDLL_QUEUE ready_list[NUM_PRIORITY];    ///< all ready to run(RUNNABLE) tasks
 #if defined(ROUND_ROBIN_ENABLE)
@@ -132,10 +140,20 @@ void ThreadWaitDelete(CDLL_QUEUE *que);
 void ThreadExit(void);
 
 void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
+void TaskToRunnable(TN_TCB *task);
 
 /* Timer */
 void TimerTaskCreate(void *par);
 void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg);
 void timer_delete(TMEB *event);
+
+/* Queue */
+void QueueReset(CDLL_QUEUE *que);
+bool isQueueEmpty(CDLL_QUEUE *que);
+void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+void QueueRemoveEntry(CDLL_QUEUE *entry);
+CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que);
+CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que);
 
 #endif /* _KNL_LIB_H_ */

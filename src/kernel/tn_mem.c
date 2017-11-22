@@ -41,7 +41,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -127,7 +126,7 @@ osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
     return TERR_WRONG_PARAM;
   }
 
-  queue_reset(&(fmp->wait_queue));
+  QueueReset(&(fmp->wait_queue));
 
   //-- Prepare addr/block aligment
   i = ((unsigned long)start_addr + (TN_ALIG -1)) & (~(TN_ALIG-1));
@@ -239,8 +238,8 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 
   BEGIN_CRITICAL_SECTION
 
-  if (!is_queue_empty(&(fmp->wait_queue))) {
-    que = queue_remove_head(&(fmp->wait_queue));
+  if (!isQueueEmpty(&(fmp->wait_queue))) {
+    que = QueueRemoveHead(&(fmp->wait_queue));
     task = get_task_by_tsk_queue(que);
     task->winfo.fmem.data_elem = p_data;
     ThreadWaitComplete(task);

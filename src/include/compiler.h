@@ -61,6 +61,9 @@
   #ifndef   __INLINE
     #define __INLINE                               __inline
   #endif
+  #ifndef   __FORCEINLINE
+    #define __FORCEINLINE                          __attribute__((always_inline))
+  #endif
   #ifndef   __STATIC_INLINE
     #define __STATIC_INLINE                        static __inline
   #endif
@@ -116,6 +119,9 @@
   #endif
   #ifndef   __INLINE
     #define __INLINE                               __inline
+  #endif
+  #ifndef   __FORCEINLINE
+    #define __FORCEINLINE                          __attribute__((always_inline))
   #endif
   #ifndef   __STATIC_INLINE
     #define __STATIC_INLINE                        static __inline
@@ -197,6 +203,9 @@
   #endif
   #ifndef   __INLINE
     #define __INLINE                               inline
+  #endif
+  #ifndef   __FORCEINLINE
+    #define __FORCEINLINE                          __attribute__((always_inline))
   #endif
   #ifndef   __STATIC_INLINE
     #define __STATIC_INLINE                        static inline

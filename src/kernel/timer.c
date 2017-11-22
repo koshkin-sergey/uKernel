@@ -30,7 +30,6 @@
 
 #include "knl_lib.h"
 #include "delay.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -81,6 +80,8 @@ __svc_indirect(0)
 void svcAlarmStart(void (*)(TN_ALARM*, TIME_t), TN_ALARM*, TIME_t);
 __svc_indirect(0)
 void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
+__svc_indirect(0)
+void svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -100,15 +101,15 @@ __WEAK void osSysTickInit(uint32_t hz)
 }
 
 /*-----------------------------------------------------------------------------*
-  Название :  timer_task_func
+  Название :  TimerTaskFunc
   Описание :  Функция таймерной задачи. В ней производится проверка очереди
               программных таймеров. Если время таймера истекло, то производит
               запуск соответствующего обработчика.
   Параметры:  par - Указатель на данные
   Результат:  Нет
 *-----------------------------------------------------------------------------*/
-static
-TASK_FUNC timer_task_func(void *par)
+static __NO_RETURN
+void TimerTaskFunc(void *par)
 {
   TMEB  *tm;
 
@@ -118,13 +119,13 @@ TASK_FUNC timer_task_func(void *par)
   osSysTickInit(knlInfo.HZ);
 
   calibrate_delay();
-  tn_system_state = TN_ST_STATE_RUNNING;
+  knlInfo.kernel_state = KERNEL_STATE_RUNNING;
 
   for (;;) {
 //    BEGIN_CRITICAL_SECTION
 
     /* Проводим проверку очереди программных таймеров */
-    while (!is_queue_empty(&timer_queue)) {
+    while (!isQueueEmpty(&timer_queue)) {
       tm = get_timer_address(timer_queue.next);
       if (time_after(tm->time, knlInfo.jiffies))
         break;
@@ -140,91 +141,6 @@ TASK_FUNC timer_task_func(void *par)
 
 //    END_CRITICAL_SECTION
   }
-}
-
-/**
- * @brief
- * @param
- * @return
- */
-__STATIC_FORCEINLINE void tick_int_processing(void)
-{
-#if defined(ROUND_ROBIN_ENABLE)
-
-  volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
-  volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
-  volatile int        priority;
-  TN_TCB *task = ThreadGetCurrent();
-  uint16_t *tslice_ticks = knlInfo.tslice_ticks;
-
-  //-------  Round -robin (if is used)  
-  priority = task->priority;
-  
-  if (tslice_ticks[priority] != NO_TIME_SLICE) {
-    task->tslice_count++;
-    if (task->tslice_count > tslice_ticks[priority]) {
-      task->tslice_count = 0;
-  
-      pri_queue = &(knlInfo.ready_list[priority]);
-      //-- If ready queue is not empty and qty  of queue's tasks > 1
-      if (!(is_queue_empty((CDLL_QUEUE *)pri_queue)) &&
-            pri_queue->next->next != pri_queue) {
-        //-- Remove task from tail and add it to the head of
-        //-- ready queue for current priority
-        curr_que = queue_remove_tail(&(knlInfo.ready_list[priority]));
-        queue_add_head(&(knlInfo.ready_list[priority]),(CDLL_QUEUE *)curr_que);
-      }
-    }
-  }
-
-#endif  // ROUND_ROBIN_ENABLE
-
-  queue_remove_entry(&(timer_task.task_queue));
-
-  timer_task.task_state = TSK_STATE_RUNNABLE;
-  timer_task.pwait_queue = NULL;
-
-  ThreadSetReady(&timer_task);
-
-  knlThreadSetNext(&timer_task);
-  SwitchContextRequest();
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  do_timer_insert
-  Описание :
-  Параметры:
-  Результат:
-*-----------------------------------------------------------------------------*/
-static void do_timer_insert(TMEB *event)
-{
-  CDLL_QUEUE  *que;
-  TMEB        *tm;
-
-  for (que = timer_queue.next; que != &timer_queue; que = que->next) {
-    tm = get_timer_address(que);
-    if (time_before(event->time, tm->time))
-      break;
-  }
-  queue_add_tail(que, &event->queue);
-}
-
-/*-----------------------------------------------------------------------------*
-  Название :  alarm_handler
-  Описание :
-  Параметры:
-  Результат:
-*-----------------------------------------------------------------------------*/
-static void alarm_handler(TN_ALARM *alarm)
-{
-  if (alarm == NULL)
-    return;
-
-  alarm->stat = ALARM_STOP;
-
-//  BEGIN_ENABLE_INTERRUPT
-  alarm->handler(alarm->exinf);
-//  END_ENABLE_INTERRUPT
 }
 
 /*-----------------------------------------------------------------------------*
@@ -253,18 +169,21 @@ static TIME_t cyc_next_time(TN_CYCLIC *cyc)
 }
 
 /*-----------------------------------------------------------------------------*
-  Название :  cyc_timer_insert
+  Название :  alarm_handler
   Описание :
   Параметры:
   Результат:
 *-----------------------------------------------------------------------------*/
-static void cyc_timer_insert(TN_CYCLIC *cyc, TIME_t time)
+static void alarm_handler(TN_ALARM *alarm)
 {
-  cyc->tmeb.callback  = (CBACK)cyclic_handler;
-  cyc->tmeb.arg = cyc;
-  cyc->tmeb.time  = time;
+  if (alarm == NULL)
+    return;
 
-  do_timer_insert(&cyc->tmeb);
+  alarm->stat = ALARM_STOP;
+
+//  BEGIN_ENABLE_INTERRUPT
+  alarm->handler(alarm->exinf);
+//  END_ENABLE_INTERRUPT
 }
 
 /*-----------------------------------------------------------------------------*
@@ -275,11 +194,11 @@ static void cyc_timer_insert(TN_CYCLIC *cyc, TIME_t time)
 *-----------------------------------------------------------------------------*/
 static void cyclic_handler(TN_CYCLIC *cyc)
 {
-  cyc_timer_insert(cyc, cyc_next_time(cyc));
+  timer_insert(&cyc->tmeb, cyc_next_time(cyc), (CBACK)cyclic_handler, cyc);
 
-  BEGIN_ENABLE_INTERRUPT
+//  BEGIN_ENABLE_INTERRUPT
   cyc->handler(cyc->exinf);
-  END_ENABLE_INTERRUPT
+//  END_ENABLE_INTERRUPT
 }
 
 /*******************************************************************************
@@ -296,7 +215,7 @@ void TimerTaskCreate(void *par)
 {
   task_create_attr_t attr;
 
-  attr.func_addr = (void *)timer_task_func;
+  attr.func_addr = (void *)TimerTaskFunc;
   attr.func_param = par;
   attr.stk_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
   attr.stk_start = (uint32_t *)&tn_timer_task_stack[attr.stk_size-1];
@@ -305,7 +224,7 @@ void TimerTaskCreate(void *par)
 
   TaskCreate(&timer_task, &attr);
 
-  queue_reset(&timer_queue);
+  QueueReset(&timer_queue);
 }
 
 /*-----------------------------------------------------------------------------*
@@ -316,24 +235,33 @@ void TimerTaskCreate(void *par)
 *-----------------------------------------------------------------------------*/
 void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg)
 {
+  CDLL_QUEUE  *que;
+  TMEB        *tm;
+
   event->callback = callback;
   event->arg  = arg;
-  event->time = knlInfo.jiffies + time;
+  event->time = time;
 
-  do_timer_insert(event);
+  for (que = timer_queue.next; que != &timer_queue; que = que->next) {
+    tm = get_timer_address(que);
+    if (time_before(event->time, tm->time))
+      break;
+  }
+
+  QueueAddTail(que, &event->queue);
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  timer_delete
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-void timer_delete(TMEB *event)
+__FORCEINLINE void timer_delete(TMEB *event)
 {
-  queue_remove_entry(&event->queue);
+  QueueRemoveEntry(&event->queue);
 }
 
+/**
+ * @fn          void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+ * @param[out]  alarm
+ * @param[in]   handler
+ * @param[in]   exinf
+ */
 void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
   alarm->exinf    = exinf;
@@ -342,6 +270,10 @@ void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
   alarm->id       = TN_ID_ALARM;
 }
 
+/**
+ * @fn          void AlarmDelete(TN_ALARM *alarm)
+ * @param[out]  alarm
+ */
 void AlarmDelete(TN_ALARM *alarm)
 {
   if (alarm->stat == ALARM_START)
@@ -352,15 +284,24 @@ void AlarmDelete(TN_ALARM *alarm)
   alarm->id = 0;
 }
 
-void AlarmStart(TN_ALARM *alarm, TIME_t time)
+/**
+ * @fn          void AlarmStart(TN_ALARM *alarm, TIME_t time)
+ * @param[out]  alarm
+ * @param[in]   time
+ */
+void AlarmStart(TN_ALARM *alarm, TIME_t timeout)
 {
   if (alarm->stat == ALARM_START)
     timer_delete(&alarm->tmeb);
 
-  timer_insert(&alarm->tmeb, time, (CBACK)alarm_handler, alarm);
+  timer_insert(&alarm->tmeb, knlInfo.jiffies + timeout, (CBACK)alarm_handler, alarm);
   alarm->stat = ALARM_START;
 }
 
+/**
+ * @fn          void AlarmStop(TN_ALARM *alarm)
+ * @param[out]  alarm
+ */
 void AlarmStop(TN_ALARM *alarm)
 {
   if (alarm->stat == ALARM_START) {
@@ -369,22 +310,26 @@ void AlarmStop(TN_ALARM *alarm)
   }
 }
 
-void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf, uint32_t cyctime,
-    uint32_t cycphs, uint32_t attr)
+/**
+ * @fn          void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+ * @param[out]  cyc
+ * @param[in]   handler
+ * @param[in]   param
+ * @param[in]   exinf
+ */
+void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
 {
-  TIME_t  tm;
-
   cyc->exinf    = exinf;
-  cyc->attr     = attr;
+  cyc->attr     = param->cyc_attr;
   cyc->handler  = handler;
-  cyc->time     = cyctime;
+  cyc->time     = param->cyc_time;
   cyc->id       = TN_ID_CYCLIC;
 
-  tm = knlInfo.jiffies + cycphs;
+  TIME_t tm = knlInfo.jiffies + param->cyc_phs;
 
-  if (attr & TN_CYCLIC_ATTR_START) {
+  if (cyc->attr & CYCLIC_ATTR_START) {
     cyc->stat = CYCLIC_START;
-    cyc_timer_insert(cyc, tm);
+    timer_insert(&cyc->tmeb, tm, (CBACK)cyclic_handler, cyc);
   }
   else {
     cyc->stat = CYCLIC_STOP;
@@ -392,6 +337,10 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf, uint32_t cyctime,
   }
 }
 
+/**
+ * @fn          void CyclicDelete(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ */
 void CyclicDelete(TN_CYCLIC *cyc)
 {
   if (cyc->stat == CYCLIC_START)
@@ -402,31 +351,38 @@ void CyclicDelete(TN_CYCLIC *cyc)
   cyc->id = 0;
 }
 
+/**
+ * @fn          void CyclicStart(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ */
 void CyclicStart(TN_CYCLIC *cyc)
 {
-  TIME_t tm, jiffies;
+  TIME_t jiffies = knlInfo.jiffies;
 
-  jiffies = knlInfo.jiffies;
-
-  if (cyc->attr & TN_CYCLIC_ATTR_PHS) {
+  if (cyc->attr & CYCLIC_ATTR_PHS) {
     if (cyc->stat == CYCLIC_STOP) {
-      tm = cyc->tmeb.time;
+      TIME_t tm = cyc->tmeb.time;
+
       if (time_before_eq(tm, jiffies))
         tm = cyc_next_time(cyc);
-      cyc_timer_insert(cyc, tm);
+
+      timer_insert(&cyc->tmeb, tm, (CBACK)cyclic_handler, cyc);
     }
   }
   else {
     if (cyc->stat == CYCLIC_START)
       timer_delete(&cyc->tmeb);
 
-    tm = jiffies + cyc->time;
-    cyc_timer_insert(cyc, tm);
+    timer_insert(&cyc->tmeb, jiffies + cyc->time, (CBACK)cyclic_handler, cyc);
   }
 
   cyc->stat = CYCLIC_START;
 }
 
+/**
+ * @fn          void CyclicStop(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ */
 void CyclicStop(TN_CYCLIC *cyc)
 {
   if (cyc->stat == CYCLIC_START)
@@ -438,9 +394,38 @@ void CyclicStop(TN_CYCLIC *cyc)
 void osTimerHandle(void)
 {
   knlInfo.jiffies += knlInfo.os_period;
-  if (tn_system_state == TN_ST_STATE_RUNNING) {
+  if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
     ThreadGetCurrent()->time += knlInfo.os_period;
-    tick_int_processing();
+
+#if defined(ROUND_ROBIN_ENABLE)
+    volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
+    volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
+    volatile int        priority;
+    TN_TCB *task = ThreadGetCurrent();
+    uint16_t *tslice_ticks = knlInfo.tslice_ticks;
+
+    //-------  Round -robin (if is used)
+    priority = task->priority;
+
+    if (tslice_ticks[priority] != NO_TIME_SLICE) {
+      task->tslice_count++;
+      if (task->tslice_count > tslice_ticks[priority]) {
+        task->tslice_count = 0;
+
+        pri_queue = &(knlInfo.ready_list[priority]);
+        //-- If ready queue is not empty and qty  of queue's tasks > 1
+        if (!(isQueueEmpty((CDLL_QUEUE *)pri_queue)) &&
+            pri_queue->next->next != pri_queue) {
+          //-- Remove task from tail and add it to the head of
+          //-- ready queue for current priority
+          curr_que = queue_remove_tail(&(knlInfo.ready_list[priority]));
+          queue_add_head(&(knlInfo.ready_list[priority]),(CDLL_QUEUE *)curr_que);
+        }
+      }
+    }
+#endif  // ROUND_ROBIN_ENABLE
+
+    TaskToRunnable(&timer_task);
   }
 }
 
@@ -449,117 +434,180 @@ TIME_t osGetTickCount(void)
   return knlInfo.jiffies;
 }
 
+/**
+ * @fn          osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+ * @param[out]  alarm
+ * @param[in]   handler
+ * @param[in]   exinf
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id == TN_ID_ALARM || handler == NULL)
     return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
 
   return TERR_NO_ERR;
 }
 
+/**
+ * @fn          osError_t osAlarmDelete(TN_ALARM *alarm)
+ * @param[out]  alarm
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osAlarmDelete(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcAlarm(AlarmDelete, alarm);
 
   return TERR_NO_ERR;
 }
 
-osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time)
+/**
+ * @fn          osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time)
+ * @param[out]  alarm
+ * @param[in]   time
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout)
 {
-  if (alarm == NULL || time == 0)
+  if (alarm == NULL || timeout == 0)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  svcAlarmStart(AlarmStart, alarm, time);
+  svcAlarmStart(AlarmStart, alarm, timeout);
 
   return TERR_NO_ERR;
 }
 
+/**
+ * @fn          osError_t osAlarmStop(TN_ALARM *alarm)
+ * @param[out]  alarm
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osAlarmStop(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
   if (alarm->id != TN_ID_ALARM)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcAlarm(AlarmStop, alarm);
 
   return TERR_NO_ERR;
 }
 
-osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf,
-                           uint32_t cyctime, uint32_t cycphs, uint32_t attr)
+/**
+ * @fn          osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+ * @param[out]  cyc
+ * @param[in]   handler
+ * @param[in]   param
+ * @param[in]   exinf
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
 {
-  TIME_t  tm;
-
-  if (cyc == NULL || handler == NULL || cyctime == 0)
+  if (cyc == NULL || handler == NULL || param->cyc_time == 0)
     return TERR_WRONG_PARAM;
   if (cyc->id == TN_ID_CYCLIC)
     return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
+  svcCyclicCreate(CyclicCreate, cyc, handler, param, exinf);
 
-  cyc->exinf    = exinf;
-  cyc->attr     = attr;
-  cyc->handler  = handler;
-  cyc->time     = cyctime;
-  cyc->id       = TN_ID_CYCLIC;
-
-  tm = knlInfo.jiffies + cycphs;
-
-  if (attr & TN_CYCLIC_ATTR_START) {
-    cyc->stat = CYCLIC_START;
-    cyc_timer_insert(cyc, tm);
-  }
-  else {
-    cyc->stat = CYCLIC_STOP;
-    cyc->tmeb.time = tm;
-  }
-
-  END_CRITICAL_SECTION
   return TERR_NO_ERR;
 }
 
+/**
+ * @fn          osError_t osCyclicDelete(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osCyclicDelete(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcCyclic(CyclicDelete, cyc);
 
   return TERR_NO_ERR;
 }
 
+/**
+ * @fn          osError_t osCyclicStart(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osCyclicStart(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcCyclic(CyclicStart, cyc);
 
   return TERR_NO_ERR;
 }
 
+/**
+ * @fn          osError_t osCyclicStop(TN_CYCLIC *cyc)
+ * @param[out]  cyc
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
 osError_t osCyclicStop(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
   if (cyc->id != TN_ID_CYCLIC)
     return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
   svcCyclic(CyclicStop, cyc);
 

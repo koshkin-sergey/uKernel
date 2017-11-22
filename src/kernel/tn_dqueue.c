@@ -41,7 +41,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -171,8 +170,8 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
 
   //-- there are task(s) in the data queue's wait_receive list
 
-  if (!is_queue_empty(&(dque->wait_receive_list))) {
-    que = queue_remove_head(&(dque->wait_receive_list));
+  if (!isQueueEmpty(&(dque->wait_receive_list))) {
+    que = QueueRemoveHead(&(dque->wait_receive_list));
     task = get_task_by_tsk_queue(que);
     *task->winfo.rdque.data_elem = data_ptr;
     ThreadWaitComplete(task);
@@ -226,8 +225,8 @@ osError_t tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 
   BEGIN_CRITICAL_SECTION
 
-  queue_reset(&(dque->wait_send_list));
-  queue_reset(&(dque->wait_receive_list));
+  QueueReset(&(dque->wait_send_list));
+  QueueReset(&(dque->wait_receive_list));
 
   dque->data_fifo = data_fifo;
   dque->num_entries = num_entries;
@@ -337,8 +336,8 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
 
   rc = dque_fifo_read(dque, data_ptr);
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!is_queue_empty(&(dque->wait_send_list))) {
-      que = queue_remove_head(&(dque->wait_send_list));
+    if (!isQueueEmpty(&(dque->wait_send_list))) {
+      que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
       dque_fifo_write(dque, task->winfo.sdque.data_elem,
           task->winfo.sdque.send_to_first);
@@ -346,8 +345,8 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
     }
   }
   else {  //-- data FIFO is empty
-    if (!is_queue_empty(&(dque->wait_send_list))) {
-      que = queue_remove_head(&(dque->wait_send_list));
+    if (!isQueueEmpty(&(dque->wait_send_list))) {
+      que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
       *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
       ThreadWaitComplete(task);

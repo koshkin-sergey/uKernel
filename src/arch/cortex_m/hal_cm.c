@@ -246,7 +246,7 @@ exit_context_switch
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  ldr    r0, =__cpp(&max_syscall_interrupt_priority)
+  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
   msr    BASEPRI, r0                ; Start critical section
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task

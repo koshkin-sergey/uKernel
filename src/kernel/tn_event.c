@@ -41,7 +41,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 #ifdef  USE_EVENTS
 
@@ -101,7 +100,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
       fCond = ((evf->pattern & task->winfo.event.pattern) == task->winfo.event.pattern);
 
     if (fCond) {
-      queue_remove_entry(&task->task_queue);
+      QueueRemoveEntry(&task->task_queue);
       *task->winfo.event.flags_pattern = evf->pattern;
       ThreadWaitComplete(task);
       rc = true;
@@ -150,7 +149,7 @@ osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
   if ((attr & TN_EVENT_ATTR_CLR) && ((attr & TN_EVENT_ATTR_SINGLE) == 0))
     return TERR_WRONG_PARAM;
 
-  queue_reset(&evf->wait_queue);
+  QueueReset(&evf->wait_queue);
   evf->pattern = pattern;
   evf->attr = attr;
 
@@ -224,7 +223,7 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
 
   //-- If event attr is TN_EVENT_ATTR_SINGLE and another task already
   //-- in event wait queue - return ERROR without checking release condition
-  if ((evf->attr & TN_EVENT_ATTR_SINGLE) && !is_queue_empty(&evf->wait_queue)) {
+  if ((evf->attr & TN_EVENT_ATTR_SINGLE) && !isQueueEmpty(&evf->wait_queue)) {
     rc = TERR_ILUSE;
   }
   else {

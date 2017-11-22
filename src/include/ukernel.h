@@ -73,15 +73,10 @@
 #endif
 
 /* - The system configuration (change it for your particular project) --------*/
-#define TN_MEAS_PERFORMANCE   1
 #define USE_MUTEXES           1
 #define USE_EVENTS            1
-#define USE_INLINE_CDLL       1
 
 /* - Constants ---------------------------------------------------------------*/
-#define TN_ST_STATE_NOT_RUN              0 
-#define TN_ST_STATE_RUNNING              1 
-
 #define TN_TASK_START_ON_CREATION        1 
 #define TN_TASK_TIMER                 0x80
 #define TN_TASK_IDLE                  0x40
@@ -123,14 +118,18 @@
 #define TN_MUTEX_ATTR_CEILING         (1UL<<0)
 #define TN_MUTEX_ATTR_RECURSIVE       (1UL<<1)
 
-#define TN_CYCLIC_ATTR_START            1
-#define TN_CYCLIC_ATTR_PHS              2
-
 #define TN_WAIT_INFINITE                0xFFFFFFFF
 #define TN_POLLING                      0x0
 
 #define NO_TIME_SLICE                  (0)
 #define MAX_TIME_SLICE            (0xFFFE)
+
+#define time_after(a,b)      ((int32_t)(b) - (int32_t)(a) < 0)
+#define time_before(a,b)     time_after(b,a)
+
+#define time_after_eq(a,b)   ((int32_t)(a) - (int32_t)(b) >= 0)
+#define time_before_eq(a,b)  time_after_eq(b,a)
+
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -167,6 +166,20 @@ typedef enum {
   TSK_STATE_DORMANT   = 0x08,
   task_state_reserved = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } task_state_t;
+
+/* Cyclic attributes */
+typedef enum {
+  CYCLIC_ATTR_NO        = 0x00,
+  CYCLIC_ATTR_START     = 0x01,
+  CYCLIC_ATTR_PHS       = 0x02,
+  cyclic_attr_reserved  = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} cyclic_attr_t;
+
+typedef struct {
+  uint32_t cyc_time;
+  uint32_t cyc_phs;
+  cyclic_attr_t cyc_attr;
+} cyclic_param_t;
 
 typedef uint32_t TIME_t;
 
@@ -234,7 +247,6 @@ typedef struct _TN_TCB {
   CDLL_QUEUE task_queue;    //-- Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;  //-- Ptr to object's(semaphor,event,etc.) wait list,
                             // that task has been included for waiting (ver 2.x)
-  CDLL_QUEUE create_queue;  //-- Queue is used to include task in create list only
 #ifdef USE_MUTEXES
   CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
 #endif
@@ -349,24 +361,13 @@ typedef void (*TN_USER_FUNC)(void);
 
 typedef struct {
   TN_USER_FUNC app_init;
-  unsigned long freq_timer;
-  unsigned int max_syscall_interrupt_priority;
+  uint32_t freq_timer;
+  uint32_t max_syscall_interrupt_priority;
 } TN_OPTIONS;
 
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
-
-/* - Global vars -------------------------------------------------------------*/
-extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
-extern volatile int tn_created_tasks_qty;           //-- num of created tasks
-extern volatile int tn_system_state; //-- System state -(running/not running,etc.)
-
-#define time_after(a,b)      ((int32_t)(b) - (int32_t)(a) < 0)
-#define time_before(a,b)     time_after(b,a)
-
-#define time_after_eq(a,b)   ((int32_t)(a) - (int32_t)(b) >= 0)
-#define time_before_eq(a,b)  time_after_eq(b,a)
 
 /*******************************************************************************
  *  exported function prototypes
@@ -393,12 +394,11 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf);
 
 osError_t osAlarmDelete(TN_ALARM *alarm);
 
-osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time);
+osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout);
 
 osError_t osAlarmStop(TN_ALARM *alarm);
 
-osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, void *exinf,
-                         uint32_t cyctime, uint32_t cycphs, uint32_t attr);
+osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf);
 
 osError_t osCyclicDelete(TN_CYCLIC *cyc);
 

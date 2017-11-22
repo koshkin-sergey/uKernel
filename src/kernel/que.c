@@ -1,9 +1,28 @@
+/*
+ * Copyright (C) 2011-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
  *
  * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2013-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,14 +48,22 @@
  *
  ******************************************************************************/
 
-#ifndef _TN_UTILS_H_
-#define _TN_UTILS_H_
+/**
+ * @file
+ *
+ * Kernel system routines.
+ *
+ */
 
 /*******************************************************************************
  *  includes
  ******************************************************************************/
 
 #include "knl_lib.h"
+
+/*******************************************************************************
+ *  external declarations
+ ******************************************************************************/
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -47,51 +74,54 @@
  ******************************************************************************/
 
 /*******************************************************************************
- *  exported variables
+ *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
 /*******************************************************************************
- *  exported function prototypes
+ *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/*******************************************************************************
+ *  function prototypes (scope: module-local)
+ ******************************************************************************/
 
-#if (USE_INLINE_CDLL == 1)
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_reset
+ * Название : QueueReset
  * Описание : Сбрасывает двунаправленный список
  * Параметры: que - Указатель на список
  * Результат: Нет
  *-----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-void queue_reset(CDLL_QUEUE *que)
+__FORCEINLINE void QueueReset(CDLL_QUEUE *que)
 {
   que->prev = que->next = que;
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : is_queue_empty
+ * Название : isQueueEmpty
  * Описание : Проверяет очередь на пустоту
  * Параметры: que - Указатель на очередь
  * Результат: Возвращает true если очередь пуста, в противном случае false
  *-----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-bool is_queue_empty(CDLL_QUEUE *que)
+__FORCEINLINE bool isQueueEmpty(CDLL_QUEUE *que)
 {
   return ((que->next == que) ? true : false);
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_add_head
+ * Название : QueueAddHead
  * Описание :
  * Параметры:
  * Результат:
  *-----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+void QueueAddHead(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
   //--  Insert an entry at the head of the queue.
 
@@ -102,13 +132,12 @@ void queue_add_head(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_add_tail
+ * Название : QueueAddTail
  * Описание :
  * Параметры:
  * Результат:
  *-----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+void QueueAddTail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 {
   //-- Insert an entry at the tail of the queue.
 
@@ -119,20 +148,19 @@ void queue_add_tail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_remove_head
+ * Название : QueueRemoveHead
  * Описание :
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
+CDLL_QUEUE * QueueRemoveHead(CDLL_QUEUE * que)
 {
   //-- Remove and return an entry at the head of the queue.
 
-  CDLL_QUEUE * entry;
+  CDLL_QUEUE *entry;
 
-  if (que == NULL || que->next == que)
-    return (CDLL_QUEUE *)0;
+  if(que == NULL || que->next == que)
+  return (CDLL_QUEUE *)NULL;
 
   entry = que->next;
   entry->next->prev = que;
@@ -141,20 +169,19 @@ CDLL_QUEUE * queue_remove_head(CDLL_QUEUE * que)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_remove_tail
+ * Название : QueueRemoveTail
  * Описание :
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
+CDLL_QUEUE * QueueRemoveTail(CDLL_QUEUE * que)
 {
   //-- Remove and return an entry at the tail of the queue.
 
   CDLL_QUEUE * entry;
 
-  if (que->prev == que)
-    return (CDLL_QUEUE *)0;
+  if(que->prev == que)
+  return (CDLL_QUEUE *)NULL;
 
   entry = que->prev;
   entry->prev->next = que;
@@ -163,38 +190,19 @@ CDLL_QUEUE * queue_remove_tail(CDLL_QUEUE * que)
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : queue_remove_entry
+ * Название : QueueRemoveEntry
  * Описание :
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-__STATIC_FORCEINLINE
-void queue_remove_entry(CDLL_QUEUE *entry)
+void QueueRemoveEntry(CDLL_QUEUE *entry)
 {
   //--  Remove an entry from the queue.
-  if (!is_queue_empty(entry)) {
+  if (!isQueueEmpty(entry)) {
     entry->prev->next = entry->next;
     entry->next->prev = entry->prev;
-    queue_reset(entry);
+    QueueReset(entry);
   }
 }
-
-#else
-
-extern void queue_reset(CDLL_QUEUE *que);
-extern bool is_queue_empty(CDLL_QUEUE *que);
-extern void queue_add_head(CDLL_QUEUE *que, CDLL_QUEUE *entry);
-extern void queue_add_tail(CDLL_QUEUE *que, CDLL_QUEUE *entry);
-extern CDLL_QUEUE *queue_remove_head(CDLL_QUEUE *que);
-extern CDLL_QUEUE *queue_remove_tail(CDLL_QUEUE *que);
-extern void queue_remove_entry(CDLL_QUEUE *entry);
-
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif  // _TN_UTILS_H_
 
 /*------------------------------ End of file ---------------------------------*/

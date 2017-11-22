@@ -60,7 +60,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -139,7 +138,6 @@ void ThreadDispatch(void)
  * @param
  * @return
  */
-static
 void TaskToRunnable(TN_TCB *task)
 {
   task->task_state = TSK_STATE_RUNNABLE;
@@ -167,9 +165,9 @@ void TaskToNonRunnable(TN_TCB *task)
   CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
 
   /* Remove the current task from any queue (now - from ready queue) */
-  queue_remove_entry(&(task->task_queue));
+  QueueRemoveEntry(&(task->task_queue));
 
-  if (is_queue_empty(que)) {
+  if (isQueueEmpty(que)) {
     /* No ready tasks for the curr priority */
     /* Remove 'ready to run' from the curr priority */
     knlInfo.ready_to_run_bmp &= ~(1 << priority);
@@ -254,10 +252,10 @@ void task_wait_release(TN_TCB *task)
 static
 void task_set_dormant_state(TN_TCB* task)
 {
-  queue_reset(&(task->task_queue));
-  queue_reset(&(task->wtmeb.queue));
+  QueueReset(&(task->task_queue));
+  QueueReset(&(task->wtmeb.queue));
 #ifdef USE_MUTEXES
-  queue_reset(&(task->mutex_queue));
+  QueueReset(&(task->mutex_queue));
 #endif
 
   task->pwait_queue = NULL;
@@ -279,7 +277,7 @@ void task_wait_release_handler(TN_TCB *task)
 //  if (task == NULL)
 //    return;
 
-  queue_remove_entry(&task->task_queue);
+  QueueRemoveEntry(&task->task_queue);
   task_wait_release(task);
 
   if (task->wercd != NULL)
@@ -300,7 +298,7 @@ void ThreadSetReady(TN_TCB *thread)
   knlInfo_t *info = &knlInfo;
   int32_t priority = thread->priority;
 
-  queue_add_tail(&info->ready_list[priority], &thread->task_queue);
+  QueueAddTail(&info->ready_list[priority], &thread->task_queue);
   info->ready_to_run_bmp |= (1 << priority);
 }
 
@@ -328,11 +326,11 @@ void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
   int32_t old_priority = task->priority;
 
   //-- remove curr task from any (wait/ready) queue
-  queue_remove_entry(&(task->task_queue));
+  QueueRemoveEntry(&(task->task_queue));
 
   //-- If there are no ready tasks for the old priority
   //-- clear ready bit for old priority
-  if (is_queue_empty(&info->ready_list[old_priority]))
+  if (isQueueEmpty(&info->ready_list[old_priority]))
     info->ready_to_run_bmp &= ~(1 << old_priority);
 
   task->priority = new_priority;
@@ -393,8 +391,8 @@ void ThreadWaitDelete(CDLL_QUEUE *wait_que)
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-  while (!is_queue_empty(wait_que)) {
-    que = queue_remove_head(wait_que);
+  while (!isQueueEmpty(wait_que)) {
+    que = QueueRemoveHead(wait_que);
     task = get_task_by_tsk_queue(que);
     ThreadWaitComplete(task);
     if (task->wercd != NULL)
@@ -402,8 +400,7 @@ void ThreadWaitDelete(CDLL_QUEUE *wait_que)
   }
 }
 
-void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
-                         TIME_t timeout)
+void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason, TIME_t timeout)
 {
   TaskToNonRunnable(task);
 
@@ -412,13 +409,13 @@ void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason,
 
   /* Add to the wait queue - FIFO */
   if (wait_que != NULL) {
-    queue_add_tail(wait_que, &(task->task_queue));
+    QueueAddTail(wait_que, &(task->task_queue));
     task->pwait_queue = wait_que;
   }
 
   /* Add to the timers queue */
   if (timeout != TN_WAIT_INFINITE)
-    timer_insert(&task->wtmeb, timeout, (CBACK)task_wait_release_handler, task);
+    timer_insert(&task->wtmeb, knlInfo.jiffies + timeout, (CBACK)task_wait_release_handler, task);
 }
 
 /**
@@ -454,10 +451,6 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
 
   task_set_dormant_state(task);
 
-  /* Add task to created task queue */
-  queue_add_tail(&tn_create_queue, &(task->create_queue));
-  tn_created_tasks_qty++;
-
   if ((attr->option & TN_TASK_START_ON_CREATION) != 0) {
     StackInit(task);
     TaskToRunnable(task);
@@ -477,8 +470,6 @@ osError_t TaskDelete(TN_TCB *task)
   if (task->task_state != TSK_STATE_DORMANT)
     return TERR_WCONTEXT;
 
-  queue_remove_entry(&(task->create_queue));
-  tn_created_tasks_qty--;
   task->id_task = 0;
 
   return TERR_NO_ERR;
@@ -520,17 +511,17 @@ osError_t TaskTerminate(TN_TCB *task)
   }
   else if (task->task_state & TSK_STATE_WAIT) {
     /* Free all queues, involved in the 'waiting' */
-    queue_remove_entry(&(task->task_queue));
+    QueueRemoveEntry(&(task->task_queue));
     timer_delete(&task->wtmeb);
   }
 
-  //-- Unlock all mutexes, locked by the task
+  /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
   CDLL_QUEUE *que;
   TN_MUTEX *mutex;
 
-  while (!is_queue_empty(&(task->mutex_queue))) {
-    que = queue_remove_head(&(task->mutex_queue));
+  while (!isQueueEmpty(&(task->mutex_queue))) {
+    que = QueueRemoveHead(&(task->mutex_queue));
     mutex = get_mutex_by_mutex_queque(que);
     do_unlock_mutex(mutex);
   }
@@ -558,8 +549,8 @@ void TaskExit(task_exit_attr_t attr)
   CDLL_QUEUE *que;
   TN_MUTEX *mutex;
 
-  while (!is_queue_empty(&(task->mutex_queue))) {
-    que = queue_remove_head(&(task->mutex_queue));
+  while (!isQueueEmpty(&(task->mutex_queue))) {
+    que = QueueRemoveHead(&(task->mutex_queue));
     mutex = get_mutex_by_mutex_queque(que);
     do_unlock_mutex(mutex);
   }
@@ -569,8 +560,6 @@ void TaskExit(task_exit_attr_t attr)
   task_set_dormant_state(task);
 
   if (attr == TASK_EXIT_AND_DELETE) {
-    queue_remove_entry(&(task->create_queue));
-    tn_created_tasks_qty--;
     task->id_task = 0;
   }
 
@@ -670,7 +659,7 @@ osError_t TaskReleaseWait(TN_TCB *task)
   if (!(task->task_state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
 
-  queue_remove_entry(&(task->task_queue));
+  QueueRemoveEntry(&(task->task_queue));
   ThreadWaitComplete(task);
 
   return TERR_NO_ERR;

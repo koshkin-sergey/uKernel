@@ -40,7 +40,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -181,8 +180,8 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
 
   //-- there are task(s) in the data queue's wait_receive list
 
-  if (!is_queue_empty(&mbf->recv_queue)) {
-    que = queue_remove_head(&mbf->recv_queue);
+  if (!isQueueEmpty(&mbf->recv_queue)) {
+    que = QueueRemoveHead(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
     tn_memcpy(task->winfo.rmbf.msg, msg, mbf->msz);
     ThreadWaitComplete(task);
@@ -237,8 +236,8 @@ osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 
   BEGIN_CRITICAL_SECTION
 
-  queue_reset(&mbf->send_queue);
-  queue_reset(&mbf->recv_queue);
+  QueueReset(&mbf->send_queue);
+  QueueReset(&mbf->recv_queue);
 
   mbf->buf = buf;
   mbf->msz = msz;
@@ -346,16 +345,16 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 
   rc = mbf_fifo_read(mbf, msg);
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!is_queue_empty(&mbf->send_queue)) {
-      que = queue_remove_head(&mbf->send_queue);
+    if (!isQueueEmpty(&mbf->send_queue)) {
+      que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       mbf_fifo_write(mbf, task->winfo.smbf.msg, task->winfo.smbf.send_to_first);
       ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
-    if (!is_queue_empty(&mbf->send_queue)) {
-      que = queue_remove_head(&mbf->send_queue);
+    if (!isQueueEmpty(&mbf->send_queue)) {
+      que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
       tn_memcpy(msg, task->winfo.smbf.msg, mbf->msz);
       ThreadWaitComplete(task);

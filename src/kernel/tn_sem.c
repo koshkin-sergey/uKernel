@@ -41,7 +41,6 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "utils.h"
 
 /*******************************************************************************
  *  external declarations
@@ -88,7 +87,7 @@ int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
   if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id_sem == TN_ID_SEMAPHORE)
     return TERR_WRONG_PARAM;
 
-  queue_reset(&(sem->wait_queue));
+  QueueReset(&(sem->wait_queue));
 
   sem->count     = start_value;
   sem->max_count = max_val;
@@ -140,9 +139,9 @@ osError_t tn_sem_signal(TN_SEM *sem)
 
   BEGIN_CRITICAL_SECTION
 
-  if (!(is_queue_empty(&(sem->wait_queue)))) {
+  if (!(isQueueEmpty(&(sem->wait_queue)))) {
     //--- delete from the sem wait queue
-    que = queue_remove_head(&(sem->wait_queue));
+    que = QueueRemoveHead(&(sem->wait_queue));
     task = get_task_by_tsk_queue(que);
     ThreadWaitComplete(task);
   }
