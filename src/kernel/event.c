@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -142,7 +161,7 @@ osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (evf->id_event == TN_ID_EVENT
+  if (evf->id == ID_EVENT
     || (((attr & TN_EVENT_ATTR_SINGLE) == 0)
       && ((attr & TN_EVENT_ATTR_MULTI) == 0)))
     return TERR_WRONG_PARAM;
@@ -153,7 +172,7 @@ osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
   evf->pattern = pattern;
   evf->attr = attr;
 
-  evf->id_event = TN_ID_EVENT;
+  evf->id = ID_EVENT;
 
   return TERR_NO_ERR;
 }
@@ -171,14 +190,14 @@ osError_t tn_event_delete(TN_EVENT *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (evf->id_event != TN_ID_EVENT)
+  if (evf->id != ID_EVENT)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
 
   ThreadWaitDelete(&evf->wait_queue);
 
-  evf->id_event = 0; // Event not exists now
+  evf->id = ID_INVALID; // Event not exists now
 
   END_CRITICAL_SECTION
 
@@ -216,7 +235,7 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
 
   if (evf == NULL || wait_pattern == 0 || p_flags_pattern == NULL)
     return TERR_WRONG_PARAM;
-  if (evf->id_event != TN_ID_EVENT)
+  if (evf->id != ID_EVENT)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -275,7 +294,7 @@ osError_t tn_event_set(TN_EVENT *evf, unsigned int pattern)
 {
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;
-  if (evf->id_event != TN_ID_EVENT)
+  if (evf->id != ID_EVENT)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -307,7 +326,7 @@ osError_t tn_event_clear(TN_EVENT *evf, unsigned int pattern)
 {
   if (evf == NULL || pattern == 0)
     return TERR_WRONG_PARAM;
-  if (evf->id_event != TN_ID_EVENT)
+  if (evf->id != ID_EVENT)
     return TERR_NOEXS;
 
   BEGIN_DISABLE_INTERRUPT

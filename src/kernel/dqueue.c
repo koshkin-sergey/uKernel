@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -163,7 +182,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
 
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -204,7 +223,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_create
- * Описание : Создает очередь данных. Поле id_dque структуры TN_DQUE предварительно
+ * Описание : Создает очередь данных. Поле id структуры TN_DQUE предварительно
  *            должно быть установлено в 0.
  * Параметры: dque  - Указатель на существующую структуру TN_DQUE.
  *            data_fifo - Указатель на существующий массив void *.
@@ -219,7 +238,7 @@ osError_t tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 {
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
+  if (num_entries < 0 || dque->id == ID_DATAQUEUE)
     return TERR_WRONG_PARAM;
 
   BEGIN_CRITICAL_SECTION
@@ -236,7 +255,7 @@ osError_t tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
   dque->tail_cnt = 0;
   dque->header_cnt = 0;
 
-  dque->id_dque = TN_ID_DATAQUEUE;
+  dque->id = ID_DATAQUEUE;
 
   END_CRITICAL_SECTION
 
@@ -256,7 +275,7 @@ osError_t tn_queue_delete(TN_DQUE *dque)
 {
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -264,7 +283,7 @@ osError_t tn_queue_delete(TN_DQUE *dque)
   ThreadWaitDelete(&dque->wait_send_list);
   ThreadWaitDelete(&dque->wait_receive_list);
 
-  dque->id_dque = 0; // Data queue not exists now
+  dque->id = ID_INVALID; // Data queue not exists now
 
   END_CRITICAL_SECTION
 
@@ -328,7 +347,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
 
   if (dque == NULL || data_ptr == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -382,7 +401,7 @@ osError_t tn_queue_flush(TN_DQUE *dque)
 {
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_DISABLE_INTERRUPT
@@ -412,7 +431,7 @@ osError_t tn_queue_empty(TN_DQUE *dque)
 
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_DISABLE_INTERRUPT
@@ -443,7 +462,7 @@ osError_t tn_queue_full(TN_DQUE *dque)
 
   if (dque == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_DISABLE_INTERRUPT
@@ -473,7 +492,7 @@ osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt)
 {
   if (dque == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
-  if (dque->id_dque != TN_ID_DATAQUEUE)
+  if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
   BEGIN_DISABLE_INTERRUPT

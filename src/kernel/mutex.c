@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -199,7 +218,7 @@ osError_t tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id_mutex != 0) //-- no recreation
+  if (mutex->id != 0) //-- no recreation
     return TERR_WRONG_PARAM;
   if ((attribute & TN_MUTEX_ATTR_CEILING)
     && ((ceil_priority < 1) || (ceil_priority > (NUM_PRIORITY-2))))
@@ -212,7 +231,7 @@ osError_t tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
   mutex->holder = NULL;
   mutex->ceil_priority = ceil_priority;
   mutex->cnt = 0;
-  mutex->id_mutex = TN_ID_MUTEX;
+  mutex->id = ID_MUTEX;
 
   return TERR_NO_ERR;
 }
@@ -222,7 +241,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id_mutex != TN_ID_MUTEX)
+  if (mutex->id != ID_MUTEX)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -239,7 +258,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
     do_unlock_mutex(mutex);
     QueueReset(&(mutex->mutex_queue));
   }
-  mutex->id_mutex = 0; // Mutex not exists now
+  mutex->id = ID_INVALID; // Mutex not exists now
 
   END_CRITICAL_SECTION
 
@@ -254,7 +273,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id_mutex != TN_ID_MUTEX)
+  if (mutex->id != ID_MUTEX)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -335,7 +354,7 @@ osError_t tn_mutex_unlock(TN_MUTEX *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id_mutex != TN_ID_MUTEX)
+  if (mutex->id != ID_MUTEX)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION

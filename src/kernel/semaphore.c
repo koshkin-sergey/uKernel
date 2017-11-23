@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -84,14 +103,14 @@ int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
 {
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
-  if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id_sem == TN_ID_SEMAPHORE)
+  if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id == ID_SEMAPHORE)
     return TERR_WRONG_PARAM;
 
   QueueReset(&(sem->wait_queue));
 
-  sem->count     = start_value;
-  sem->max_count = max_val;
-  sem->id_sem    = TN_ID_SEMAPHORE;
+  sem->count      = start_value;
+  sem->max_count  = max_val;
+  sem->id         = ID_SEMAPHORE;
 
   return TERR_NO_ERR;
 }
@@ -106,14 +125,14 @@ int tn_sem_delete(TN_SEM *sem)
 {
   if (sem == NULL)
     return TERR_WRONG_PARAM;
-  if (sem->id_sem != TN_ID_SEMAPHORE)
+  if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
 
   ThreadWaitDelete(&sem->wait_queue);
 
-  sem->id_sem = 0; // Semaphore not exists now
+  sem->id = ID_INVALID; // Semaphore not exists now
 
   END_CRITICAL_SECTION
 
@@ -134,7 +153,7 @@ osError_t tn_sem_signal(TN_SEM *sem)
 
   if (sem == NULL)
     return TERR_WRONG_PARAM;
-  if (sem->id_sem != TN_ID_SEMAPHORE)
+  if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -172,7 +191,7 @@ osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
-  if (sem->id_sem != TN_ID_SEMAPHORE)
+  if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION

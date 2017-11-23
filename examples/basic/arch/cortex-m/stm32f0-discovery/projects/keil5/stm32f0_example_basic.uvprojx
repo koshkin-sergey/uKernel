@@ -380,49 +380,49 @@
           <GroupName>uKernel</GroupName>
           <Files>
             <File>
-              <FileName>tn_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_dqueue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_dqueue.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_event.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_event.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_mem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_message_buf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_message_buf.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_mutex.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_mutex.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_sem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sem.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_sprintf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
-            </File>
-            <File>
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
+            </File>
+            <File>
+              <FileName>delay.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\delay.c</FilePath>
+            </File>
+            <File>
+              <FileName>dqueue.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\dqueue.c</FilePath>
+            </File>
+            <File>
+              <FileName>event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\event.c</FilePath>
+            </File>
+            <File>
+              <FileName>mem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\mem.c</FilePath>
+            </File>
+            <File>
+              <FileName>message_buf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\message_buf.c</FilePath>
+            </File>
+            <File>
+              <FileName>mutex.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\mutex.c</FilePath>
+            </File>
+            <File>
+              <FileName>que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
+            </File>
+            <File>
+              <FileName>semaphore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\semaphore.c</FilePath>
             </File>
             <File>
               <FileName>system.c</FileName>
@@ -438,11 +438,6 @@
               <FileName>timer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
-            </File>
-            <File>
-              <FileName>que.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -842,49 +837,49 @@
           <GroupName>uKernel</GroupName>
           <Files>
             <File>
-              <FileName>tn_delay.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_delay.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_dqueue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_dqueue.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_event.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_event.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_mem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_message_buf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_message_buf.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_mutex.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_mutex.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_sem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sem.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_sprintf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
-            </File>
-            <File>
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
+            </File>
+            <File>
+              <FileName>delay.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\delay.c</FilePath>
+            </File>
+            <File>
+              <FileName>dqueue.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\dqueue.c</FilePath>
+            </File>
+            <File>
+              <FileName>event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\event.c</FilePath>
+            </File>
+            <File>
+              <FileName>mem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\mem.c</FilePath>
+            </File>
+            <File>
+              <FileName>message_buf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\message_buf.c</FilePath>
+            </File>
+            <File>
+              <FileName>mutex.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\mutex.c</FilePath>
+            </File>
+            <File>
+              <FileName>que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
+            </File>
+            <File>
+              <FileName>semaphore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\semaphore.c</FilePath>
             </File>
             <File>
               <FileName>system.c</FileName>
@@ -900,11 +895,6 @@
               <FileName>timer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
-            </File>
-            <File>
-              <FileName>que.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
             </File>
           </Files>
         </Group>

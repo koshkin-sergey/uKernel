@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -29,8 +48,8 @@
  *
  ******************************************************************************/
 
-#ifndef _TH_H_
-#define _TH_H_
+#ifndef _UKERNEL_H_
+#define _UKERNEL_H_
 
 /*******************************************************************************
  *  includes
@@ -44,9 +63,6 @@
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
-
-#define TASK_FUNC __declspec(noreturn) void
-#define TNKERNEL_VERSION  3010001
 
 #if defined (__ICCARM__)    // IAR ARM
 
@@ -81,17 +97,6 @@
 #define TN_TASK_TIMER                 0x80
 #define TN_TASK_IDLE                  0x40
 
-#define TN_ID_TASK              ((int)0x47ABCF69) 
-#define TN_ID_SEMAPHORE         ((int)0x6FA173EB) 
-#define TN_ID_EVENT             ((int)0x5E224F25) 
-#define TN_ID_DATAQUEUE         ((int)0x8C8A6C89) 
-#define TN_ID_FSMEMORYPOOL      ((int)0x26B7CE8B) 
-#define TN_ID_MUTEX             ((int)0x17129E45) 
-#define TN_ID_RENDEZVOUS        ((int)0x74289EBD) 
-#define TN_ID_ALARM             ((int)0xFA5762BC)
-#define TN_ID_CYCLIC            ((int)0xAB8F746B)
-#define TN_ID_MESSAGEBUF        ((int)0x9C9A6C89)
-
 #define TN_EVENT_ATTR_SINGLE            1
 #define TN_EVENT_ATTR_MULTI             2
 #define TN_EVENT_ATTR_CLR               4
@@ -119,6 +124,20 @@
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
+
+typedef enum {
+  ID_INVALID      = 0x00000000,
+  ID_TASK         = 0x47ABCF69,
+  ID_SEMAPHORE    = 0x6FA173EB,
+  ID_EVENT        = 0x5E224F25,
+  ID_DATAQUEUE    = 0x0C8A6C89,
+  ID_FSMEMORYPOOL = 0x26B7CE8B,
+  ID_MUTEX        = 0x17129E45,
+  ID_RENDEZVOUS   = 0x74289EBD,
+  ID_ALARM        = 0x7A5762BC,
+  ID_CYCLIC       = 0x2B8F746B,
+  ID_MESSAGEBUF   = 0x1C9A6C89,
+} id_t;
 
 /// Error code values returned by uKernel functions.
 typedef enum {
@@ -233,21 +252,19 @@ typedef union {
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct _TN_TCB {
-  uint32_t *task_stk;       //-- Pointer to task's top of stack
-  CDLL_QUEUE task_queue;    //-- Queue is used to include task in ready/wait lists
-  CDLL_QUEUE *pwait_queue;  //-- Ptr to object's(semaphor,event,etc.) wait list,
-                            // that task has been included for waiting (ver 2.x)
+  uint32_t *task_stk;         ///< Pointer to task's top of stack
+  CDLL_QUEUE task_queue;      ///< Queue is used to include task in ready/wait lists
+  CDLL_QUEUE *pwait_queue;    ///< Ptr to object's(semaphor,event,etc.) wait list
 #ifdef USE_MUTEXES
-  CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
+  CDLL_QUEUE mutex_queue;     ///< List of all mutexes that tack locked
 #endif
-  uint32_t *stk_start;      //-- Base address of task's stack space
-  uint32_t stk_size;        //-- Task's stack size (in sizeof(void*),not bytes)
-  const void *func_addr;    //-- filled on creation  (ver 2.x)
-  const void *func_param;   //-- filled on creation  (ver 2.x)
-  uint32_t base_priority;   //-- Task base priority  (ver 2.x)
-  uint32_t priority;        //-- Task current priority
-  int id_task;              //-- ID for verification(is it a task or another object?)
-                            // All tasks have the same id_task magic number (ver 2.x)
+  uint32_t *stk_start;        ///< Base address of task's stack space
+  uint32_t stk_size;          ///< Task's stack size (in sizeof(void*),not bytes)
+  const void *func_addr;      ///< filled on creation
+  const void *func_param;     ///< filled on creation
+  uint32_t base_priority;     ///< Task base priority
+  uint32_t priority;          ///< Task current priority
+  id_t id;                    ///< ID for verification(is it a task or another object?)
   task_state_t state;         ///< Task state
   wait_reason_t wait_reason;  ///< Reason for waiting
   osError_t *wait_rc;         ///< Waiting return code(reason why waiting  finished)
@@ -262,17 +279,15 @@ typedef struct _TN_SEM {
   CDLL_QUEUE wait_queue;
   int count;
   int max_count;
-  int id_sem;     //-- ID for verification(is it a semaphore or another object?)
-                  // All semaphores have the same id_sem magic number (ver 2.x)
+  id_t id;                    ///< ID for verification(is it a semaphore or another object?)
 } TN_SEM;
 
 /* - Eventflag ---------------------------------------------------------------*/
 typedef struct _TN_EVENT {
   CDLL_QUEUE wait_queue;
-  int attr;       //-- Eventflag attribute
-  unsigned int pattern;    //-- Initial value of the eventflag bit pattern
-  int id_event;   //-- ID for verification(is it a event or another object?)
-                  // All events have the same id_event magic number (ver 2.x)
+  int attr;                   //-- Eventflag attribute
+  unsigned int pattern;       //-- Initial value of the eventflag bit pattern
+  id_t id;                    //-- ID for verification(is it a event or another object?)
 } TN_EVENT;
 
 /* - Data queue --------------------------------------------------------------*/
@@ -284,8 +299,7 @@ typedef struct _TN_DQUE {
   int cnt;                // Кол-во данных в очереди
   int tail_cnt;           //-- Counter to processing data queue's Array of void*
   int header_cnt;         //-- Counter to processing data queue's Array of void*
-  int id_dque;   //-- ID for verification(is it a data queue or another object?)
-                 // All data queues have the same id_dque magic number (ver 2.x)
+  id_t id;                //-- ID for verification(is it a data queue or another object?)
 } TN_DQUE;
 
 /* - Fixed-sized blocks memory pool ------------------------------------------*/
@@ -296,8 +310,7 @@ typedef struct _TN_FMP {
   void *start_addr;  //-- Memory pool actual start address
   void *free_list;   //-- Ptr to free block list
   int fblkcnt;      //-- Num of free blocks
-  int id_fmp; //-- ID for verification(is it a fixed-sized blocks memory pool or another object?)
-              // All Fixed-sized blocks memory pool have the same id_fmp magic number (ver 2.x)
+  id_t id;          //-- ID for verification(is it a fixed-sized blocks memory pool or another object?)
 } TN_FMP;
 
 /* - Mutex -------------------------------------------------------------------*/
@@ -308,8 +321,7 @@ typedef struct _TN_MUTEX {
   TN_TCB *holder;          //-- Current mutex owner(task that locked mutex)
   int ceil_priority;    //-- When mutex created with CEILING attr
   int cnt;              //-- Reserved
-  int id_mutex;       //-- ID for verification(is it a mutex or another object?)
-                      // All mutexes have the same id_mutex magic number (ver 2.x)
+  id_t id;              //-- ID for verification(is it a mutex or another object?)
 } TN_MUTEX;
 
 typedef enum {
@@ -324,7 +336,7 @@ typedef struct _TN_ALARM {
   CBACK handler;            /**< Alarm handler address */
   timer_state_t state;      /**< Timer state */
   TMEB timer;               /**< Timer event block */
-  int id;                   /**< ID for verification */
+  id_t id;                  /**< ID for verification */
 } TN_ALARM;
 
 /* Cyclic attributes */
@@ -349,7 +361,7 @@ typedef struct _TN_CYCLIC {
   cyclic_attr_t attr;       /**< Cyclic handler attributes */
   uint32_t time;            /**< Cyclic time */
   TMEB timer;               /**< Timer event block */
-  int id;                   /**< ID for verification */
+  id_t id;                  /**< ID for verification */
 } TN_CYCLIC;
 
 /* - Message Buffer ----------------------------------------------------------*/
@@ -362,7 +374,7 @@ typedef struct _TN_MBF {
   int cnt;                // Кол-во данных в очереди
   int tail;               // Next to the last message store address
   int head;               // First message store address
-  int id_mbf;             // Message buffer ID
+  id_t id;                // Message buffer ID
 } TN_MBF;
 
 /* - User functions ----------------------------------------------------------*/
@@ -554,7 +566,7 @@ osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout);
 /* - tn_dqueue.c -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_create
- * Описание : Создает очередь данных. Поле id_dque структуры TN_DQUE предварительно
+ * Описание : Создает очередь данных. Поле id структуры TN_DQUE предварительно
  *            должно быть установлено в 0.
  * Параметры: dque  - Указатель на существующую структуру TN_DQUE.
  *            data_fifo - Указатель на существующий массив void *.
@@ -927,26 +939,10 @@ osError_t tn_mutex_unlock(TN_MUTEX *mutex);
 void tn_mdelay(unsigned long ms);
 void tn_udelay(unsigned long usecs);
 
-/* - tn_sprintf.c ------------------------------------------------------------*/
-extern int tn_snprintf(char *outStr, int maxLen, const char *fmt, ...) __attribute__((nonnull(1,3)));
-extern int tn_vsnprintf(char *outStr, int maxLen, const char *fmt, va_list args) __attribute__((nonnull(1,3)));
-extern int tn_abs(int i);
-extern int tn_strlen(const char *str) __attribute__((nonnull));
-extern char* tn_strcpy(char *dst, const char *src) __attribute__((nonnull));
-extern char* tn_strncpy(char *dst, const char *src, int n) __attribute__((nonnull));
-extern char* tn_strcat(char *dst, const char *src) __attribute__((nonnull));
-extern char* tn_strncat(char *dst, const char *src, int n) __attribute__((nonnull));
-extern int tn_strcmp(const char *str1, const char *str2) __attribute__((nonnull));
-extern int tn_strncmp(const char *str1, const char *str2, int num) __attribute__((nonnull));
-extern void* tn_memset(void *dst, int ch, int length) __attribute__((nonnull));
-extern void* tn_memcpy(void *s1, const void *s2, int n) __attribute__((nonnull));
-extern int tn_memcmp(const void *s1, const void *s2, int n) __attribute__((nonnull));
-extern int tn_atoi(const char *s) __attribute__((nonnull));
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
-#endif
+#endif  // _UKERNEL_H_
 
 /*------------------------------ End of file ---------------------------------*/

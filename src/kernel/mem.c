@@ -1,3 +1,22 @@
+/*
+ * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Project: uKernel real-time kernel
+ */
+
 /*******************************************************************************
  *
  * TNKernel real-time kernel
@@ -115,13 +134,13 @@ osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
 
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
-  if (fmp->id_fmp == TN_ID_FSMEMORYPOOL)
+  if (fmp->id == ID_FSMEMORYPOOL)
     return TERR_WRONG_PARAM;
 
   if (start_addr == NULL || num_blocks < 2 || block_size < sizeof(int)) {
     fmp->fblkcnt = 0;
     fmp->num_blocks = 0;
-    fmp->id_fmp = 0;
+    fmp->id = ID_INVALID;
     fmp->free_list = NULL;
     return TERR_WRONG_PARAM;
   }
@@ -163,7 +182,7 @@ osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
   fmp->free_list = fmp->start_addr;
   fmp->fblkcnt   = fmp->num_blocks;
 
-  fmp->id_fmp = TN_ID_FSMEMORYPOOL;
+  fmp->id = ID_FSMEMORYPOOL;
 
   return TERR_NO_ERR;
 }
@@ -173,14 +192,14 @@ osError_t tn_fmem_delete(TN_FMP *fmp)
 {
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
-  if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
+  if (fmp->id != ID_FSMEMORYPOOL)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
 
   ThreadWaitDelete(&fmp->wait_queue);
 
-  fmp->id_fmp = 0;   //-- Fixed-size memory pool not exists now
+  fmp->id = ID_INVALID;   //-- Fixed-size memory pool not exists now
 
   END_CRITICAL_SECTION
 
@@ -196,7 +215,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
-  if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
+  if (fmp->id != ID_FSMEMORYPOOL)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -232,7 +251,7 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
-  if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
+  if (fmp->id != ID_FSMEMORYPOOL)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION

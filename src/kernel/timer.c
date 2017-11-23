@@ -29,11 +29,12 @@
  ******************************************************************************/
 
 #include "knl_lib.h"
-#include "delay.h"
 
 /*******************************************************************************
  *  external declarations
  ******************************************************************************/
+
+extern void calibrate_delay(void);
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -223,7 +224,7 @@ void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
   alarm->exinf    = exinf;
   alarm->handler  = handler;
   alarm->state    = TIMER_STOP;
-  alarm->id       = TN_ID_ALARM;
+  alarm->id       = ID_ALARM;
 }
 
 /**
@@ -239,7 +240,7 @@ void AlarmDelete(TN_ALARM *alarm)
   }
 
   alarm->handler = NULL;
-  alarm->id = 0;
+  alarm->id = ID_INVALID;
 }
 
 /**
@@ -284,7 +285,7 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
   cyc->attr     = param->cyc_attr;
   cyc->handler  = handler;
   cyc->time     = param->cyc_time;
-  cyc->id       = TN_ID_CYCLIC;
+  cyc->id       = ID_CYCLIC;
 
   TIME_t time = knlInfo.jiffies + param->cyc_phs;
 
@@ -311,7 +312,7 @@ void CyclicDelete(TN_CYCLIC *cyc)
   }
 
   cyc->handler = NULL;
-  cyc->id = 0;
+  cyc->id = ID_INVALID;
 }
 
 /**
@@ -413,7 +414,7 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
-  if (alarm->id == TN_ID_ALARM || handler == NULL)
+  if (alarm->id == ID_ALARM || handler == NULL)
     return TERR_WRONG_PARAM;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -435,7 +436,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
+  if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -458,7 +459,7 @@ osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout)
 {
   if (alarm == NULL || timeout == 0)
     return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
+  if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -480,7 +481,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
-  if (alarm->id != TN_ID_ALARM)
+  if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -504,7 +505,7 @@ osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *pa
 {
   if (cyc == NULL || handler == NULL || param->cyc_time == 0)
     return TERR_WRONG_PARAM;
-  if (cyc->id == TN_ID_CYCLIC)
+  if (cyc->id == ID_CYCLIC)
     return TERR_WRONG_PARAM;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -526,7 +527,7 @@ osError_t osCyclicDelete(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
-  if (cyc->id != TN_ID_CYCLIC)
+  if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -548,7 +549,7 @@ osError_t osCyclicStart(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
-  if (cyc->id != TN_ID_CYCLIC)
+  if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -570,7 +571,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
-  if (cyc->id != TN_ID_CYCLIC)
+  if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;

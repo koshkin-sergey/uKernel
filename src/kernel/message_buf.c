@@ -1,32 +1,21 @@
-/*******************************************************************************
+/*
+ * Copyright (C) 2013-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * All rights reserved
  *
- * TNKernel real-time kernel
+ * Licensed under the Apache License, Version 2.0 (the License); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Copyright © 2013-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
+ * www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
+ * Project: uKernel real-time kernel
+ */
 
 /**
  * @file
@@ -39,6 +28,7 @@
  *  includes
  ******************************************************************************/
 
+#include <string.h>
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -101,10 +91,10 @@ osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
     else
       mbf->tail -= msz;
 
-    tn_memcpy(&mbf->buf[mbf->tail], msg, msz);
+    memcpy(&mbf->buf[mbf->tail], msg, msz);
   }
   else {
-    tn_memcpy(&mbf->buf[mbf->head], msg, msz);
+    memcpy(&mbf->buf[mbf->head], msg, msz);
     mbf->head += msz;
     if (mbf->head >= bufsz)
       mbf->head = 0;
@@ -139,7 +129,7 @@ osError_t mbf_fifo_read(TN_MBF *mbf, void *msg)
   msz = mbf->msz;
   bufsz = mbf->num_entries * msz;
 
-  tn_memcpy(msg, &mbf->buf[mbf->tail], msz);
+  memcpy(msg, &mbf->buf[mbf->tail], msz);
   mbf->cnt--;
   mbf->tail += msz;
   if (mbf->tail >= bufsz)
@@ -173,7 +163,7 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -183,7 +173,7 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
   if (!isQueueEmpty(&mbf->recv_queue)) {
     que = QueueRemoveHead(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
-    tn_memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
+    memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
     ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
@@ -230,7 +220,7 @@ osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (bufsz < 0 || msz <= 0 || mbf->id_mbf == TN_ID_MESSAGEBUF)
+  if (bufsz < 0 || msz <= 0 || mbf->id == ID_MESSAGEBUF)
     return TERR_WRONG_PARAM;
 
   BEGIN_CRITICAL_SECTION
@@ -243,7 +233,7 @@ osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
   mbf->num_entries = bufsz / msz;
   mbf->cnt = mbf->head = mbf->tail = 0;
 
-  mbf->id_mbf = TN_ID_MESSAGEBUF;
+  mbf->id = ID_MESSAGEBUF;
 
   END_CRITICAL_SECTION
 
@@ -263,7 +253,7 @@ osError_t tn_mbf_delete(TN_MBF *mbf)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf == 0)
+  if (mbf->id == 0)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -271,7 +261,7 @@ osError_t tn_mbf_delete(TN_MBF *mbf)
   ThreadWaitDelete(&mbf->send_queue);
   ThreadWaitDelete(&mbf->recv_queue);
 
-  mbf->id_mbf = 0;
+  mbf->id = ID_INVALID;
 
   END_CRITICAL_SECTION
 
@@ -337,7 +327,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 
   if (mbf == NULL || msg == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -355,7 +345,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
     if (!isQueueEmpty(&mbf->send_queue)) {
       que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
-      tn_memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
+      memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
       ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
@@ -390,7 +380,7 @@ osError_t tn_mbf_flush(TN_MBF *mbf)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -418,7 +408,7 @@ osError_t tn_mbf_empty(TN_MBF *mbf)
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -449,7 +439,7 @@ osError_t tn_mbf_full(TN_MBF *mbf)
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -479,7 +469,7 @@ osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt)
 {
   if (mbf == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id_mbf != TN_ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAGEBUF)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION

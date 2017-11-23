@@ -456,7 +456,7 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
   task->stk_start = attr->stk_start;
   task->stk_size = attr->stk_size;
   task->base_priority = attr->priority;
-  task->id_task = TN_ID_TASK;
+  task->id = ID_TASK;
   task->time = 0;
   task->wait_rc = NULL;
 
@@ -487,7 +487,7 @@ osError_t TaskDelete(TN_TCB *task)
   if (task->state != TSK_STATE_DORMANT)
     return TERR_WCONTEXT;
 
-  task->id_task = 0;
+  task->id = ID_INVALID;
 
   return TERR_NO_ERR;
 }
@@ -577,7 +577,7 @@ void TaskExit(task_exit_attr_t attr)
   task_set_dormant_state(task);
 
   if (attr == TASK_EXIT_AND_DELETE) {
-    task->id_task = 0;
+    task->id = ID_INVALID;
   }
 }
 
@@ -707,7 +707,7 @@ TIME_t osTaskGetTime(TN_TCB *task)
 {
   if (task == NULL)
     return 0;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return 0;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return 0;
@@ -747,7 +747,7 @@ osError_t osTaskCreate(TN_TCB *task,
 
   if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
     || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
-    || (stack_start == NULL) || (task->id_task != 0) )
+    || (stack_start == NULL) || (task->id != 0) )
     return TERR_WRONG_PARAM;
 
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
@@ -781,7 +781,7 @@ osError_t osTaskDelete(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -803,7 +803,7 @@ osError_t osTaskActivate(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -825,7 +825,7 @@ osError_t osTaskTerminate(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -863,7 +863,7 @@ osError_t osTaskSuspend(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -885,7 +885,7 @@ osError_t osTaskResume(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -928,7 +928,7 @@ osError_t osTaskWakeup(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -950,7 +950,7 @@ osError_t osTaskReleaseWait(TN_TCB *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
@@ -962,7 +962,7 @@ osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
-  if (task->id_task != TN_ID_TASK)
+  if (task->id != ID_TASK)
     return TERR_NOEXS;
   if (new_priority > (NUM_PRIORITY - 2))
     return TERR_WRONG_PARAM;
