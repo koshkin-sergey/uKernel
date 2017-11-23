@@ -8,7 +8,7 @@
 //
 //----------------------------------------------------------------------------
 
-#include "tn.h"
+#include <ukernel.h>
 
 #define  NO_OPTION       0x00   // No options specified.
 #define  MINUS_SIGN      0x01   // Should we print a minus sign?

@@ -54,6 +54,7 @@
 			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
 		</scannerConfigBuildInfo>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
 		<buildTargets>
 			<target name="Clean project" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
@@ -67,7 +68,7 @@
 			<target name="Create library for ARM7TDMI (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>all TN_ARCH=arm7 TN_COMPILER=armcc</buildTarget>
+				<buildTarget>all ARCH=arm7 COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
@@ -75,7 +76,7 @@
 			<target name="Create library for Cortex-M0 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>all TN_ARCH=cortex_m0 TN_COMPILER=armcc</buildTarget>
+				<buildTarget>all ARCH=cortex_m0 COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
@@ -83,7 +84,7 @@
 			<target name="Create library for Cortex-M3 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>all TN_ARCH=cortex_m3 TN_COMPILER=armcc</buildTarget>
+				<buildTarget>all ARCH=cortex_m3 COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
@@ -91,12 +92,11 @@
 			<target name="Create library for Cortex-M4 (armcc)" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments>-j8</buildArguments>
-				<buildTarget>all TN_ARCH=cortex_m4 TN_COMPILER=armcc</buildTarget>
+				<buildTarget>all ARCH=cortex_m4 COMPILER=armcc</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
 		</buildTargets>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

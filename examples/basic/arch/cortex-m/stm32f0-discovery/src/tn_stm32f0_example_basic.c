@@ -12,7 +12,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "tn.h"
+#include "ukernel.h"
 #include "stm32f0xx.h"
 #include "system_stm32f0xx.h"
 
@@ -47,10 +47,10 @@
 static TN_TCB task_A;
 static TN_TCB task_B;
 
-tn_stack_t task_A_stack[TASK_A_STK_SIZE];
-tn_stack_t task_B_stack[TASK_B_STK_SIZE];
+stack_t task_A_stack[TASK_A_STK_SIZE];
+stack_t task_B_stack[TASK_B_STK_SIZE];
 
-static bool done_a;
+static volatile bool done_a;
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -72,7 +72,7 @@ static void task_A_func(void *param)
 
   while (done_a != true) {
     GPIOC->ODR ^= (1UL << 8);
-    tn_task_sleep(100);
+    osTaskSleep(100);
   }
 
   GPIOC->ODR &= ~(1UL << 8);
@@ -91,9 +91,9 @@ static void task_B_func(void *param)
     if ((GPIOC->ODR & (1UL << 9)) != 0)
       done_a = true;
     else
-      tn_task_activate(&task_A);
+      osTaskActivate(&task_A);
 
-    tn_task_sleep(2000);
+    osTaskSleep(2000);
   }
 }
 
@@ -110,7 +110,7 @@ static void app_init(void)
 
   GPIOC->MODER |= (GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
 
-  tn_task_create(
+  osTaskCreate(
     &task_A,                   // TCB задачи
     task_A_func,               // Функция задачи
     TASK_A_PRIORITY,           // Приоритет задачи
@@ -120,7 +120,7 @@ static void app_init(void)
     TN_TASK_START_ON_CREATION  // Параметр создания задачи
   );
 
-  tn_task_create(
+  osTaskCreate(
     &task_B,                   // TCB задачи
     task_B_func,               // Функция задачи
     TASK_B_PRIORITY,           // Приоритет задачи
@@ -145,24 +145,21 @@ int main(void)
 {
   TN_OPTIONS  tn_opt;
 
-  /* Отключаем прерывания в ядре Cortex-M4 */
-  tn_disable_irq();
-
   /* Старт операционной системы */
   tn_opt.app_init       = app_init;
   tn_opt.freq_timer     = HZ;
-  tn_start_system(&tn_opt);
+  KernelStart(&tn_opt);
 
   return (-1);
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : tn_systick_init
+ * Название : osSysTickInit
  * Описание : Конфигурирует  и включает системный таймер в системе.
  * Параметры: hz - Частота системного таймера.
  * Результат: Нет
  *----------------------------------------------------------------------------*/
-void tn_systick_init(unsigned int hz)
+void osSysTickInit(unsigned int hz)
 {
   /* Включаем прерывание системного таймера именно здесь, после инициализации
      всех сервисов RTOS */
@@ -179,7 +176,7 @@ void tn_systick_init(unsigned int hz)
 *-----------------------------------------------------------------------------*/
 void SysTick_Handler(void)
 {
-  tn_timer();
+  osTimerHandle();
 }
 
 /* ----------------------------- End of file ---------------------------------*/

@@ -39,8 +39,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -83,7 +82,7 @@
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
+osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
 {
   int bufsz, msz;
 
@@ -127,7 +126,7 @@ int mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int mbf_fifo_read(TN_MBF *mbf, void *msg)
+osError_t mbf_fifo_read(TN_MBF *mbf, void *msg)
 {
   int bufsz, msz;
 
@@ -165,29 +164,27 @@ int mbf_fifo_read(TN_MBF *mbf, void *msg)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
+static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
                        bool send_to_first)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
   //-- there are task(s) in the data queue's wait_receive list
 
-  if (!is_queue_empty(&mbf->recv_queue)) {
-    que = queue_remove_head(&mbf->recv_queue);
+  if (!isQueueEmpty(&mbf->recv_queue)) {
+    que = QueueRemoveHead(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
-    tn_memcpy(task->winfo.rmbf.msg, msg, mbf->msz);
-    task_wait_complete(task);
+    tn_memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
+    ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -198,12 +195,11 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
-        task->wercd = &rc;
-        task->winfo.smbf.msg = msg;
-        task->winfo.smbf.send_to_first = send_to_first;
-        task_to_wait_action(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
-                            timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.smbf.msg = msg;
+        task->wait_info.smbf.send_to_first = send_to_first;
+        ThreadToWaitAction(task, &mbf->send_queue, WAIT_REASON_MBF_WSEND, timeout);
       }
     }
   }
@@ -230,19 +226,17 @@ static int do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_OUT_OF_MEM - Ошибка установки размера буфера.
  *----------------------------------------------------------------------------*/
-int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
+osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (bufsz < 0 || msz <= 0 || mbf->id_mbf == TN_ID_MESSAGEBUF)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  queue_reset(&mbf->send_queue);
-  queue_reset(&mbf->recv_queue);
+  QueueReset(&mbf->send_queue);
+  QueueReset(&mbf->recv_queue);
 
   mbf->buf = buf;
   mbf->msz = msz;
@@ -265,19 +259,17 @@ int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не существует;
  *----------------------------------------------------------------------------*/
-int tn_mbf_delete(TN_MBF *mbf)
+osError_t tn_mbf_delete(TN_MBF *mbf)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf == 0)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&mbf->send_queue);
-  task_wait_delete(&mbf->recv_queue);
+  ThreadWaitDelete(&mbf->send_queue);
+  ThreadWaitDelete(&mbf->recv_queue);
 
   mbf->id_mbf = 0;
 
@@ -300,7 +292,7 @@ int tn_mbf_delete(TN_MBF *mbf)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
   return do_mbf_send(mbf, msg, timeout, false);
 }
@@ -319,7 +311,7 @@ int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
   return do_mbf_send(mbf, msg, timeout, true);
 }
@@ -337,36 +329,34 @@ int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
 {
-  int rc; //-- return code
+  osError_t rc; //-- return code
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL || msg == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
   rc = mbf_fifo_read(mbf, msg);
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!is_queue_empty(&mbf->send_queue)) {
-      que = queue_remove_head(&mbf->send_queue);
+    if (!isQueueEmpty(&mbf->send_queue)) {
+      que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
-      mbf_fifo_write(mbf, task->winfo.smbf.msg, task->winfo.smbf.send_to_first);
-      task_wait_complete(task);
+      mbf_fifo_write(mbf, task->wait_info.smbf.msg, task->wait_info.smbf.send_to_first);
+      ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
-    if (!is_queue_empty(&mbf->send_queue)) {
-      que = queue_remove_head(&mbf->send_queue);
+    if (!isQueueEmpty(&mbf->send_queue)) {
+      que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
-      tn_memcpy(msg, task->winfo.smbf.msg, mbf->msz);
-      task_wait_complete(task);
+      tn_memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
+      ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -374,11 +364,10 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
-        task->wercd = &rc;
-        task->winfo.rmbf.msg = msg;
-        task_to_wait_action(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
-                            timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.rmbf.msg = msg;
+        ThreadToWaitAction(task, &mbf->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
       }
     }
   }
@@ -397,14 +386,12 @@ int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_flush(TN_MBF *mbf)
+osError_t tn_mbf_flush(TN_MBF *mbf)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -425,16 +412,14 @@ int tn_mbf_flush(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_empty(TN_MBF *mbf)
+osError_t tn_mbf_empty(TN_MBF *mbf)
 {
-  int rc;
+  osError_t rc;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -458,16 +443,14 @@ int tn_mbf_empty(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_full(TN_MBF *mbf)
+osError_t tn_mbf_full(TN_MBF *mbf)
 {
-  int rc;
+  osError_t rc;
 
-#if TN_CHECK_PARAM
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -492,14 +475,12 @@ int tn_mbf_full(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-int tn_mbf_cnt(TN_MBF *mbf, int *cnt)
+osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt)
 {
-#if TN_CHECK_PARAM
   if (mbf == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
   if (mbf->id_mbf != TN_ID_MESSAGEBUF)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 

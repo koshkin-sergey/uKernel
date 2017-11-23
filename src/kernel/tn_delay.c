@@ -39,8 +39,8 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_timer.h"
-#include "tn_delay.h"
+#include "knl_lib.h"
+#include "delay.h"
 
 /*******************************************************************************
  *  external declarations
@@ -105,11 +105,11 @@ void calibrate_delay(void)
 
   while (loops_per_jiffy <<= 1) {
     /* wait for "start of" clock tick */
-    ticks = jiffies;
-    while (ticks == jiffies);
-    ticks = jiffies;
+    ticks = knlInfo.jiffies;
+    while (ticks == knlInfo.jiffies);
+    ticks = knlInfo.jiffies;
     __delay(loops_per_jiffy);
-    ticks = jiffies - ticks;
+    ticks = knlInfo.jiffies - ticks;
     if (ticks)
       break;
   }
@@ -120,11 +120,11 @@ void calibrate_delay(void)
   loopbit = loops_per_jiffy;
   while (loopbit >>= 1) {
     loops_per_jiffy |= loopbit;
-    ticks = jiffies;
-    while (ticks == jiffies);
-    ticks = jiffies;
+    ticks = knlInfo.jiffies;
+    while (ticks == knlInfo.jiffies);
+    ticks = knlInfo.jiffies;
     __delay(loops_per_jiffy);
-    if (jiffies != ticks) /* longer than 1 tick */
+    if (knlInfo.jiffies != ticks) /* longer than 1 tick */
       loops_per_jiffy &= ~loopbit;
   }
 }
@@ -139,10 +139,10 @@ void tn_mdelay(unsigned long ms)
 {
   unsigned long StartTime, delta;
 
-  StartTime = jiffies;
+  StartTime = knlInfo.jiffies;
 
   do
-    delta = jiffies - StartTime;
+    delta = knlInfo.jiffies - StartTime;
   while (delta < ms);
 }
 
@@ -156,7 +156,7 @@ void tn_udelay(unsigned long usecs)
 {
   unsigned long long loops;
 
-  loops = (unsigned long long)usecs * 0x000010C7 * HZ * loops_per_jiffy;
+  loops = (unsigned long long)usecs * 0x000010C7 * knlInfo.HZ * loops_per_jiffy;
   __delay(loops >> 32);
 }
 

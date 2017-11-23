@@ -40,8 +40,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -84,7 +83,7 @@
  *              TERR_OUT_OF_MEM - Емкость очереди данных равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
+osError_t dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
 {
   if (dque->num_entries <= 0)
     return TERR_OUT_OF_MEM;
@@ -123,7 +122,7 @@ int dque_fifo_write(TN_DQUE *dque, void *data_ptr, bool send_to_first)
  *              TERR_OUT_OF_MEM - Емкость очереди данных равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-int dque_fifo_read(TN_DQUE *dque, void **data_ptr)
+osError_t dque_fifo_read(TN_DQUE *dque, void **data_ptr)
 {
   if (dque->num_entries <= 0)
     return TERR_OUT_OF_MEM;
@@ -155,29 +154,27 @@ int dque_fifo_read(TN_DQUE *dque, void **data_ptr)
  *              TERR_NOEXS  - очередь не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
+static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
                          bool send_to_first)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
   //-- there are task(s) in the data queue's wait_receive list
 
-  if (!is_queue_empty(&(dque->wait_receive_list))) {
-    que = queue_remove_head(&(dque->wait_receive_list));
+  if (!isQueueEmpty(&(dque->wait_receive_list))) {
+    que = QueueRemoveHead(&(dque->wait_receive_list));
     task = get_task_by_tsk_queue(que);
-    *task->winfo.rdque.data_elem = data_ptr;
-    task_wait_complete(task);
+    *task->wait_info.rdque.data_elem = data_ptr;
+    ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -188,12 +185,11 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
-        task->wercd = &rc;
-        task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
-        task->winfo.sdque.send_to_first = send_to_first;
-        task_to_wait_action(task, &(dque->wait_send_list),
-                            TSK_WAIT_REASON_DQUE_WSEND, timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.sdque.data_elem = data_ptr;  //-- Store data_ptr
+        task->wait_info.sdque.send_to_first = send_to_first;
+        ThreadToWaitAction(task, &(dque->wait_send_list), WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
   }
@@ -219,19 +215,17 @@ static int do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout,
  *              TERR_NO_ERR - функция выполнена без ошибок;
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *----------------------------------------------------------------------------*/
-int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
+osError_t tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (num_entries < 0 || dque->id_dque == TN_ID_DATAQUEUE)
     return TERR_WRONG_PARAM;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  queue_reset(&(dque->wait_send_list));
-  queue_reset(&(dque->wait_receive_list));
+  QueueReset(&(dque->wait_send_list));
+  QueueReset(&(dque->wait_receive_list));
 
   dque->data_fifo = data_fifo;
   dque->num_entries = num_entries;
@@ -258,19 +252,17 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  -   очередь не существует;
  *----------------------------------------------------------------------------*/
-int tn_queue_delete(TN_DQUE *dque)
+osError_t tn_queue_delete(TN_DQUE *dque)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&dque->wait_send_list);
-  task_wait_delete(&dque->wait_receive_list);
+  ThreadWaitDelete(&dque->wait_send_list);
+  ThreadWaitDelete(&dque->wait_receive_list);
 
   dque->id_dque = 0; // Data queue not exists now
 
@@ -292,7 +284,7 @@ int tn_queue_delete(TN_DQUE *dque)
  *              TERR_NOEXS  -   очередь не существует;
  *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
+osError_t tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
   return do_queue_send(dque, data_ptr, timeout, false);
 }
@@ -310,7 +302,7 @@ int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
  *              TERR_NOEXS  -   очередь не существует;
  *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
+osError_t tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
 {
   return do_queue_send(dque, data_ptr, timeout, true);
 }
@@ -328,37 +320,35 @@ int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout)
  *              TERR_NOEXS  -   очередь не существует;
  *              TERR_TIMEOUT    -   Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
+osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
 {
-  int rc; //-- return code
+  osError_t rc; //-- return code
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (dque == NULL || data_ptr == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
   rc = dque_fifo_read(dque, data_ptr);
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!is_queue_empty(&(dque->wait_send_list))) {
-      que = queue_remove_head(&(dque->wait_send_list));
+    if (!isQueueEmpty(&(dque->wait_send_list))) {
+      que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
-      dque_fifo_write(dque, task->winfo.sdque.data_elem,
-          task->winfo.sdque.send_to_first);
-      task_wait_complete(task);
+      dque_fifo_write(dque, task->wait_info.sdque.data_elem,
+          task->wait_info.sdque.send_to_first);
+      ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
-    if (!is_queue_empty(&(dque->wait_send_list))) {
-      que = queue_remove_head(&(dque->wait_send_list));
+    if (!isQueueEmpty(&(dque->wait_send_list))) {
+      que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
-      *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
-      task_wait_complete(task);
+      *data_ptr = task->wait_info.sdque.data_elem; //-- Return to caller
+      ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
@@ -366,11 +356,10 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = run_task.curr;
-        task->wercd = &rc;
-        task->winfo.rdque.data_elem = data_ptr;
-        task_to_wait_action(task, &(dque->wait_receive_list),
-            TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.rdque.data_elem = data_ptr;
+        ThreadToWaitAction(task, &(dque->wait_receive_list), WAIT_REASON_DQUE_WRECEIVE, timeout);
       }
     }
   }
@@ -389,14 +378,12 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_flush(TN_DQUE *dque)
+osError_t tn_queue_flush(TN_DQUE *dque)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -419,16 +406,14 @@ int tn_queue_flush(TN_DQUE *dque)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_empty(TN_DQUE *dque)
+osError_t tn_queue_empty(TN_DQUE *dque)
 {
-  int rc;
+  osError_t rc;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -452,16 +437,14 @@ int tn_queue_empty(TN_DQUE *dque)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_full(TN_DQUE *dque)
+osError_t tn_queue_full(TN_DQUE *dque)
 {
-  int rc;
+  osError_t rc;
 
-#if TN_CHECK_PARAM
   if (dque == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 
@@ -486,14 +469,12 @@ int tn_queue_full(TN_DQUE *dque)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_cnt(TN_DQUE *dque, int *cnt)
+osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt)
 {
-#if TN_CHECK_PARAM
   if (dque == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
   if (dque->id_dque != TN_ID_DATAQUEUE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_DISABLE_INTERRUPT
 

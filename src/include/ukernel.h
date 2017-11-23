@@ -36,6 +36,7 @@
  *  includes
  ******************************************************************************/
 
+#include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -52,49 +53,30 @@
 #define align_attr_start
   #define align_attr_end
 
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   _Pragma("inline=forced")
-#endif
-
 #elif defined (__GNUC__)    //-- GNU Compiler
 
   #define align_attr_start
   #define align_attr_end     __attribute__((aligned(0x8)))
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
-
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   static inline __attribute__ ((always_inline))
-#endif
+  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #elif defined ( __CC_ARM )  //-- RealView Compiler
 
   #define align_attr_start   __align(8)
   #define align_attr_end
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) unsigned int
-
-#ifndef INLINE_FORCED
-  #define INLINE_FORCED   __forceinline
-#endif
+  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #else
   #error "Unknown compiler"
   #define align_attr_start
   #define align_attr_end
-  #define INLINE_FORCED
-  #define tn_stack_t     unsigned int
+  #define stack_t        uint32_t
 #endif
 
 /* - The system configuration (change it for your particular project) --------*/
-#define TN_CHECK_PARAM        1
-#define TN_MEAS_PERFORMANCE   1
 #define USE_MUTEXES           1
 #define USE_EVENTS            1
-#define USE_INLINE_CDLL       1
 
 /* - Constants ---------------------------------------------------------------*/
-#define TN_ST_STATE_NOT_RUN              0 
-#define TN_ST_STATE_RUNNING              1 
-
 #define TN_TASK_START_ON_CREATION        1 
 #define TN_TASK_TIMER                 0x80
 #define TN_TASK_IDLE                  0x40
@@ -110,30 +92,6 @@
 #define TN_ID_CYCLIC            ((int)0xAB8F746B)
 #define TN_ID_MESSAGEBUF        ((int)0x9C9A6C89)
 
-#define  TN_EXIT_AND_DELETE_TASK          1
-
-//-- Task states
-#define TSK_STATE_RUNNABLE            0x01
-#define TSK_STATE_WAIT                0x04
-#define TSK_STATE_SUSPEND             0x08
-#define TSK_STATE_WAITSUSP            (TSK_STATE_SUSPEND | TSK_STATE_WAIT)
-#define TSK_STATE_DORMANT             0x10
-
-//--- Waiting
-#define TSK_WAIT_REASON_SLEEP            0x0001
-#define TSK_WAIT_REASON_SEM              0x0002
-#define TSK_WAIT_REASON_EVENT            0x0004
-#define TSK_WAIT_REASON_DQUE_WSEND       0x0008
-#define TSK_WAIT_REASON_DQUE_WRECEIVE    0x0010
-#define TSK_WAIT_REASON_MUTEX_C          0x0020          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_C_BLK      0x0040          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_I          0x0080          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_H          0x0100          //-- ver 2.x
-#define TSK_WAIT_REASON_RENDEZVOUS       0x0200          //-- ver 2.x
-#define TSK_WAIT_REASON_MBF_WSEND        0x0400
-#define TSK_WAIT_REASON_MBF_WRECEIVE     0x0800
-#define TSK_WAIT_REASON_WFIXMEM          0x2000
-
 #define TN_EVENT_ATTR_SINGLE            1
 #define TN_EVENT_ATTR_MULTI             2
 #define TN_EVENT_ATTR_CLR               4
@@ -145,32 +103,75 @@
 #define TN_MUTEX_ATTR_CEILING         (1UL<<0)
 #define TN_MUTEX_ATTR_RECURSIVE       (1UL<<1)
 
-#define TN_CYCLIC_ATTR_START            1
-#define TN_CYCLIC_ATTR_PHS              2
-
 #define TN_WAIT_INFINITE                0xFFFFFFFF
 #define TN_POLLING                      0x0
 
-//-- Errors
+#define NO_TIME_SLICE                  (0)
+#define MAX_TIME_SLICE            (0xFFFE)
 
-#define TERR_TRUE                       1
-#define TERR_NO_ERR                     0
-#define TERR_OVERFLOW                 (-1) //-- OOV
-#define TERR_WCONTEXT                 (-2) //-- Wrong context context error
-#define TERR_WSTATE                   (-3) //-- Wrong state   state error
-#define TERR_TIMEOUT                  (-4) //-- Polling failure or timeout
-#define TERR_WRONG_PARAM              (-5)
-#define TERR_UNDERFLOW                (-6)
-#define TERR_OUT_OF_MEM               (-7)
-#define TERR_ILUSE                    (-8) //-- Illegal using
-#define TERR_NOEXS                    (-9) //-- Non-valid or Non-existent object
-#define TERR_DLT                     (-10) //-- Waiting object deleted
-#define NO_TIME_SLICE                   0
-#define MAX_TIME_SLICE             0xFFFE
+#define time_after(a,b)      ((int32_t)(b) - (int32_t)(a) < 0)
+#define time_before(a,b)     time_after(b,a)
+
+#define time_after_eq(a,b)   ((int32_t)(a) - (int32_t)(b) >= 0)
+#define time_before_eq(a,b)  time_after_eq(b,a)
+
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
+
+/// Error code values returned by uKernel functions.
+typedef enum {
+  TERR_TRUE         =  1,
+  TERR_NO_ERR       =  0,
+  TERR_OVERFLOW     = -1,         ///< OOV
+  TERR_WCONTEXT     = -2,         ///< Wrong context error
+  TERR_WSTATE       = -3,         ///< Wrong state error
+  TERR_TIMEOUT      = -4,         ///< Polling failure or timeout
+  TERR_WRONG_PARAM  = -5,
+  TERR_UNDERFLOW    = -6,
+  TERR_OUT_OF_MEM   = -7,
+  TERR_ILUSE        = -8,         ///< Illegal using
+  TERR_NOEXS        = -9,         ///< Non-valid or Non-existent object
+  TERR_DLT          = -10,        ///< Waiting object deleted
+  TERR_ISR          = -11,
+  osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} osError_t;
+
+typedef enum {
+  TASK_EXIT,
+  TASK_EXIT_AND_DELETE,
+} task_exit_attr_t;
+
+/* Task states */
+typedef enum {
+  TSK_STATE_RUNNABLE  = 0x01,
+  TSK_STATE_WAIT      = 0x02,
+  TSK_STATE_SUSPEND   = 0x04,
+  TSK_STATE_DORMANT   = 0x08,
+  task_state_reserved = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} task_state_t;
+
+/* Task Wait Reason */
+typedef enum {
+  WAIT_REASON_NO            = 0x0000,
+  WAIT_REASON_SLEEP         = 0x0001,
+  WAIT_REASON_SEM           = 0x0002,
+  WAIT_REASON_EVENT         = 0x0004,
+  WAIT_REASON_DQUE_WSEND    = 0x0008,
+  WAIT_REASON_DQUE_WRECEIVE = 0x0010,
+  WAIT_REASON_MUTEX_C       = 0x0020,
+  WAIT_REASON_MUTEX_C_BLK   = 0x0040,
+  WAIT_REASON_MUTEX_I       = 0x0080,
+  WAIT_REASON_MUTEX_H       = 0x0100,
+  WAIT_REASON_RENDEZVOUS    = 0x0200,
+  WAIT_REASON_MBF_WSEND     = 0x0400,
+  WAIT_REASON_MBF_WRECEIVE  = 0x0800,
+  WAIT_REASON_WFIXMEM       = 0x1000,
+  wait_reason_reserved      = 0x7fffffff
+} wait_reason_t;
+
+typedef uint32_t TIME_t;
 
 typedef void (*CBACK)(void *);
 
@@ -181,10 +182,10 @@ typedef struct _CDLL_QUEUE {
 } CDLL_QUEUE;
 
 typedef struct timer_event_block {
-  CDLL_QUEUE queue; /* Timer event queue */
-  unsigned long time; /* Event time */
-  CBACK callback; /* Callback function */
-  void *arg; /* Argument to be sent to callback function */
+  CDLL_QUEUE queue; /**< Timer event queue */
+  uint32_t time;    /**< Event time */
+  CBACK callback;   /**< Callback function */
+  void *arg;        /**< Argument to be sent to callback function */
 } TMEB;
 
 typedef struct {
@@ -232,30 +233,28 @@ typedef union {
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct _TN_TCB {
-  unsigned int *task_stk;        //-- Pointer to task's top of stack
-  CDLL_QUEUE task_queue;  //-- Queue is used to include task in ready/wait lists
+  uint32_t *task_stk;       //-- Pointer to task's top of stack
+  CDLL_QUEUE task_queue;    //-- Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;  //-- Ptr to object's(semaphor,event,etc.) wait list,
                             // that task has been included for waiting (ver 2.x)
-  CDLL_QUEUE create_queue; //-- Queue is used to include task in create list only
 #ifdef USE_MUTEXES
   CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
 #endif
-  TMEB wtmeb;
-  unsigned int *stk_start;       //-- Base address of task's stack space
-  int stk_size;         //-- Task's stack size (in sizeof(void*),not bytes)
-  void *task_func_addr;  //-- filled on creation  (ver 2.x)
-  void *task_func_param; //-- filled on creation  (ver 2.x)
-  int base_priority;    //-- Task base priority  (ver 2.x)
-  int priority;         //-- Task current priority
-  int id_task;         //-- ID for verification(is it a task or another object?)
-                       // All tasks have the same id_task magic number (ver 2.x)
-  int task_state;       //-- Task state
-  int task_wait_reason; //-- Reason for waiting
-  int *wercd;           //-- Waiting return code(reason why waiting  finished)
-  WINFO winfo;          // Wait information
-  int tslice_count;     //-- Time slice counter
-  unsigned long time;             //-- Time work task
-// Other implementation specific fields may be added below
+  uint32_t *stk_start;      //-- Base address of task's stack space
+  uint32_t stk_size;        //-- Task's stack size (in sizeof(void*),not bytes)
+  const void *func_addr;    //-- filled on creation  (ver 2.x)
+  const void *func_param;   //-- filled on creation  (ver 2.x)
+  uint32_t base_priority;   //-- Task base priority  (ver 2.x)
+  uint32_t priority;        //-- Task current priority
+  int id_task;              //-- ID for verification(is it a task or another object?)
+                            // All tasks have the same id_task magic number (ver 2.x)
+  task_state_t state;         ///< Task state
+  wait_reason_t wait_reason;  ///< Reason for waiting
+  osError_t *wait_rc;         ///< Waiting return code(reason why waiting  finished)
+  WINFO wait_info;            ///< Wait information
+  TMEB wait_timer;            ///< Wait timer
+  int tslice_count;           ///< Time slice counter
+  TIME_t time;                ///< Time work task
 } TN_TCB;
 
 /* - Semaphore ---------------------------------------------------------------*/
@@ -313,24 +312,44 @@ typedef struct _TN_MUTEX {
                       // All mutexes have the same id_mutex magic number (ver 2.x)
 } TN_MUTEX;
 
+typedef enum {
+  TIMER_STOP            = 0x00,
+  TIMER_START           = 0x01,
+  timer_state_reserved  = 0x7fffffff
+} timer_state_t;
+
 /* - Alarm Timer -------------------------------------------------------------*/
 typedef struct _TN_ALARM {
-  void *exinf; /* Extended information */
-  void (*handler)(void *); /* Alarm handler address */
-  unsigned int stat; /* Alarm handler state */
-  TMEB tmeb; /* Timer event block */
-  int id; /* ID for verification */
+  void *exinf;              /**< Extended information */
+  CBACK handler;            /**< Alarm handler address */
+  timer_state_t state;      /**< Timer state */
+  TMEB timer;               /**< Timer event block */
+  int id;                   /**< ID for verification */
 } TN_ALARM;
+
+/* Cyclic attributes */
+typedef enum {
+  CYCLIC_ATTR_NO        = 0x00,
+  CYCLIC_ATTR_START     = 0x01,
+  CYCLIC_ATTR_PHS       = 0x02,
+  cyclic_attr_reserved  = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} cyclic_attr_t;
+
+typedef struct {
+  uint32_t cyc_time;
+  uint32_t cyc_phs;
+  cyclic_attr_t cyc_attr;
+} cyclic_param_t;
 
 /* - Cyclic Timer ------------------------------------------------------------*/
 typedef struct _TN_CYCLIC {
-  void *exinf; /* Extended information */
-  void (*handler)(void *); /* Cyclic handler address */
-  unsigned int stat; /* Cyclic handler state */
-  unsigned int attr; /* Cyclic handler attributes */
-  unsigned long time; /* Cyclic time */
-  TMEB tmeb; /* Timer event block */
-  int id; /* ID for verification */
+  void *exinf;              /**< Extended information */
+  CBACK handler;            /**< Cyclic handler address */
+  timer_state_t state;      /**< Timer state */
+  cyclic_attr_t attr;       /**< Cyclic handler attributes */
+  uint32_t time;            /**< Cyclic time */
+  TMEB timer;               /**< Timer event block */
+  int id;                   /**< ID for verification */
 } TN_CYCLIC;
 
 /* - Message Buffer ----------------------------------------------------------*/
@@ -351,49 +370,13 @@ typedef void (*TN_USER_FUNC)(void);
 
 typedef struct {
   TN_USER_FUNC app_init;
-  unsigned long freq_timer;
-  unsigned int max_syscall_interrupt_priority;
+  uint32_t freq_timer;
+  uint32_t max_syscall_interrupt_priority;
 } TN_OPTIONS;
 
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
-
-/* - Global vars -------------------------------------------------------------*/
-extern CDLL_QUEUE tn_create_queue; //-- all created tasks(now - for statictic only)
-extern volatile int tn_created_tasks_qty;           //-- num of created tasks
-extern volatile int tn_system_state; //-- System state -(running/not running,etc.)
-
-//-- Thanks to Vyacheslav Ovsiyenko - for his highly optimized code
-
-#ifndef CONTAINING_RECORD
-#define CONTAINING_RECORD(address, type, field)     \
-        ((type *)((unsigned char *)(address) - (unsigned char *)(&((type *)0)->field)))
-#endif
-
-#define get_task_by_tsk_queue(que)                  \
-        que ? CONTAINING_RECORD(que, TN_TCB, task_queue) : 0
-
-#define get_mutex_by_mutex_queque(que)              \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
-
-#define get_mutex_by_wait_queque(que)               \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, wait_queue) : 0
-
-#define get_task_by_block_queque(que)  \
-        que ? CONTAINING_RECORD(que, TN_TCB, block_queue) : 0
-
-#define get_mutex_by_lock_mutex_queque(que) \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
-
-#define get_timer_address(que) \
-        que ? CONTAINING_RECORD(que, TMEB, queue) : 0
-
-#define tn_time_after(a,b)      ((long)(b) - (long)(a) < 0)
-#define tn_time_before(a,b)     tn_time_after(b,a)
-
-#define tn_time_after_eq(a,b)   ((long)(a) - (long)(b) >= 0)
-#define tn_time_before_eq(a,b)  tn_time_after_eq(b,a)
 
 /*******************************************************************************
  *  exported function prototypes
@@ -403,76 +386,170 @@ extern volatile int tn_system_state; //-- System state -(running/not running,etc
 extern "C" {
 #endif
 
-/* - tn.c --------------------------------------------------------------------*/
-void tn_start_system(TN_OPTIONS *opt);
+/* - system.c ----------------------------------------------------------------*/
+void KernelStart(TN_OPTIONS *opt);
 
 #if defined(ROUND_ROBIN_ENABLE)
 int tn_sys_tslice_ticks(int priority, int value);
 #endif
 
-/* - tn_timer.c --------------------------------------------------------------*/
-void tn_timer(void);
-unsigned long tn_get_tick_count(void);
-int tn_alarm_create(TN_ALARM *alarm,     // Alarm Control Block
-  void (*handler)(void *),  // Alarm handler
-  void *exinf      // Extended information
-  );
-int tn_alarm_delete(TN_ALARM *alarm);
-int tn_alarm_start(TN_ALARM *alarm, unsigned long time);
-int tn_alarm_stop(TN_ALARM *alarm);
-int tn_cyclic_create(TN_CYCLIC *cyc, CBACK handler, void *exinf,
-                     unsigned long cyctime, unsigned long cycphs,
-                     unsigned int attr);
-int tn_cyclic_delete(TN_CYCLIC *cyc);
-int tn_cyclic_start(TN_CYCLIC *cyc);
-int tn_cyclic_stop(TN_CYCLIC *cyc);
+/* - Timer -------------------------------------------------------------------*/
 
-/* - tn_tasks.c --------------------------------------------------------------*/
-int tn_task_create(TN_TCB *task,                   //-- task TCB
-  void (*task_func)(void *param), //-- task function
-  int priority,                   //-- task priority
-  unsigned int *task_stack_start, //-- task stack first addr in memory (bottom)
-  int task_stack_size,         //-- task stack size (in sizeof(void*),not bytes)
-  void *param,                    //-- task function parameter
-  int option                      //-- Creation option
-  );
-int tn_task_suspend(TN_TCB *task);
-int tn_task_resume(TN_TCB *task);
-int tn_task_sleep(unsigned long timeout);
+void osTimerHandle(void);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_time
- * Описание : Возвращает время работы задачи с момента ее создания
- * Параметры: task  - Указатель на дескриптор задачи
- * Результат: Возвращает беззнаковое 32 битное число
- *----------------------------------------------------------------------------*/
-unsigned long tn_task_time(TN_TCB *task);
+TIME_t osGetTickCount(void);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_task_wakeup
- * Описание : Пробуждает заданную задачу, если заданная задача усыпила себя
- *            вызовом tn_task_sleep
- * Параметры: task  - Указатель на дескриптор задачи.
- * Результат: Возвращает следующие значения:
- *              TERR_NO_ERR - если выполнена без ошибок
- *              TERR_WRONG_PARAM - если задан неверный параметр функции
- *              TERR_NOEXS - если задача, которую надо пробудить, не существует
- *              TERR_WSTATE - если задача не находится в состоянии SLEEP
- *----------------------------------------------------------------------------*/
-extern int tn_task_wakeup(TN_TCB *task);
+osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf);
 
-int tn_task_activate(TN_TCB *task);
-int tn_task_release_wait(TN_TCB *task);
-void tn_task_exit(int attr);
-int tn_task_terminate(TN_TCB *task);
-int tn_task_delete(TN_TCB *task);
-int tn_task_change_priority(TN_TCB *task, int new_priority);
+osError_t osAlarmDelete(TN_ALARM *alarm);
+
+osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout);
+
+osError_t osAlarmStop(TN_ALARM *alarm);
+
+osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf);
+
+osError_t osCyclicDelete(TN_CYCLIC *cyc);
+
+osError_t osCyclicStart(TN_CYCLIC *cyc);
+
+osError_t osCyclicStop(TN_CYCLIC *cyc);
+
+/* - Task --------------------------------------------------------------------*/
+
+/**
+ * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @brief       Creates a task.
+ * @param[out]  task          Pointer to the task TCB to be created
+ * @param[in]   func          Task body function
+ * @param[in]   priority      Task priority. User tasks may have priorities 1…30
+ * @param[in]   stack_start   Task's stack bottom address
+ * @param[in]   stack_size    Task's stack size – number of task stack elements (not bytes)
+ * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
+ * @param[in]   option        Creation option. Option values:
+ *                              0                           After creation task has a DORMANT state
+ *                              TN_TASK_START_ON_CREATION   After creation task is switched to the runnable state (READY/RUNNING)
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
+
+/**
+ * @fn          osError_t osTaskDelete(TN_TCB *task)
+ * @brief       Deletes the task specified by the task.
+ * @param[out]  task  Pointer to the task TCB to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system's state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskDelete(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskActivate(TN_TCB *task)
+ * @brief       Activates a task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be activated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskActivate(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskTerminate(TN_TCB *task)
+ * @brief       Terminates the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be terminated
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system state for this request
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskTerminate(TN_TCB *task);
+
+/**
+ * @fn        void osTaskExit(task_exit_attr_t attr)
+ * @brief     Terminates the currently running task
+ * @param[in] attr  Exit option. Option values:
+ *                    TASK_EXIT             Currently running task will be terminated.
+ *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ */
+void osTaskExit(task_exit_attr_t attr);
+
+/**
+ * @fn          osError_t osTaskSuspend(TN_TCB *task)
+ * @brief       Suspends the task specified by the task
+ * @param[out]  task  Pointer to the task TCB to be suspended
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Task already suspended
+ *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSuspend(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskResume(TN_TCB *task)
+ * @brief       Releases the task specified by the task from the SUSPENDED state
+ * @param[out]  task  Pointer to task TCB to be resumed
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WSTATE       Task is not in SUSPEDED or WAITING_SUSPEDED state
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskResume(TN_TCB *task);
+
+/**
+ * @fn        osError_t osTaskSleep(TIME_t timeout)
+ * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
+ * @param[in] timeout   Timeout value must be greater than 0.
+ *                      A value of TN_WAIT_INFINITE causes an infinite delay.
+ * @return    TERR_NO_ERR       Normal completion
+ *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *            TERR_NOEXS        Object is not a task or non-existent
+ *            TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskSleep(TIME_t timeout);
+
+/**
+ * @fn          osError_t osTaskWakeup(TN_TCB *task)
+ * @brief       Wakes up the task specified by the task from sleep mode
+ * @param[out]  task  Pointer to the task TCB to be wake up
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_WSTATE       Task is not in WAIT state
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskWakeup(TN_TCB *task);
+
+/**
+ * @fn          osError_t osTaskReleaseWait(TN_TCB *task)
+ * @brief       Forcibly releases the task specified by the task from waiting
+ * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_WCONTEXT     Unacceptable system's state for function's request executing
+ *              TERR_NOEXS        Object is not a task or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osTaskReleaseWait(TN_TCB *task);
+
+osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority);
+
+TIME_t osTaskGetTime(TN_TCB *task);
 
 /* - tn_sem.c ----------------------------------------------------------------*/
-int tn_sem_create(TN_SEM *sem, int start_value, int max_val);
-int tn_sem_delete(TN_SEM *sem);
-int tn_sem_signal(TN_SEM *sem);
-int tn_sem_acquire(TN_SEM *sem, unsigned long timeout);
+osError_t tn_sem_create(TN_SEM *sem, int start_value, int max_val);
+osError_t tn_sem_delete(TN_SEM *sem);
+osError_t tn_sem_signal(TN_SEM *sem);
+osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout);
 
 /* - tn_dqueue.c -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------*
@@ -488,7 +565,7 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout);
  *              TERR_NO_ERR - функция выполнена без ошибок;
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *----------------------------------------------------------------------------*/
-int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries);
+osError_t tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_delete
@@ -499,7 +576,7 @@ int tn_queue_create(TN_DQUE *dque, void **data_fifo, int num_entries);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь не существует;
  *----------------------------------------------------------------------------*/
-int tn_queue_delete(TN_DQUE *dque);
+osError_t tn_queue_delete(TN_DQUE *dque);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_send
@@ -514,7 +591,7 @@ int tn_queue_delete(TN_DQUE *dque);
  *              TERR_NOEXS  - очередь не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
+osError_t tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_send_first
@@ -529,7 +606,7 @@ int tn_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
  *              TERR_NOEXS  - очередь не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
+osError_t tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_receive
@@ -544,7 +621,7 @@ int tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeout);
  *              TERR_NOEXS  - очередь не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout);
+osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_flush
@@ -555,7 +632,7 @@ int tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_flush(TN_DQUE *dque);
+osError_t tn_queue_flush(TN_DQUE *dque);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_empty
@@ -567,7 +644,7 @@ int tn_queue_flush(TN_DQUE *dque);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_empty(TN_DQUE *dque);
+osError_t tn_queue_empty(TN_DQUE *dque);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_full
@@ -579,7 +656,7 @@ int tn_queue_empty(TN_DQUE *dque);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_full(TN_DQUE *dque);
+osError_t tn_queue_full(TN_DQUE *dque);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_cnt
@@ -592,7 +669,7 @@ int tn_queue_full(TN_DQUE *dque);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - очередь данных не была создана.
  *----------------------------------------------------------------------------*/
-int tn_queue_cnt(TN_DQUE *dque, int *cnt);
+osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt);
 
 /* - tn_message_buf.c --------------------------------------------------------*/
 
@@ -609,7 +686,7 @@ int tn_queue_cnt(TN_DQUE *dque, int *cnt);
  *              TERR_NO_ERR - функция выполнена без ошибок;
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz);
+extern osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_delete
@@ -620,7 +697,7 @@ extern int tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не существует;
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_delete(TN_MBF *mbf);
+extern osError_t tn_mbf_delete(TN_MBF *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_send
@@ -636,7 +713,7 @@ extern int tn_mbf_delete(TN_MBF *mbf);
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout);
+extern osError_t tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_send_first
@@ -652,7 +729,7 @@ extern int tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout);
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout);
+extern osError_t tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_receive
@@ -667,7 +744,7 @@ extern int tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout);
  *              TERR_NOEXS  - буфер не существует;
  *              TERR_TIMEOUT  - Превышен заданный интервал времени;
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout);
+extern osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_flush
@@ -678,7 +755,7 @@ extern int tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_flush(TN_MBF *mbf);
+extern osError_t tn_mbf_flush(TN_MBF *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_empty
@@ -690,7 +767,7 @@ extern int tn_mbf_flush(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_empty(TN_MBF *mbf);
+extern osError_t tn_mbf_empty(TN_MBF *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_full
@@ -702,7 +779,7 @@ extern int tn_mbf_empty(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_full(TN_MBF *mbf);
+extern osError_t tn_mbf_full(TN_MBF *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_cnt
@@ -715,7 +792,7 @@ extern int tn_mbf_full(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-extern int tn_mbf_cnt(TN_MBF *mbf, int *cnt);
+extern osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt);
 
 /* - tn_event.c --------------------------------------------------------------*/
 
@@ -743,7 +820,7 @@ extern int tn_mbf_cnt(TN_MBF *mbf, int *cnt);
  * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
  *            случае TERR_WRONG_PARAM
  *----------------------------------------------------------------------------*/
-extern int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern);
+extern osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_event_delete
@@ -754,7 +831,7 @@ extern int tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-extern int tn_event_delete(TN_EVENT *evf);
+extern osError_t tn_event_delete(TN_EVENT *evf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_event_wait
@@ -779,7 +856,7 @@ extern int tn_event_delete(TN_EVENT *evf);
  *                            а его пытается использовать более одной задачи.
  *              TERR_TIMEOUT  - Время ожидания истекло.
  *----------------------------------------------------------------------------*/
-extern int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern,
+extern osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern,
                          int wait_mode, unsigned int *p_flags_pattern,
                          unsigned long timeout);
 
@@ -794,7 +871,7 @@ extern int tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern,
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-extern int tn_event_set(TN_EVENT *evf, unsigned int pattern);
+extern osError_t tn_event_set(TN_EVENT *evf, unsigned int pattern);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_event_clear
@@ -807,14 +884,14 @@ extern int tn_event_set(TN_EVENT *evf, unsigned int pattern);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - флаг события не существует;
  *----------------------------------------------------------------------------*/
-extern int tn_event_clear(TN_EVENT *evf, unsigned int pattern);
+extern osError_t tn_event_clear(TN_EVENT *evf, unsigned int pattern);
 
 /* - tn_mem.c ----------------------------------------------------------------*/
-int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
+osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
                    int num_blocks);
-int tn_fmem_delete(TN_FMP *fmp);
-int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
-int tn_fmem_release(TN_FMP *fmp, void *p_data);
+osError_t tn_fmem_delete(TN_FMP *fmp);
+osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
+osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
 
 /* - tn_mutex.c --------------------------------------------------------------*/
 
@@ -841,10 +918,10 @@ int tn_fmem_release(TN_FMP *fmp, void *p_data);
  * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
  *            случае TERR_WRONG_PARAM
  *----------------------------------------------------------------------------*/
-int tn_mutex_create(TN_MUTEX *mutex, int attribute, int ceil_priority);
-int tn_mutex_delete(TN_MUTEX *mutex);
-int tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout);
-int tn_mutex_unlock(TN_MUTEX *mutex);
+osError_t tn_mutex_create(TN_MUTEX *mutex, int attribute, int ceil_priority);
+osError_t tn_mutex_delete(TN_MUTEX *mutex);
+osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout);
+osError_t tn_mutex_unlock(TN_MUTEX *mutex);
 
 /* - tn_delay.c --------------------------------------------------------------*/
 void tn_mdelay(unsigned long ms);
@@ -865,22 +942,6 @@ extern void* tn_memset(void *dst, int ch, int length) __attribute__((nonnull));
 extern void* tn_memcpy(void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_memcmp(const void *s1, const void *s2, int n) __attribute__((nonnull));
 extern int tn_atoi(const char *s) __attribute__((nonnull));
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_disable_irq
- * Описание : Отключает прерывания в ядре
- * Параметры: Нет
- * Результат: Нет
- *----------------------------------------------------------------------------*/
-extern void tn_disable_irq(void);
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_enable_irq
- * Описание : Включает прерывания в ядре
- * Параметры: Нет
- * Результат: Нет
- *----------------------------------------------------------------------------*/
-extern void tn_enable_irq(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

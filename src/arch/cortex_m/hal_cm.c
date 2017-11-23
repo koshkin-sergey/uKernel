@@ -21,9 +21,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn.h"
-#include "tn_arch.h"
-#include "tn_tasks.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -33,18 +31,14 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-/* Interrupt Control State Register Address */
-#define ICSR_ADDR                     (0xE000ED04)
+/* PendSV priority is minimal (0xFF) */
+#define PENDSV_PRIORITY (0x00FF0000)
 
-/* pendSV bit in the Interrupt Control State Register */
-#define PENDSVSET                     (0x10000000)
-
-/* System Handlers 12-15 Priority Register Address */
-#define PR_12_15_ADDR                 (0xE000ED20)
-
-/* PRI_14 (PendSV) priority in the System Handlers 12-15 Priority Register Address
-PendSV priority is minimal (0xFF) */
-#define PENDS_VPRIORITY               (0x00FF0000)
+#define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
+/* System Handler Priority Register 2 Address */
+#define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
+/* System Handler Priority Register 3 Address */
+#define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -70,77 +64,57 @@ PendSV priority is minimal (0xFF) */
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-__asm
-void tn_start_exe(void)
+static
+void SystemIsrInit(void)
 {
-  EXPORT tn_switch_context_exit
-
-  ldr    r1, =PR_12_15_ADDR        ;-- Load the System 12-15 Priority Register
-  ldr    r0, [r1]
-  ldr    r2, =PENDS_VPRIORITY
-  orrs   r0, r0, r2
-  str    r0, [r1]
-
-;---------------
-
-  ldr    r1, =__cpp(&run_task)
-  ldr    r2, [r1]
-  ldr    r0, [r2]                  ;-- in r0 - new task SP
-  adds   r0, #32
-  msr    PSP, r0
-
-tn_switch_context_exit
-
-  ldr    r1,  =ICSR_ADDR           ;  Trigger PendSV exception
-  ldr    r0,  =PENDSVSET
-  str    r0,  [r1]
-
-  cpsie  I                         ;  Enable core interrupts
-
-; - Should never reach
-
-  b  .
-
-  ALIGN
+#if !defined(__TARGET_ARCH_6S_M)
+  uint32_t sh, prigroup;
+#endif
+  NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
+#if defined(__TARGET_ARCH_6S_M)
+  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+#else
+  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
+  if (prigroup >= sh) {
+    sh = prigroup + 1U;
+  }
+  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+#endif
 }
 
-__asm
-void tn_disable_irq(void)
+/**
+ * @fn      void archKernelStart(void)
+ * @brief
+ */
+void archKernelStart(void)
 {
-  cpsid  I
-  bx     lr
-}
-
-__asm
-void tn_enable_irq(void)
-{
-  cpsie I
-  bx   lr
-}
-
-__asm
-void tn_switch_context_request(void)
-{
-  ldr    r1,  =ICSR_ADDR
-  ldr    r0,  =PENDSVSET
-  str    r0,  [r1]
-  bx     lr
-
-  ALIGN
+  SystemIsrInit();
+  __set_PSP((uint32_t)knlInfo.run.curr->task_stk + 32UL);
+  archSwitchContextRequest();
+  __enable_irq();
 }
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
+/**
+ * @fn      uint32_t tn_cpu_save_sr(void)
+ * @brief
+ */
 __asm
-int tn_cpu_save_sr(void)
+uint32_t tn_cpu_save_sr(void)
 {
   mrs    r0, PRIMASK
   cpsid  I
   bx     lr
 }
 
+/**
+ * @fn      void tn_cpu_restore_sr(uint32_t sr)
+ * @brief
+ */
 __asm
-void tn_cpu_restore_sr(int sr)
+void tn_cpu_restore_sr(uint32_t sr)
 {
   msr    PRIMASK, r0
   bx     lr
@@ -149,8 +123,12 @@ void tn_cpu_restore_sr(int sr)
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
+/**
+ * @fn      uint32_t tn_cpu_set_basepri(uint32_t basepri)
+ * @brief
+ */
 __asm
-int tn_cpu_set_basepri(int basepri)
+uint32_t tn_cpu_set_basepri(uint32_t basepri)
 {
   mrs    r1, BASEPRI
   msr    BASEPRI, r0
@@ -158,15 +136,23 @@ int tn_cpu_set_basepri(int basepri)
   bx     lr
 }
 
+/**
+ * @fn      void tn_cpu_restore_basepri(uint32_t basepri)
+ * @brief
+ */
 __asm
-void tn_cpu_restore_basepri(int basepri)
+void tn_cpu_restore_basepri(uint32_t basepri)
 {
   msr    BASEPRI, r0
   bx     lr
 }
 
+/**
+ * @fn      int32_t ffs_asm(uint32_t val)
+ * @brief
+ */
 __asm
-int ffs_asm(unsigned int val)
+int32_t ffs_asm(uint32_t val)
 {
   mov    r1, r0                    ;-- tmp = in
   rsbs   r0, r1, #0                ;-- in = -in
@@ -178,18 +164,25 @@ int ffs_asm(unsigned int val)
 
 #endif
 
-unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *param)
+/**
+ * @fn    uint32_t* StackInit(const TN_TCB *task)
+ * @brief
+ * @param[in] task
+ * @return
+ */
+void StackInit(TN_TCB *task)
 {
-  unsigned int *stk = ++stack_start;            //-- Load stack pointer
+  uint32_t *stk = task->stk_start;              //-- Load stack pointer
+  stk++;
 
   *(--stk) = 0x01000000L;                       //-- xPSR
-  *(--stk) = (unsigned int)task_func;           //-- Entry Point (1 for THUMB mode)
-  *(--stk) = (unsigned int)task_exit;           //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
+  *(--stk) = (uint32_t)ThreadExit;              //-- R14 (LR)    (1 for THUMB mode)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2
   *(--stk) = 0x01010101L;                       //-- R1
-  *(--stk) = (unsigned int)param;               //-- R0 - task's function argument
+  *(--stk) = (uint32_t)task->func_param;        //-- R0 - task's function argument
   *(--stk) = 0x11111111L;                       //-- R11
   *(--stk) = 0x10101010L;                       //-- R10
   *(--stk) = 0x09090909L;                       //-- R9
@@ -199,27 +192,31 @@ unsigned int * tn_stack_init(void *task_func, unsigned int *stack_start, void *p
   *(--stk) = 0x05050505L;                       //-- R5
   *(--stk) = 0x04040404L;                       //-- R4
 
-  return stk;
+  task->task_stk = stk;
 }
 
+/**
+ * @fn      void PendSV_Handler(void)
+ * @brief
+ */
 __asm
 void PendSV_Handler(void)
 {
   PRESERVE8
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-  cpsid  I                          ;   Disable core int
+  cpsid  I                          ; Disable core int
 
-  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3!, {r1,r2}
-  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
   beq    exit_context_switch
 
   subs   r3, #8
   mrs    r0, psp                    ; in PSP - process(task) stack pointer
 
   subs   r0, #32                    ; allocate space for r4-r11
-  str    r0, [r1]                   ;  save own SP in TCB
+  str    r0, [r1]                   ; save own SP in TCB
   stmia  r0!, {r4-r7}
   mov    r4, r8
   mov    r5, r9
@@ -227,8 +224,8 @@ void PendSV_Handler(void)
   mov    r7, r11
   stmia  r0!, {r4-r7}
 
-  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ;  in r0 - new task SP
+  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
+  ldr    r0, [r2]                   ; in r0 - new task SP
 
   adds   r0, #16
   ldmia  r0!, {r4-r7}
@@ -242,39 +239,69 @@ void PendSV_Handler(void)
 
 exit_context_switch
 
-  cpsie  I                          ;  enable core int
+  cpsie  I                          ; enable core int
 
   ldr    r0, =0xFFFFFFFD
 
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  ldr    r0, =__cpp(&max_syscall_interrupt_priority)
-  msr    BASEPRI, r0                ;  Start critical section
+  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
+  msr    BASEPRI, r0                ; Start critical section
 
-  ldr    r3, =__cpp(&run_task)      ;  in R3 - =run_task
+  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3, {r1,r2}
-  cmp    r1, r2                     ;  in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
   beq    exit_context_switch
 
   mrs    r0, psp                    ; in PSP - process(task) stack pointer
   stmdb  r0!, {r4-r11}
-  str    r0, [r1]                   ;  save own SP in TCB
-  str    r2, [r3]                   ;  in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ;  in r0 - new task SP
+  str    r0, [r1]                   ; save own SP in TCB
+  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
+  ldr    r0, [r2]                   ; in r0 - new task SP
   ldmia  r0!, {r4-r11}
   msr    psp, r0
 
 exit_context_switch
 
   mov    r0, #0
-  msr    BASEPRI, r0                ;  End critical section
+  msr    BASEPRI, r0                ; End critical section
 
   ldr    r0, =0xFFFFFFFD
 
 #endif
 
   bx     r0
+
+  ALIGN
+}
+
+/**
+ * @fn      void SVC_Handler(void)
+ * @brief
+ */
+__asm
+void SVC_Handler(void)
+{
+  PRESERVE8
+
+  MRS     R0,PSP                  ; Read PSP
+  LDR     R1,[R0,#24]             ; Read Saved PC from Stack
+  SUBS    R1,R1,#2                ; Point to SVC Instruction
+  LDRB    R1,[R1]                 ; Load SVC Number
+  CMP     R1,#0
+  BNE     SVC_Exit                ; User SVC Number > 0
+
+  MOV     LR,R4
+  LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
+  MOV     R12,R4
+  MOV     R4,LR
+  BLX     R12                     ; Call SVC Function
+
+SVC_Exit
+  MOVS    R0,#:NOT:0xFFFFFFFD     ; Set EXC_RETURN value
+  MVNS    R0,R0
+  BX      R0                      ; RETI to Thread Mode, use PSP
 
   ALIGN
 }

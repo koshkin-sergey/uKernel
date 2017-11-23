@@ -13,7 +13,11 @@ endif
 
 # set the locations of the bin and lib output directories
 ifndef DIR_BIN
-DIR_BIN = bin
+DIR_BIN = ./bin
+endif
+
+ifndef OBJ_FOLDER
+OBJ_FOLDER = ./obj
 endif
 
 ifndef DIR_RTOS_SRC

@@ -40,8 +40,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -108,18 +107,16 @@ static int fm_put(TN_FMP *fmp, void *mem)
 //----------------------------------------------------------------------------
 //  Structure's field fmp->id_id_fmp have to be set to 0
 //----------------------------------------------------------------------------
-int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int num_blocks)
+osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int num_blocks)
 {
   void **p_tmp;
   unsigned char *p_block;
   unsigned long i,j;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp == TN_ID_FSMEMORYPOOL)
     return TERR_WRONG_PARAM;
-#endif
 
   if (start_addr == NULL || num_blocks < 2 || block_size < sizeof(int)) {
     fmp->fblkcnt = 0;
@@ -129,7 +126,7 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
     return TERR_WRONG_PARAM;
   }
 
-  queue_reset(&(fmp->wait_queue));
+  QueueReset(&(fmp->wait_queue));
 
   //-- Prepare addr/block aligment
   i = ((unsigned long)start_addr + (TN_ALIG -1)) & (~(TN_ALIG-1));
@@ -172,18 +169,16 @@ int tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int n
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_delete(TN_FMP *fmp)
+osError_t tn_fmem_delete(TN_FMP *fmp)
 {
-#if TN_CHECK_PARAM
   if (fmp == NULL)
     return TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&fmp->wait_queue);
+  ThreadWaitDelete(&fmp->wait_queue);
 
   fmp->id_fmp = 0;   //-- Fixed-size memory pool not exists now
 
@@ -193,18 +188,16 @@ int tn_fmem_delete(TN_FMP *fmp)
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
+osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   void * ptr;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -215,15 +208,14 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == TN_POLLING)
       rc = TERR_TIMEOUT;
     else {
-      task = run_task.curr;
-      task->wercd = &rc;
-      task_to_wait_action(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
-                          timeout);
+      task = TaskGetCurrent();
+      task->wait_rc = &rc;
+      ThreadToWaitAction(task, &(fmp->wait_queue), WAIT_REASON_WFIXMEM, timeout);
       
       END_CRITICAL_SECTION
 
       //-- When returns to this point, in the 'data_elem' have to be valid value
-      *p_data = task->winfo.fmem.data_elem; //-- Return to caller
+      *p_data = task->wait_info.fmem.data_elem; //-- Return to caller
     }
   }
 
@@ -233,25 +225,23 @@ int tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 }
 
 //----------------------------------------------------------------------------
-int tn_fmem_release(TN_FMP *fmp,void *p_data)
+osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 {
   CDLL_QUEUE * que;
   TN_TCB * task;
 
-#if TN_CHECK_PARAM
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
   if (fmp->id_fmp != TN_ID_FSMEMORYPOOL)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  if (!is_queue_empty(&(fmp->wait_queue))) {
-    que = queue_remove_head(&(fmp->wait_queue));
+  if (!isQueueEmpty(&(fmp->wait_queue))) {
+    que = QueueRemoveHead(&(fmp->wait_queue));
     task = get_task_by_tsk_queue(que);
-    task->winfo.fmem.data_elem = p_data;
-    task_wait_complete(task);
+    task->wait_info.fmem.data_elem = p_data;
+    ThreadWaitComplete(task);
   }
   else
     fm_put(fmp,p_data);

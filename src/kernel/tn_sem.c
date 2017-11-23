@@ -40,8 +40,7 @@
  *  includes
  ******************************************************************************/
 
-#include "tn_tasks.h"
-#include "tn_utils.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -83,14 +82,12 @@
  *----------------------------------------------------------------------------*/
 int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
 {
-#if TN_CHECK_PARAM
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
   if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id_sem == TN_ID_SEMAPHORE)
     return TERR_WRONG_PARAM;
-#endif
 
-  queue_reset(&(sem->wait_queue));
+  QueueReset(&(sem->wait_queue));
 
   sem->count     = start_value;
   sem->max_count = max_val;
@@ -107,16 +104,14 @@ int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
  *----------------------------------------------------------------------------*/
 int tn_sem_delete(TN_SEM *sem)
 {
-#if TN_CHECK_PARAM
   if (sem == NULL)
     return TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  task_wait_delete(&sem->wait_queue);
+  ThreadWaitDelete(&sem->wait_queue);
 
   sem->id_sem = 0; // Semaphore not exists now
 
@@ -131,26 +126,24 @@ int tn_sem_delete(TN_SEM *sem)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int tn_sem_signal(TN_SEM *sem)
+osError_t tn_sem_signal(TN_SEM *sem)
 {
-  int rc = TERR_NO_ERR;
+  osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (sem == NULL)
     return TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
-  if (!(is_queue_empty(&(sem->wait_queue)))) {
+  if (!(isQueueEmpty(&(sem->wait_queue)))) {
     //--- delete from the sem wait queue
-    que = queue_remove_head(&(sem->wait_queue));
+    que = QueueRemoveHead(&(sem->wait_queue));
     task = get_task_by_tsk_queue(que);
-    task_wait_complete(task);
+    ThreadWaitComplete(task);
   }
   else {
     if (sem->count < sem->max_count) {
@@ -172,17 +165,15 @@ int tn_sem_signal(TN_SEM *sem)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
+osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
 {
-  int rc; //-- return code
+  osError_t rc; //-- return code
   TN_TCB *task;
 
-#if TN_CHECK_PARAM
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
   if (sem->id_sem != TN_ID_SEMAPHORE)
     return TERR_NOEXS;
-#endif
 
   BEGIN_CRITICAL_SECTION
 
@@ -195,9 +186,9 @@ int tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
       rc = TERR_TIMEOUT;
     }
     else {
-      task = run_task.curr;
-      task->wercd = &rc;
-      task_to_wait_action(task, &(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
+      task = TaskGetCurrent();
+      task->wait_rc = &rc;
+      ThreadToWaitAction(task, &(sem->wait_queue), WAIT_REASON_SEM, timeout);
     }
   }
 
