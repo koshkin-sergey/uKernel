@@ -183,7 +183,7 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
   if (!isQueueEmpty(&mbf->recv_queue)) {
     que = QueueRemoveHead(&mbf->recv_queue);
     task = get_task_by_tsk_queue(que);
-    tn_memcpy(task->winfo.rmbf.msg, msg, mbf->msz);
+    tn_memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
     ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
@@ -195,12 +195,11 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
         rc = TERR_TIMEOUT;
       }
       else {
-        task = ThreadGetCurrent();
-        task->wercd = &rc;
-        task->winfo.smbf.msg = msg;
-        task->winfo.smbf.send_to_first = send_to_first;
-        ThreadToWaitAction(task, &mbf->send_queue, TSK_WAIT_REASON_MBF_WSEND,
-                            timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.smbf.msg = msg;
+        task->wait_info.smbf.send_to_first = send_to_first;
+        ThreadToWaitAction(task, &mbf->send_queue, WAIT_REASON_MBF_WSEND, timeout);
       }
     }
   }
@@ -348,7 +347,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
     if (!isQueueEmpty(&mbf->send_queue)) {
       que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
-      mbf_fifo_write(mbf, task->winfo.smbf.msg, task->winfo.smbf.send_to_first);
+      mbf_fifo_write(mbf, task->wait_info.smbf.msg, task->wait_info.smbf.send_to_first);
       ThreadWaitComplete(task);
     }
   }
@@ -356,7 +355,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
     if (!isQueueEmpty(&mbf->send_queue)) {
       que = QueueRemoveHead(&mbf->send_queue);
       task = get_task_by_tsk_queue(que);
-      tn_memcpy(msg, task->winfo.smbf.msg, mbf->msz);
+      tn_memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
       ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
@@ -365,11 +364,10 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
         rc = TERR_TIMEOUT;
       }
       else {
-        task = ThreadGetCurrent();
-        task->wercd = &rc;
-        task->winfo.rmbf.msg = msg;
-        ThreadToWaitAction(task, &mbf->recv_queue, TSK_WAIT_REASON_MBF_WRECEIVE,
-                            timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.rmbf.msg = msg;
+        ThreadToWaitAction(task, &mbf->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
       }
     }
   }

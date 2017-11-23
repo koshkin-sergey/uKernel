@@ -84,14 +84,14 @@ void SystemIsrInit(void)
 }
 
 /**
- * @fn      void StartKernel(void)
+ * @fn      void archKernelStart(void)
  * @brief
  */
-void StartKernel(void)
+void archKernelStart(void)
 {
   SystemIsrInit();
   __set_PSP((uint32_t)knlInfo.run.curr->task_stk + 32UL);
-  SwitchContextRequest();
+  archSwitchContextRequest();
   __enable_irq();
 }
 

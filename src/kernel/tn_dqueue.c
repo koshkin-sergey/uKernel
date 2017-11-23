@@ -173,7 +173,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
   if (!isQueueEmpty(&(dque->wait_receive_list))) {
     que = QueueRemoveHead(&(dque->wait_receive_list));
     task = get_task_by_tsk_queue(que);
-    *task->winfo.rdque.data_elem = data_ptr;
+    *task->wait_info.rdque.data_elem = data_ptr;
     ThreadWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
@@ -185,12 +185,11 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
         rc = TERR_TIMEOUT;
       }
       else {
-        task = ThreadGetCurrent();
-        task->wercd = &rc;
-        task->winfo.sdque.data_elem = data_ptr;  //-- Store data_ptr
-        task->winfo.sdque.send_to_first = send_to_first;
-        ThreadToWaitAction(task, &(dque->wait_send_list),
-                            TSK_WAIT_REASON_DQUE_WSEND, timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.sdque.data_elem = data_ptr;  //-- Store data_ptr
+        task->wait_info.sdque.send_to_first = send_to_first;
+        ThreadToWaitAction(task, &(dque->wait_send_list), WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
   }
@@ -339,8 +338,8 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
     if (!isQueueEmpty(&(dque->wait_send_list))) {
       que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
-      dque_fifo_write(dque, task->winfo.sdque.data_elem,
-          task->winfo.sdque.send_to_first);
+      dque_fifo_write(dque, task->wait_info.sdque.data_elem,
+          task->wait_info.sdque.send_to_first);
       ThreadWaitComplete(task);
     }
   }
@@ -348,7 +347,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
     if (!isQueueEmpty(&(dque->wait_send_list))) {
       que = QueueRemoveHead(&(dque->wait_send_list));
       task = get_task_by_tsk_queue(que);
-      *data_ptr = task->winfo.sdque.data_elem; //-- Return to caller
+      *data_ptr = task->wait_info.sdque.data_elem; //-- Return to caller
       ThreadWaitComplete(task);
       rc = TERR_NO_ERR;
     }
@@ -357,11 +356,10 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
         rc = TERR_TIMEOUT;
       }
       else {
-        task = ThreadGetCurrent();
-        task->wercd = &rc;
-        task->winfo.rdque.data_elem = data_ptr;
-        ThreadToWaitAction(task, &(dque->wait_receive_list),
-            TSK_WAIT_REASON_DQUE_WRECEIVE, timeout);
+        task = TaskGetCurrent();
+        task->wait_rc = &rc;
+        task->wait_info.rdque.data_elem = data_ptr;
+        ThreadToWaitAction(task, &(dque->wait_receive_list), WAIT_REASON_DQUE_WRECEIVE, timeout);
       }
     }
   }

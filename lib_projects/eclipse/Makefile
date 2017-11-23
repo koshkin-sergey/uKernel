@@ -110,7 +110,8 @@ endif
 
 BINARY = $(BIN_FOLDER)/ukernel.lib
 
-INC := -I $(SRC)/include
+INC := -I $(SRC)/include \
+       -I $(ARCH_DIR)
 
 DIRS := $(SRC)/kernel \
         $(ARCH_DIR)

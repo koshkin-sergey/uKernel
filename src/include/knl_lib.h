@@ -105,34 +105,10 @@ extern knlInfo_t knlInfo;
  *  exported function prototypes
  ******************************************************************************/
 
-__STATIC_FORCEINLINE
-TN_TCB* ThreadGetCurrent(void)
-{
-  return knlInfo.run.curr;
-}
-
-__STATIC_FORCEINLINE
-TN_TCB* knlThreadGetNext(void)
-{
-  return knlInfo.run.next;
-}
-
-__STATIC_FORCEINLINE
-void knlThreadSetCurrent(TN_TCB *thread)
-{
-  knlInfo.run.curr = thread;
-}
-
-__STATIC_FORCEINLINE
-void knlThreadSetNext(TN_TCB *thread)
-{
-  knlInfo.run.next = thread;
-}
-
 /* Thread */
 void ThreadSetReady(TN_TCB *thread);
 void ThreadWaitComplete(TN_TCB *task);
-void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, int wait_reason,
+void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
                            TIME_t timeout);
 void ThreadChangePriority(TN_TCB *task, int32_t new_priority);
 void ThreadSetPriority(TN_TCB *task, int32_t priority);
@@ -141,11 +117,15 @@ void ThreadExit(void);
 
 void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
 void TaskToRunnable(TN_TCB *task);
+TN_TCB* TaskGetCurrent(void);
+void TaskSetCurrent(TN_TCB *task);
+TN_TCB* TaskGetNext(void);
+void TaskSetNext(TN_TCB *task);
 
 /* Timer */
 void TimerTaskCreate(void *par);
-void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg);
-void timer_delete(TMEB *event);
+void TimerInsert(TMEB *event, TIME_t time, CBACK callback, void *arg);
+void TimerDelete(TMEB *event);
 
 /* Queue */
 void QueueReset(CDLL_QUEUE *que);

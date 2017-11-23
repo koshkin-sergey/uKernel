@@ -39,12 +39,6 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define ALARM_STOP      0U
-#define ALARM_START     1U
-
-#define CYCLIC_STOP     0U
-#define CYCLIC_START    1U
-
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -64,13 +58,11 @@ static CDLL_QUEUE timer_queue;
 #pragma data_alignment=8
 #endif
 
-__WEAK tn_stack_t tn_timer_task_stack[TN_TIMER_STACK_SIZE];
+__WEAK stack_t timer_task_stack[TIMER_STACK_SIZE];
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
  ******************************************************************************/
-
-static void cyclic_handler(TN_CYCLIC *cyc);
 
 __svc_indirect(0)
 void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
@@ -82,10 +74,6 @@ __svc_indirect(0)
 void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
 __svc_indirect(0)
 void svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
-
-/*******************************************************************************
- *  function implementations (scope: module-local)
- ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
  * Название : osSysTickInit
@@ -100,18 +88,29 @@ __WEAK void osSysTickInit(uint32_t hz)
   ;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  TimerTaskFunc
-  Описание :  Функция таймерной задачи. В ней производится проверка очереди
-              программных таймеров. Если время таймера истекло, то производит
-              запуск соответствующего обработчика.
-  Параметры:  par - Указатель на данные
-  Результат:  Нет
-*-----------------------------------------------------------------------------*/
-static __NO_RETURN
-void TimerTaskFunc(void *par)
+static
+TMEB* GetTimer(void)
 {
-  TMEB  *tm;
+  TMEB *timer = NULL;
+
+  BEGIN_CRITICAL_SECTION
+
+  if (!isQueueEmpty(&timer_queue)) {
+    timer = get_timer_address(timer_queue.next);
+    if (time_after(timer->time, knlInfo.jiffies))
+      timer = NULL;
+    else
+      TimerDelete(timer);
+  }
+
+  END_CRITICAL_SECTION
+
+  return timer;
+}
+
+__NO_RETURN static void TimerTaskFunc(void *par)
+{
+  TMEB *timer;
 
   if (((TN_OPTIONS *)par)->app_init)
     ((TN_OPTIONS *)par)->app_init();
@@ -122,88 +121,50 @@ void TimerTaskFunc(void *par)
   knlInfo.kernel_state = KERNEL_STATE_RUNNING;
 
   for (;;) {
-//    BEGIN_CRITICAL_SECTION
-
-    /* Проводим проверку очереди программных таймеров */
-    while (!isQueueEmpty(&timer_queue)) {
-      tm = get_timer_address(timer_queue.next);
-      if (time_after(tm->time, knlInfo.jiffies))
-        break;
-
-      timer_delete(tm);
-
-      if (tm->callback != NULL) {
-        (*tm->callback)(tm->arg);
-      }
+    while ((timer = GetTimer()) != NULL) {
+      (*timer->callback)(timer->arg);
     }
 
     osTaskSleep(TN_WAIT_INFINITE);
-
-//    END_CRITICAL_SECTION
   }
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  cyc_next_time
-  Описание :
-  Параметры:
-  Результат:
-*-----------------------------------------------------------------------------*/
-static TIME_t cyc_next_time(TN_CYCLIC *cyc)
+static
+TIME_t CyclicNextTime(TN_CYCLIC *cyc)
 {
-  TIME_t tm, jiffies;
+  TIME_t time, jiffies;
   uint32_t n;
 
-  tm = cyc->tmeb.time + cyc->time;
+  time = cyc->timer.time + cyc->time;
   jiffies = knlInfo.jiffies;
 
-  if (time_before_eq(tm, jiffies)) {
-    tm = jiffies - cyc->tmeb.time;
-    n = tm / cyc->time;
+  if (time_before_eq(time, jiffies)) {
+    time = jiffies - cyc->timer.time;
+    n = time / cyc->time;
     n++;
-    tm = n * cyc->time;
-    tm = cyc->tmeb.time + tm;
+    time = n * cyc->time;
+    time = cyc->timer.time + time;
   }
 
-  return tm;
+  return time;
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  alarm_handler
-  Описание :
-  Параметры:
-  Результат:
-*-----------------------------------------------------------------------------*/
-static void alarm_handler(TN_ALARM *alarm)
+static
+void AlarmHandler(TN_ALARM *alarm)
 {
   if (alarm == NULL)
     return;
 
-  alarm->stat = ALARM_STOP;
-
-//  BEGIN_ENABLE_INTERRUPT
+  alarm->state = TIMER_STOP;
   alarm->handler(alarm->exinf);
-//  END_ENABLE_INTERRUPT
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  cyclic_handler
-  Описание :
-  Параметры:
-  Результат:
-*-----------------------------------------------------------------------------*/
-static void cyclic_handler(TN_CYCLIC *cyc)
+static
+void CyclicHandler(TN_CYCLIC *cyc)
 {
-  timer_insert(&cyc->tmeb, cyc_next_time(cyc), (CBACK)cyclic_handler, cyc);
-
-//  BEGIN_ENABLE_INTERRUPT
+  TimerInsert(&cyc->timer, CyclicNextTime(cyc), (CBACK)CyclicHandler, cyc);
   cyc->handler(cyc->exinf);
-//  END_ENABLE_INTERRUPT
 }
-
-/*******************************************************************************
- *  function implementations (scope: module-exported)
- ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
   Название :  TimerTaskCreate
@@ -215,43 +176,37 @@ void TimerTaskCreate(void *par)
 {
   task_create_attr_t attr;
 
+  QueueReset(&timer_queue);
+
   attr.func_addr = (void *)TimerTaskFunc;
   attr.func_param = par;
-  attr.stk_size = sizeof(tn_timer_task_stack)/sizeof(*tn_timer_task_stack);
-  attr.stk_start = (uint32_t *)&tn_timer_task_stack[attr.stk_size-1];
+  attr.stk_size = sizeof(timer_task_stack)/sizeof(*timer_task_stack);
+  attr.stk_start = (uint32_t *)&timer_task_stack[attr.stk_size-1];
   attr.priority = 0;
   attr.option = (TN_TASK_TIMER | TN_TASK_START_ON_CREATION);
 
   TaskCreate(&timer_task, &attr);
-
-  QueueReset(&timer_queue);
 }
 
-/*-----------------------------------------------------------------------------*
-  Название :  timer_insert
-  Описание :  
-  Параметры:  
-  Результат:  
-*-----------------------------------------------------------------------------*/
-void timer_insert(TMEB *event, TIME_t time, CBACK callback, void *arg)
+void TimerInsert(TMEB *event, TIME_t time, CBACK callback, void *arg)
 {
   CDLL_QUEUE  *que;
-  TMEB        *tm;
+  TMEB        *timer;
 
   event->callback = callback;
   event->arg  = arg;
   event->time = time;
 
   for (que = timer_queue.next; que != &timer_queue; que = que->next) {
-    tm = get_timer_address(que);
-    if (time_before(event->time, tm->time))
+    timer = get_timer_address(que);
+    if (time_before(event->time, timer->time))
       break;
   }
 
   QueueAddTail(que, &event->queue);
 }
 
-__FORCEINLINE void timer_delete(TMEB *event)
+__FORCEINLINE void TimerDelete(TMEB *event)
 {
   QueueRemoveEntry(&event->queue);
 }
@@ -262,11 +217,12 @@ __FORCEINLINE void timer_delete(TMEB *event)
  * @param[in]   handler
  * @param[in]   exinf
  */
+static
 void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
   alarm->exinf    = exinf;
   alarm->handler  = handler;
-  alarm->stat     = ALARM_STOP;
+  alarm->state    = TIMER_STOP;
   alarm->id       = TN_ID_ALARM;
 }
 
@@ -274,13 +230,15 @@ void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
  * @fn          void AlarmDelete(TN_ALARM *alarm)
  * @param[out]  alarm
  */
+static
 void AlarmDelete(TN_ALARM *alarm)
 {
-  if (alarm->stat == ALARM_START)
-    timer_delete(&alarm->tmeb);
+  if (alarm->state == TIMER_START) {
+    TimerDelete(&alarm->timer);
+    alarm->state = TIMER_STOP;
+  }
 
   alarm->handler = NULL;
-  alarm->stat = ALARM_STOP;
   alarm->id = 0;
 }
 
@@ -289,24 +247,26 @@ void AlarmDelete(TN_ALARM *alarm)
  * @param[out]  alarm
  * @param[in]   time
  */
+static
 void AlarmStart(TN_ALARM *alarm, TIME_t timeout)
 {
-  if (alarm->stat == ALARM_START)
-    timer_delete(&alarm->tmeb);
+  if (alarm->state == TIMER_START)
+    TimerDelete(&alarm->timer);
 
-  timer_insert(&alarm->tmeb, knlInfo.jiffies + timeout, (CBACK)alarm_handler, alarm);
-  alarm->stat = ALARM_START;
+  TimerInsert(&alarm->timer, knlInfo.jiffies + timeout, (CBACK)AlarmHandler, alarm);
+  alarm->state = TIMER_START;
 }
 
 /**
  * @fn          void AlarmStop(TN_ALARM *alarm)
  * @param[out]  alarm
  */
+static
 void AlarmStop(TN_ALARM *alarm)
 {
-  if (alarm->stat == ALARM_START) {
-    timer_delete(&alarm->tmeb);
-    alarm->stat = ALARM_STOP;
+  if (alarm->state == TIMER_START) {
+    TimerDelete(&alarm->timer);
+    alarm->state = TIMER_STOP;
   }
 }
 
@@ -317,6 +277,7 @@ void AlarmStop(TN_ALARM *alarm)
  * @param[in]   param
  * @param[in]   exinf
  */
+static
 void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
 {
   cyc->exinf    = exinf;
@@ -325,15 +286,15 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
   cyc->time     = param->cyc_time;
   cyc->id       = TN_ID_CYCLIC;
 
-  TIME_t tm = knlInfo.jiffies + param->cyc_phs;
+  TIME_t time = knlInfo.jiffies + param->cyc_phs;
 
   if (cyc->attr & CYCLIC_ATTR_START) {
-    cyc->stat = CYCLIC_START;
-    timer_insert(&cyc->tmeb, tm, (CBACK)cyclic_handler, cyc);
+    cyc->state = TIMER_START;
+    TimerInsert(&cyc->timer, time, (CBACK)CyclicHandler, cyc);
   }
   else {
-    cyc->stat = CYCLIC_STOP;
-    cyc->tmeb.time = tm;
+    cyc->state = TIMER_STOP;
+    cyc->timer.time = time;
   }
 }
 
@@ -341,13 +302,15 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
  * @fn          void CyclicDelete(TN_CYCLIC *cyc)
  * @param[out]  cyc
  */
+static
 void CyclicDelete(TN_CYCLIC *cyc)
 {
-  if (cyc->stat == CYCLIC_START)
-    timer_delete(&cyc->tmeb);
+  if (cyc->state == TIMER_START) {
+    TimerDelete(&cyc->timer);
+    cyc->state = TIMER_STOP;
+  }
 
   cyc->handler = NULL;
-  cyc->stat = CYCLIC_STOP;
   cyc->id = 0;
 }
 
@@ -355,53 +318,55 @@ void CyclicDelete(TN_CYCLIC *cyc)
  * @fn          void CyclicStart(TN_CYCLIC *cyc)
  * @param[out]  cyc
  */
+static
 void CyclicStart(TN_CYCLIC *cyc)
 {
   TIME_t jiffies = knlInfo.jiffies;
 
   if (cyc->attr & CYCLIC_ATTR_PHS) {
-    if (cyc->stat == CYCLIC_STOP) {
-      TIME_t tm = cyc->tmeb.time;
+    if (cyc->state == TIMER_STOP) {
+      TIME_t time = cyc->timer.time;
 
-      if (time_before_eq(tm, jiffies))
-        tm = cyc_next_time(cyc);
+      if (time_before_eq(time, jiffies))
+        time = CyclicNextTime(cyc);
 
-      timer_insert(&cyc->tmeb, tm, (CBACK)cyclic_handler, cyc);
+      TimerInsert(&cyc->timer, time, (CBACK)CyclicHandler, cyc);
     }
   }
   else {
-    if (cyc->stat == CYCLIC_START)
-      timer_delete(&cyc->tmeb);
+    if (cyc->state == TIMER_START)
+      TimerDelete(&cyc->timer);
 
-    timer_insert(&cyc->tmeb, jiffies + cyc->time, (CBACK)cyclic_handler, cyc);
+    TimerInsert(&cyc->timer, jiffies + cyc->time, (CBACK)CyclicHandler, cyc);
   }
 
-  cyc->stat = CYCLIC_START;
+  cyc->state = TIMER_START;
 }
 
 /**
  * @fn          void CyclicStop(TN_CYCLIC *cyc)
  * @param[out]  cyc
  */
+static
 void CyclicStop(TN_CYCLIC *cyc)
 {
-  if (cyc->stat == CYCLIC_START)
-    timer_delete(&cyc->tmeb);
-
-  cyc->stat = CYCLIC_STOP;
+  if (cyc->state == TIMER_START) {
+    TimerDelete(&cyc->timer);
+    cyc->state = TIMER_STOP;
+  }
 }
 
 void osTimerHandle(void)
 {
   knlInfo.jiffies += knlInfo.os_period;
   if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
-    ThreadGetCurrent()->time += knlInfo.os_period;
+    TaskGetCurrent()->time += knlInfo.os_period;
 
 #if defined(ROUND_ROBIN_ENABLE)
     volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
     volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
     volatile int        priority;
-    TN_TCB *task = ThreadGetCurrent();
+    TN_TCB *task = TaskGetCurrent();
     uint16_t *tslice_ticks = knlInfo.tslice_ticks;
 
     //-------  Round -robin (if is used)
@@ -425,7 +390,8 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    TaskToRunnable(&timer_task);
+    if (!isQueueEmpty(&timer_queue))
+      TaskToRunnable(&timer_task);
   }
 }
 

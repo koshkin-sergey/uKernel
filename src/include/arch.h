@@ -31,8 +31,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define TN_TIMER_STACK_SIZE           64
-#define TN_IDLE_STACK_SIZE            48
+#define TIMER_STACK_SIZE           64
+#define IDLE_STACK_SIZE            48
 #define TN_MIN_STACK_SIZE             40      //--  +20 for exit func when ver GCC > 4
 
 #define TN_ALIG                       sizeof(void*)
@@ -75,7 +75,7 @@
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
 
   __STATIC_FORCEINLINE
-  void SwitchContextRequest(void)
+  void archSwitchContextRequest(void)
   {
     ICSR = PENDSVSET;
   }
@@ -109,7 +109,7 @@
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
 
   __STATIC_FORCEINLINE
-  void SwitchContextRequest(void)
+  void archSwitchContextRequest(void)
   {
     ICSR = PENDSVSET;
   }
@@ -143,7 +143,7 @@
  *  exported function prototypes
  ******************************************************************************/
 
-void StartKernel(void);
+void archKernelStart(void);
 void StackInit(TN_TCB *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))

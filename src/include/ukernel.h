@@ -57,19 +57,19 @@
 
   #define align_attr_start
   #define align_attr_end     __attribute__((aligned(0x8)))
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
+  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #elif defined ( __CC_ARM )  //-- RealView Compiler
 
   #define align_attr_start   __align(8)
   #define align_attr_end
-  #define tn_stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
+  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 #else
   #error "Unknown compiler"
   #define align_attr_start
   #define align_attr_end
-  #define tn_stack_t        uint32_t
+  #define stack_t        uint32_t
 #endif
 
 /* - The system configuration (change it for your particular project) --------*/
@@ -91,21 +91,6 @@
 #define TN_ID_ALARM             ((int)0xFA5762BC)
 #define TN_ID_CYCLIC            ((int)0xAB8F746B)
 #define TN_ID_MESSAGEBUF        ((int)0x9C9A6C89)
-
-//--- Waiting
-#define TSK_WAIT_REASON_SLEEP            0x0001
-#define TSK_WAIT_REASON_SEM              0x0002
-#define TSK_WAIT_REASON_EVENT            0x0004
-#define TSK_WAIT_REASON_DQUE_WSEND       0x0008
-#define TSK_WAIT_REASON_DQUE_WRECEIVE    0x0010
-#define TSK_WAIT_REASON_MUTEX_C          0x0020          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_C_BLK      0x0040          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_I          0x0080          //-- ver 2.x
-#define TSK_WAIT_REASON_MUTEX_H          0x0100          //-- ver 2.x
-#define TSK_WAIT_REASON_RENDEZVOUS       0x0200          //-- ver 2.x
-#define TSK_WAIT_REASON_MBF_WSEND        0x0400
-#define TSK_WAIT_REASON_MBF_WRECEIVE     0x0800
-#define TSK_WAIT_REASON_WFIXMEM          0x2000
 
 #define TN_EVENT_ATTR_SINGLE            1
 #define TN_EVENT_ATTR_MULTI             2
@@ -167,19 +152,24 @@ typedef enum {
   task_state_reserved = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } task_state_t;
 
-/* Cyclic attributes */
+/* Task Wait Reason */
 typedef enum {
-  CYCLIC_ATTR_NO        = 0x00,
-  CYCLIC_ATTR_START     = 0x01,
-  CYCLIC_ATTR_PHS       = 0x02,
-  cyclic_attr_reserved  = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
-} cyclic_attr_t;
-
-typedef struct {
-  uint32_t cyc_time;
-  uint32_t cyc_phs;
-  cyclic_attr_t cyc_attr;
-} cyclic_param_t;
+  WAIT_REASON_NO            = 0x0000,
+  WAIT_REASON_SLEEP         = 0x0001,
+  WAIT_REASON_SEM           = 0x0002,
+  WAIT_REASON_EVENT         = 0x0004,
+  WAIT_REASON_DQUE_WSEND    = 0x0008,
+  WAIT_REASON_DQUE_WRECEIVE = 0x0010,
+  WAIT_REASON_MUTEX_C       = 0x0020,
+  WAIT_REASON_MUTEX_C_BLK   = 0x0040,
+  WAIT_REASON_MUTEX_I       = 0x0080,
+  WAIT_REASON_MUTEX_H       = 0x0100,
+  WAIT_REASON_RENDEZVOUS    = 0x0200,
+  WAIT_REASON_MBF_WSEND     = 0x0400,
+  WAIT_REASON_MBF_WRECEIVE  = 0x0800,
+  WAIT_REASON_WFIXMEM       = 0x1000,
+  wait_reason_reserved      = 0x7fffffff
+} wait_reason_t;
 
 typedef uint32_t TIME_t;
 
@@ -192,10 +182,10 @@ typedef struct _CDLL_QUEUE {
 } CDLL_QUEUE;
 
 typedef struct timer_event_block {
-  CDLL_QUEUE queue; /* Timer event queue */
-  unsigned long time; /* Event time */
-  CBACK callback; /* Callback function */
-  void *arg; /* Argument to be sent to callback function */
+  CDLL_QUEUE queue; /**< Timer event queue */
+  uint32_t time;    /**< Event time */
+  CBACK callback;   /**< Callback function */
+  void *arg;        /**< Argument to be sent to callback function */
 } TMEB;
 
 typedef struct {
@@ -250,7 +240,6 @@ typedef struct _TN_TCB {
 #ifdef USE_MUTEXES
   CDLL_QUEUE mutex_queue;   //-- List of all mutexes that tack locked  (ver 2.x)
 #endif
-  TMEB wtmeb;
   uint32_t *stk_start;      //-- Base address of task's stack space
   uint32_t stk_size;        //-- Task's stack size (in sizeof(void*),not bytes)
   const void *func_addr;    //-- filled on creation  (ver 2.x)
@@ -259,13 +248,13 @@ typedef struct _TN_TCB {
   uint32_t priority;        //-- Task current priority
   int id_task;              //-- ID for verification(is it a task or another object?)
                             // All tasks have the same id_task magic number (ver 2.x)
-  task_state_t task_state;  //-- Task state
-  int task_wait_reason;     //-- Reason for waiting
-  osError_t *wercd;         //-- Waiting return code(reason why waiting  finished)
-  WINFO winfo;              // Wait information
-  int tslice_count;         //-- Time slice counter
-  TIME_t time;              //-- Time work task
-// Other implementation specific fields may be added below
+  task_state_t state;         ///< Task state
+  wait_reason_t wait_reason;  ///< Reason for waiting
+  osError_t *wait_rc;         ///< Waiting return code(reason why waiting  finished)
+  WINFO wait_info;            ///< Wait information
+  TMEB wait_timer;            ///< Wait timer
+  int tslice_count;           ///< Time slice counter
+  TIME_t time;                ///< Time work task
 } TN_TCB;
 
 /* - Semaphore ---------------------------------------------------------------*/
@@ -323,24 +312,44 @@ typedef struct _TN_MUTEX {
                       // All mutexes have the same id_mutex magic number (ver 2.x)
 } TN_MUTEX;
 
+typedef enum {
+  TIMER_STOP            = 0x00,
+  TIMER_START           = 0x01,
+  timer_state_reserved  = 0x7fffffff
+} timer_state_t;
+
 /* - Alarm Timer -------------------------------------------------------------*/
 typedef struct _TN_ALARM {
-  void *exinf; /* Extended information */
-  void (*handler)(void *); /* Alarm handler address */
-  unsigned int stat; /* Alarm handler state */
-  TMEB tmeb; /* Timer event block */
-  int id; /* ID for verification */
+  void *exinf;              /**< Extended information */
+  CBACK handler;            /**< Alarm handler address */
+  timer_state_t state;      /**< Timer state */
+  TMEB timer;               /**< Timer event block */
+  int id;                   /**< ID for verification */
 } TN_ALARM;
+
+/* Cyclic attributes */
+typedef enum {
+  CYCLIC_ATTR_NO        = 0x00,
+  CYCLIC_ATTR_START     = 0x01,
+  CYCLIC_ATTR_PHS       = 0x02,
+  cyclic_attr_reserved  = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} cyclic_attr_t;
+
+typedef struct {
+  uint32_t cyc_time;
+  uint32_t cyc_phs;
+  cyclic_attr_t cyc_attr;
+} cyclic_param_t;
 
 /* - Cyclic Timer ------------------------------------------------------------*/
 typedef struct _TN_CYCLIC {
-  void *exinf; /* Extended information */
-  void (*handler)(void *); /* Cyclic handler address */
-  unsigned int stat; /* Cyclic handler state */
-  unsigned int attr; /* Cyclic handler attributes */
-  unsigned long time; /* Cyclic time */
-  TMEB tmeb; /* Timer event block */
-  int id; /* ID for verification */
+  void *exinf;              /**< Extended information */
+  CBACK handler;            /**< Cyclic handler address */
+  timer_state_t state;      /**< Timer state */
+  cyclic_attr_t attr;       /**< Cyclic handler attributes */
+  uint32_t time;            /**< Cyclic time */
+  TMEB timer;               /**< Timer event block */
+  int id;                   /**< ID for verification */
 } TN_CYCLIC;
 
 /* - Message Buffer ----------------------------------------------------------*/
@@ -378,7 +387,7 @@ extern "C" {
 #endif
 
 /* - system.c ----------------------------------------------------------------*/
-void tn_start_system(TN_OPTIONS *opt);
+void KernelStart(TN_OPTIONS *opt);
 
 #if defined(ROUND_ROBIN_ENABLE)
 int tn_sys_tslice_ticks(int priority, int value);

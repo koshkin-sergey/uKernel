@@ -47,8 +47,8 @@
 static TN_TCB task_A;
 static TN_TCB task_B;
 
-tn_stack_t task_A_stack[TASK_A_STK_SIZE];
-tn_stack_t task_B_stack[TASK_B_STK_SIZE];
+stack_t task_A_stack[TASK_A_STK_SIZE];
+stack_t task_B_stack[TASK_B_STK_SIZE];
 
 static volatile bool done_a;
 
@@ -148,7 +148,7 @@ int main(void)
   /* Старт операционной системы */
   tn_opt.app_init       = app_init;
   tn_opt.freq_timer     = HZ;
-  tn_start_system(&tn_opt);
+  KernelStart(&tn_opt);
 
   return (-1);
 }

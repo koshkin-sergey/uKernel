@@ -94,14 +94,14 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
     task = get_task_by_tsk_queue(que);
     que = que->next;
 
-    if (task->winfo.event.mode & TN_EVENT_WCOND_OR)
-      fCond = ((evf->pattern & task->winfo.event.pattern) != 0);
+    if (task->wait_info.event.mode & TN_EVENT_WCOND_OR)
+      fCond = ((evf->pattern & task->wait_info.event.pattern) != 0);
     else
-      fCond = ((evf->pattern & task->winfo.event.pattern) == task->winfo.event.pattern);
+      fCond = ((evf->pattern & task->wait_info.event.pattern) == task->wait_info.event.pattern);
 
     if (fCond) {
       QueueRemoveEntry(&task->task_queue);
-      *task->winfo.event.flags_pattern = evf->pattern;
+      *task->wait_info.event.flags_pattern = evf->pattern;
       ThreadWaitComplete(task);
       rc = true;
     }
@@ -245,13 +245,12 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
         rc = TERR_TIMEOUT;
       }
       else {
-        TN_TCB *task = ThreadGetCurrent();
-        task->winfo.event.mode = wait_mode;
-        task->winfo.event.pattern = wait_pattern;
-        task->winfo.event.flags_pattern = p_flags_pattern;
-        task->wercd = &rc;
-        ThreadToWaitAction(task, &evf->wait_queue, TSK_WAIT_REASON_EVENT,
-                            timeout);
+        TN_TCB *task = TaskGetCurrent();
+        task->wait_info.event.mode = wait_mode;
+        task->wait_info.event.pattern = wait_pattern;
+        task->wait_info.event.flags_pattern = p_flags_pattern;
+        task->wait_rc = &rc;
+        ThreadToWaitAction(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
       }
     }
   }

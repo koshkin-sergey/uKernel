@@ -10,6 +10,7 @@
       <TargetName>Release</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+      <pCCUsed>5060422::V5.06 update 4 (build 422)::ARMCC</pCCUsed>
       <TargetOption>
         <TargetCommonOption>
           <Device>STM32F051R8</Device>
@@ -51,8 +52,8 @@
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>0</CreateHexFile>
-          <DebugInformation>1</DebugInformation>
-          <BrowseInformation>1</BrowseInformation>
+          <DebugInformation>0</DebugInformation>
+          <BrowseInformation>0</BrowseInformation>
           <ListingPath>.\Listings\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
           <Merge32K>0</Merge32K>
@@ -131,12 +132,12 @@
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
-            <Capability>0</Capability>
-            <DriverSelection>-1</DriverSelection>
+            <Capability>1</Capability>
+            <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>BIN\UL2CM3.DLL</Flash2>
-          <Flash3></Flash3>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -255,17 +256,17 @@
                 <Size>0x0</Size>
               </XRAM>
               <OCR_RVCT1>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT1>
               <OCR_RVCT2>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT2>
               <OCR_RVCT3>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT3>
@@ -275,7 +276,7 @@
                 <Size>0x10000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT5>
@@ -309,8 +310,8 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
-            <oTime>0</oTime>
+            <Optim>0</Optim>
+            <oTime>1</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
             <Strict>0</Strict>
@@ -334,7 +335,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath></IncludePath>
+              <IncludePath>..\..\..\..\..\..\..\src\include;..\..\src\include;..\..\..\..\..\..\..\src\arch\cortex_m</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -419,16 +420,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
             </File>
             <File>
-              <FileName>tn_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_timer.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_utils.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_utils.c</FilePath>
-            </File>
-            <File>
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
@@ -442,6 +433,16 @@
               <FileName>task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\task.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -796,7 +797,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\..\..\..\..\src\include;..\..\src\include</IncludePath>
+              <IncludePath>..\..\..\..\..\..\..\src\include;..\..\src\include;..\..\..\..\..\..\..\src\arch\cortex_m</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -881,16 +882,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\tn_sprintf.c</FilePath>
             </File>
             <File>
-              <FileName>tn_timer.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_timer.c</FilePath>
-            </File>
-            <File>
-              <FileName>tn_utils.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\tn_utils.c</FilePath>
-            </File>
-            <File>
               <FileName>hal_cm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\arch\cortex_m\hal_cm.c</FilePath>
@@ -904,6 +895,16 @@
               <FileName>task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\task.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\que.c</FilePath>
             </File>
           </Files>
         </Group>

@@ -24,7 +24,8 @@ RM = $(DIR_TOOLS)/rm
 SRC := ../../src
 
 INC := -I $(SRC)/include \
-       -I $(DIR_RTOS_SRC)/include
+       -I $(DIR_RTOS_SRC)/include \
+       -I $(DIR_RTOS_SRC)/arch/cortex_m
 
 LIBS := 
 

@@ -60,7 +60,7 @@ knlInfo_t knlInfo;
 #endif
 
 static TN_TCB idle_task;
-tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak));
+stack_t idle_task_stack[IDLE_STACK_SIZE] __WEAK;
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -74,7 +74,7 @@ tn_stack_t tn_idle_task_stack[TN_IDLE_STACK_SIZE] __attribute__((weak));
  * @brief Idle task function.
  * @param par
  */
-__attribute__((weak)) void tn_idle_task_func(void *par)
+__WEAK void IdleTaskFunc(void *par)
 {
   for (;;) {
     ;
@@ -91,10 +91,10 @@ void IdleTaskCreate(void)
 {
   task_create_attr_t attr;
 
-  attr.func_addr = (void *)tn_idle_task_func;
+  attr.func_addr = (void *)IdleTaskFunc;
   attr.func_param = NULL;
-  attr.stk_size = sizeof(tn_idle_task_stack)/sizeof(*tn_idle_task_stack);
-  attr.stk_start = (uint32_t *)&tn_idle_task_stack[attr.stk_size-1];
+  attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
+  attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];
   attr.priority = NUM_PRIORITY-1;
   attr.option = (TN_TASK_IDLE | TN_TASK_START_ON_CREATION);
 
@@ -110,7 +110,7 @@ void IdleTaskCreate(void)
  *        called from main().
  * @param opt - Pointer to struct TN_OPTIONS.
  */
-void tn_start_system(TN_OPTIONS *opt)
+void KernelStart(TN_OPTIONS *opt)
 {
   __disable_irq();
 
@@ -127,16 +127,16 @@ void tn_start_system(TN_OPTIONS *opt)
   knlInfo.os_period = 1000/knlInfo.HZ;
   knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
-  knlThreadSetCurrent(&idle_task);
-  knlThreadSetNext(&idle_task);
+  TaskSetCurrent(&idle_task);
+  TaskSetNext(&idle_task);
 
-  //--- Idle task
+  /* Create Idle task */
   IdleTaskCreate();
-  //--- Timer task
+  /* Create Timer task */
   TimerTaskCreate((void *)opt);
 
   //-- Run OS - first context switch
-  StartKernel();
+  archKernelStart();
 }
 
 #if defined(ROUND_ROBIN_ENABLE)

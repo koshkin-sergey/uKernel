@@ -208,15 +208,14 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == TN_POLLING)
       rc = TERR_TIMEOUT;
     else {
-      task = ThreadGetCurrent();
-      task->wercd = &rc;
-      ThreadToWaitAction(task, &(fmp->wait_queue), TSK_WAIT_REASON_WFIXMEM,
-                          timeout);
+      task = TaskGetCurrent();
+      task->wait_rc = &rc;
+      ThreadToWaitAction(task, &(fmp->wait_queue), WAIT_REASON_WFIXMEM, timeout);
       
       END_CRITICAL_SECTION
 
       //-- When returns to this point, in the 'data_elem' have to be valid value
-      *p_data = task->winfo.fmem.data_elem; //-- Return to caller
+      *p_data = task->wait_info.fmem.data_elem; //-- Return to caller
     }
   }
 
@@ -241,7 +240,7 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
   if (!isQueueEmpty(&(fmp->wait_queue))) {
     que = QueueRemoveHead(&(fmp->wait_queue));
     task = get_task_by_tsk_queue(que);
-    task->winfo.fmem.data_elem = p_data;
+    task->wait_info.fmem.data_elem = p_data;
     ThreadWaitComplete(task);
   }
   else

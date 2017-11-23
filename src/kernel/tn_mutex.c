@@ -111,7 +111,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 {
   CDLL_QUEUE *curr_que;
   TN_MUTEX *tmp_mutex;
-  TN_TCB *task = ThreadGetCurrent();
+  TN_TCB *task = TaskGetCurrent();
   int pr;
 
   //-- Delete curr mutex from task's locked mutexes queue
@@ -227,7 +227,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
 
   BEGIN_CRITICAL_SECTION
 
-  if (mutex->holder != NULL && mutex->holder != ThreadGetCurrent()) {
+  if (mutex->holder != NULL && mutex->holder != TaskGetCurrent()) {
     END_DISABLE_INTERRUPT
     return TERR_ILUSE;
   }
@@ -259,7 +259,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 
   BEGIN_CRITICAL_SECTION
 
-  task = ThreadGetCurrent();
+  task = TaskGetCurrent();
 
   if (task == mutex->holder) {
     if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE) {
@@ -297,10 +297,9 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       if (timeout == TN_POLLING)
         rc = TERR_TIMEOUT;
       else {
-        task->wercd = &rc;
+        task->wait_rc = &rc;
         //--- Task -> to the mutex wait queue
-        ThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_C,
-                            timeout);
+        ThreadToWaitAction(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_C, timeout);
       }
     }
   }
@@ -321,9 +320,8 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         //-- if run_task curr priority higher holder's curr priority
         if (task->priority < mutex->holder->priority)
           ThreadSetPriority(mutex->holder, task->priority);
-        task->wercd = &rc;
-        ThreadToWaitAction(task, &(mutex->wait_queue), TSK_WAIT_REASON_MUTEX_I,
-                            timeout);
+        task->wait_rc = &rc;
+        ThreadToWaitAction(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_I, timeout);
       }
     }
   }
@@ -343,7 +341,7 @@ osError_t tn_mutex_unlock(TN_MUTEX *mutex)
   BEGIN_CRITICAL_SECTION
 
   //-- Unlocking is enabled only for the owner and already locked mutex
-  if (ThreadGetCurrent() != mutex->holder) {
+  if (TaskGetCurrent() != mutex->holder) {
     END_DISABLE_INTERRUPT
     return TERR_ILUSE;
   }

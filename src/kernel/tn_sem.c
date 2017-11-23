@@ -186,9 +186,9 @@ osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
       rc = TERR_TIMEOUT;
     }
     else {
-      task = ThreadGetCurrent();
-      task->wercd = &rc;
-      ThreadToWaitAction(task, &(sem->wait_queue), TSK_WAIT_REASON_SEM, timeout);
+      task = TaskGetCurrent();
+      task->wait_rc = &rc;
+      ThreadToWaitAction(task, &(sem->wait_queue), WAIT_REASON_SEM, timeout);
     }
   }
 

@@ -129,8 +129,7 @@ void ThreadDispatch(void)
   }
 #endif
 
-  knlThreadSetNext(get_task_by_tsk_queue(knlInfo.ready_list[priority].next));
-  SwitchContextRequest();
+  TaskSetNext(get_task_by_tsk_queue(knlInfo.ready_list[priority].next));
 }
 
 /**
@@ -140,16 +139,15 @@ void ThreadDispatch(void)
  */
 void TaskToRunnable(TN_TCB *task)
 {
-  task->task_state = TSK_STATE_RUNNABLE;
+  task->state = TSK_STATE_RUNNABLE;
   task->pwait_queue = NULL;
 
   /* Add the task to the end of 'ready queue' for the current priority */
   ThreadSetReady(task);
 
   /* less value - greater priority, so '<' operation is used here */
-  if (task->priority < knlThreadGetNext()->priority) {
-    knlThreadSetNext(task);
-    SwitchContextRequest();
+  if (task->priority < TaskGetNext()->priority) {
+    TaskSetNext(task);
   }
 }
 
@@ -176,12 +174,9 @@ void TaskToNonRunnable(TN_TCB *task)
        at least, MSB bit must be set for the idle task */
     ThreadDispatch();
   }
-  else {
+  else if (task == TaskGetNext()) {
     /* There are 'ready to run' task(s) for the curr priority */
-    if (knlThreadGetNext() == task) {
-      knlThreadSetNext(get_task_by_tsk_queue(que->next));
-      SwitchContextRequest();
-    }
+    TaskSetNext(get_task_by_tsk_queue(que->next));
   }
 }
 
@@ -201,8 +196,7 @@ void task_wait_release(TN_TCB *task)
   CDLL_QUEUE * t_que;
 
   t_que = NULL;
-  if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I
-    || task->task_wait_reason == TSK_WAIT_REASON_MUTEX_C) {
+  if (task->wait_reason == WAIT_REASON_MUTEX_I || task->wait_reason == WAIT_REASON_MUTEX_C) {
     fmutex = 1;
     t_que = task->pwait_queue;
   }
@@ -212,12 +206,12 @@ void task_wait_release(TN_TCB *task)
 
   task->pwait_queue = NULL;
 
-  if (!(task->task_state & TSK_STATE_SUSPEND)) {
+  if (!(task->state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);
   }
   else {
     //-- remove WAIT state
-    task->task_state = TSK_STATE_SUSPEND;
+    task->state = TSK_STATE_SUSPEND;
   }
 
 #ifdef USE_MUTEXES
@@ -241,7 +235,7 @@ void task_wait_release(TN_TCB *task)
   }
 #endif
 
-  task->task_wait_reason = 0; //-- Clear wait reason
+  task->wait_reason = WAIT_REASON_NO;
 }
 
 /**
@@ -253,16 +247,16 @@ static
 void task_set_dormant_state(TN_TCB* task)
 {
   QueueReset(&(task->task_queue));
-  QueueReset(&(task->wtmeb.queue));
+  QueueReset(&(task->wait_timer.queue));
 #ifdef USE_MUTEXES
   QueueReset(&(task->mutex_queue));
 #endif
 
   task->pwait_queue = NULL;
-  task->priority = task->base_priority; //-- Task curr priority
-  task->task_state = TSK_STATE_DORMANT;   //-- Task state
-  task->task_wait_reason = 0;              //-- Reason for waiting
-  task->wercd = NULL;
+  task->priority = task->base_priority;
+  task->state = TSK_STATE_DORMANT;
+  task->wait_reason = WAIT_REASON_NO;
+  task->wait_rc = NULL;
   task->tslice_count = 0;
 }
 
@@ -280,13 +274,36 @@ void task_wait_release_handler(TN_TCB *task)
   QueueRemoveEntry(&task->task_queue);
   task_wait_release(task);
 
-  if (task->wercd != NULL)
-    *task->wercd = TERR_TIMEOUT;
+  if (task->wait_rc != NULL)
+    *task->wait_rc = TERR_TIMEOUT;
 }
 
-/*******************************************************************************
- *  function implementations (scope: module-exported)
- ******************************************************************************/
+__FORCEINLINE
+TN_TCB* TaskGetCurrent(void)
+{
+  return knlInfo.run.curr;
+}
+
+__FORCEINLINE
+void TaskSetCurrent(TN_TCB *task)
+{
+  knlInfo.run.curr = task;
+}
+
+__FORCEINLINE
+TN_TCB* TaskGetNext(void)
+{
+  return knlInfo.run.next;
+}
+
+void TaskSetNext(TN_TCB *task)
+{
+  if (task == TaskGetNext() || task == TaskGetCurrent())
+    return;
+
+  knlInfo.run.next = task;
+  archSwitchContextRequest();
+}
 
 /**
  * @fn    void ThreadSetReady(TN_TCB *thread)
@@ -313,11 +330,11 @@ void ThreadWaitComplete(TN_TCB *task)
   if (task == NULL)
     return;
 
-  timer_delete(&task->wtmeb);
+  TimerDelete(&task->wait_timer);
   task_wait_release(task);
 
-  if (task->wercd != NULL)
-    *task->wercd = TERR_NO_ERR;
+  if (task->wait_rc != NULL)
+    *task->wait_rc = TERR_NO_ERR;
 }
 
 void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
@@ -363,13 +380,13 @@ void ThreadSetPriority(TN_TCB * task, int32_t priority)
     if (task->priority <= priority)
       return;
 
-    if (task->task_state == TSK_STATE_RUNNABLE) {
+    if (task->state == TSK_STATE_RUNNABLE) {
       ThreadChangePriority(task, priority);
       return;
     }
 
-    if (task->task_state & TSK_STATE_WAIT) {
-      if (task->task_wait_reason == TSK_WAIT_REASON_MUTEX_I) {
+    if (task->state & TSK_STATE_WAIT) {
+      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
         task->priority = priority;
 
         mutex = get_mutex_by_wait_queque(task->pwait_queue);
@@ -395,17 +412,17 @@ void ThreadWaitDelete(CDLL_QUEUE *wait_que)
     que = QueueRemoveHead(wait_que);
     task = get_task_by_tsk_queue(que);
     ThreadWaitComplete(task);
-    if (task->wercd != NULL)
-      *task->wercd = TERR_DLT;
+    if (task->wait_rc != NULL)
+      *task->wait_rc = TERR_DLT;
   }
 }
 
-void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason, TIME_t timeout)
+void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, TIME_t timeout)
 {
   TaskToNonRunnable(task);
 
-  task->task_state = TSK_STATE_WAIT;
-  task->task_wait_reason = wait_reason;
+  task->state = TSK_STATE_WAIT;
+  task->wait_reason = wait_reason;
 
   /* Add to the wait queue - FIFO */
   if (wait_que != NULL) {
@@ -415,7 +432,7 @@ void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, int wait_reason, TI
 
   /* Add to the timers queue */
   if (timeout != TN_WAIT_INFINITE)
-    timer_insert(&task->wtmeb, knlInfo.jiffies + timeout, (CBACK)task_wait_release_handler, task);
+    TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)task_wait_release_handler, task);
 }
 
 /**
@@ -441,7 +458,7 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
   task->base_priority = attr->priority;
   task->id_task = TN_ID_TASK;
   task->time = 0;
-  task->wercd = NULL;
+  task->wait_rc = NULL;
 
   /* Fill all task stack space by TN_FILL_STACK_VAL - only inside create_task */
   uint32_t *ptr = task->stk_start;
@@ -467,7 +484,7 @@ static
 osError_t TaskDelete(TN_TCB *task)
 {
   /* Cannot delete not-terminated task */
-  if (task->task_state != TSK_STATE_DORMANT)
+  if (task->state != TSK_STATE_DORMANT)
     return TERR_WCONTEXT;
 
   task->id_task = 0;
@@ -484,7 +501,7 @@ osError_t TaskDelete(TN_TCB *task)
 static
 osError_t TaskActivate(TN_TCB *task)
 {
-  if (task->task_state != TSK_STATE_DORMANT)
+  if (task->state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
 
   StackInit(task);
@@ -503,16 +520,16 @@ static
 osError_t TaskTerminate(TN_TCB *task)
 {
   /* Cannot terminate running task */
-  if (task->task_state == TSK_STATE_DORMANT || task == ThreadGetCurrent())
+  if (task->state == TSK_STATE_DORMANT || task == TaskGetCurrent())
     return TERR_WCONTEXT;
 
-  if (task->task_state == TSK_STATE_RUNNABLE) {
+  if (task->state == TSK_STATE_RUNNABLE) {
     TaskToNonRunnable(task);
   }
-  else if (task->task_state & TSK_STATE_WAIT) {
+  else if (task->state & TSK_STATE_WAIT) {
     /* Free all queues, involved in the 'waiting' */
     QueueRemoveEntry(&(task->task_queue));
-    timer_delete(&task->wtmeb);
+    TimerDelete(&task->wait_timer);
   }
 
   /* Unlock all mutexes, locked by the task */
@@ -542,7 +559,7 @@ osError_t TaskTerminate(TN_TCB *task)
 static
 void TaskExit(task_exit_attr_t attr)
 {
-  TN_TCB *task = ThreadGetCurrent();
+  TN_TCB *task = TaskGetCurrent();
 
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
@@ -562,8 +579,6 @@ void TaskExit(task_exit_attr_t attr)
   if (attr == TASK_EXIT_AND_DELETE) {
     task->id_task = 0;
   }
-
-  SwitchContextRequest();
 }
 
 /**
@@ -576,17 +591,17 @@ void TaskExit(task_exit_attr_t attr)
 static
 osError_t TaskSuspend(TN_TCB *task)
 {
-  if (task->task_state & TSK_STATE_SUSPEND)
+  if (task->state & TSK_STATE_SUSPEND)
     return TERR_OVERFLOW;
-  if (task->task_state == TSK_STATE_DORMANT)
+  if (task->state == TSK_STATE_DORMANT)
     return TERR_WSTATE;
 
-  if (task->task_state == TSK_STATE_RUNNABLE) {
-    task->task_state = TSK_STATE_SUSPEND;
+  if (task->state == TSK_STATE_RUNNABLE) {
+    task->state = TSK_STATE_SUSPEND;
     TaskToNonRunnable(task);
   }
   else {
-    task->task_state |= TSK_STATE_SUSPEND;
+    task->state |= TSK_STATE_SUSPEND;
   }
 
   return TERR_NO_ERR;
@@ -604,15 +619,15 @@ osError_t TaskSuspend(TN_TCB *task)
 static
 osError_t TaskResume(TN_TCB *task)
 {
-  if (!(task->task_state & TSK_STATE_SUSPEND))
+  if (!(task->state & TSK_STATE_SUSPEND))
     return TERR_WSTATE;
 
-  if (!(task->task_state & TSK_STATE_WAIT))
+  if (!(task->state & TSK_STATE_WAIT))
     /* The task is not in the WAIT-SUSPEND state */
     TaskToRunnable(task);
   else
     /* Just remove TSK_STATE_SUSPEND from the task state */
-    task->task_state &= ~TSK_STATE_SUSPEND;
+    task->state &= ~TSK_STATE_SUSPEND;
 
   return TERR_NO_ERR;
 }
@@ -624,10 +639,10 @@ osError_t TaskResume(TN_TCB *task)
 static
 void TaskSleep(TIME_t timeout)
 {
-  TN_TCB *task = ThreadGetCurrent();
+  TN_TCB *task = TaskGetCurrent();
 
-  task->wercd = NULL;
-  ThreadToWaitAction(task, NULL, TSK_WAIT_REASON_SLEEP, timeout);
+  task->wait_rc = NULL;
+  ThreadToWaitAction(task, NULL, WAIT_REASON_SLEEP, timeout);
 }
 
 /**
@@ -639,7 +654,7 @@ void TaskSleep(TIME_t timeout)
 static
 osError_t TaskWakeup(TN_TCB *task)
 {
-  if ((task->task_state & TSK_STATE_WAIT) && (task->task_wait_reason == TSK_WAIT_REASON_SLEEP))
+  if ((task->state & TSK_STATE_WAIT) && (task->wait_reason == WAIT_REASON_SLEEP))
     ThreadWaitComplete(task);
   else
     return TERR_WSTATE;
@@ -656,7 +671,7 @@ osError_t TaskWakeup(TN_TCB *task)
 static
 osError_t TaskReleaseWait(TN_TCB *task)
 {
-  if (!(task->task_state & TSK_STATE_WAIT))
+  if (!(task->state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
 
   QueueRemoveEntry(&(task->task_queue));
@@ -671,10 +686,10 @@ osError_t TaskSetPriority(TN_TCB *task, uint32_t new_priority)
   if (new_priority == 0)
     new_priority = task->base_priority;
 
-  if (task->task_state == TSK_STATE_DORMANT)
+  if (task->state == TSK_STATE_DORMANT)
     return TERR_WCONTEXT;
 
-  if (task->task_state == TSK_STATE_RUNNABLE)
+  if (task->state == TSK_STATE_RUNNABLE)
     ThreadChangePriority(task, new_priority);
   else
     task->priority = new_priority;
