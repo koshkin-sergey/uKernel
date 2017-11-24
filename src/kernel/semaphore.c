@@ -85,135 +85,209 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
+__svc_indirect(0)
+osError_t svcSemaphoreNew(osError_t (*)(TN_SEM*, uint32_t, uint32_t), TN_SEM*, uint32_t, uint32_t);
+__svc_indirect(0)
+osError_t svcSemaphoreDelete(osError_t (*)(TN_SEM*), TN_SEM*);
+__svc_indirect(0)
+osError_t svcSemaphoreRelease(osError_t (*)(TN_SEM*), TN_SEM*);
+__svc_indirect(0)
+osError_t svcSemaphoreAcquire(osError_t (*)(TN_SEM*, TIME_t), TN_SEM*, TIME_t);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-/*******************************************************************************
- *  function implementations (scope: module-exported)
- ******************************************************************************/
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_sem_create
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_sem_create(TN_SEM *sem, int start_value, int max_val)
+/**
+ * @fn          osError_t SemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
+ * @brief       Creates a semaphore
+ * @param[out]  sem             Pointer to the semaphore structure to be created
+ * @param[in]   initial_count   Initial number of available tokens
+ * @param[in]   max_count       Maximum number of available tokens
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ */
+static
+osError_t SemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
 {
-  if (sem == NULL)
-    return  TERR_WRONG_PARAM;
-  if (max_val <= 0 || start_value < 0 || start_value > max_val || sem->id == ID_SEMAPHORE)
+  if (sem->id == ID_SEMAPHORE)
     return TERR_WRONG_PARAM;
 
-  QueueReset(&(sem->wait_queue));
+  QueueReset(&sem->wait_queue);
 
-  sem->count      = start_value;
-  sem->max_count  = max_val;
+  sem->count      = initial_count;
+  sem->max_count  = max_count;
   sem->id         = ID_SEMAPHORE;
 
   return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_sem_delete
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int tn_sem_delete(TN_SEM *sem)
+/**
+ * @fn          osError_t SemaphoreDelete(TN_SEM *sem)
+ * @brief       Deletes a semaphore
+ * @param[out]  sem   Pointer to the semaphore structure to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+static
+osError_t SemaphoreDelete(TN_SEM *sem)
 {
-  if (sem == NULL)
-    return TERR_WRONG_PARAM;
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
-
   ThreadWaitDelete(&sem->wait_queue);
-
-  sem->id = ID_INVALID; // Semaphore not exists now
-
-  END_CRITICAL_SECTION
+  sem->id = ID_INVALID;
 
   return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_sem_signal
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-osError_t tn_sem_signal(TN_SEM *sem)
+/**
+ * @fn          osError_t SemaphoreRelease(TN_SEM *sem)
+ * @brief       Release a Semaphore token up to the initial maximum count.
+ * @param[out]  sem   Pointer to the semaphore structure be released
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_OVERFLOW     Semaphore Resource has max_count value
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+static
+osError_t SemaphoreRelease(TN_SEM *sem)
 {
-  osError_t rc = TERR_NO_ERR;
-  CDLL_QUEUE *que;
-  TN_TCB *task;
-
-  if (sem == NULL)
-    return TERR_WRONG_PARAM;
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
-
-  if (!(isQueueEmpty(&(sem->wait_queue)))) {
-    //--- delete from the sem wait queue
-    que = QueueRemoveHead(&(sem->wait_queue));
-    task = get_task_by_tsk_queue(que);
-    ThreadWaitComplete(task);
+  if (!isQueueEmpty(&sem->wait_queue)) {
+    ThreadWaitComplete(get_task_by_tsk_queue(QueueRemoveHead(&sem->wait_queue)));
+  }
+  else if (sem->count < sem->max_count) {
+    sem->count++;
   }
   else {
-    if (sem->count < sem->max_count) {
-      sem->count++;
-      rc = TERR_NO_ERR;
-    }
-    else
-      rc = TERR_OVERFLOW;
+    return TERR_OVERFLOW;
   }
 
-  END_CRITICAL_SECTION
+  return TERR_NO_ERR;
+}
+
+/**
+ * @fn          osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+ * @brief       Acquire a Semaphore token or timeout if no tokens are available.
+ * @param[out]  sem       Pointer to the semaphore structure to be acquired
+ * @param[in]   timeout   Timeout value must be equal or greater than 0
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_TIMEOUT      Timeout expired
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+static
+osError_t SemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+{
+  osError_t rc;
+
+  if (sem->id != ID_SEMAPHORE)
+    return TERR_NOEXS;
+
+  if (sem->count > 0U) {
+    sem->count--;
+    rc = TERR_NO_ERR;
+  }
+  else if (timeout == 0U) {
+    rc = TERR_TIMEOUT;
+  }
+  else {
+    TN_TCB *task = TaskGetCurrent();
+    task->wait_rc = &rc;
+    ThreadToWaitAction(task, &sem->wait_queue, WAIT_REASON_SEM, timeout);
+  }
 
   return rc;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_sem_acquire
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout)
-{
-  osError_t rc; //-- return code
-  TN_TCB *task;
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
 
+/**
+ * @fn          osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
+ * @brief       Creates a semaphore
+ * @param[out]  sem             Pointer to the semaphore structure to be created
+ * @param[in]   initial_count   Initial number of available tokens
+ * @param[in]   max_count       Maximum number of available tokens
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
+{
+  if (sem == NULL || max_count == 0U || initial_count > max_count)
+    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcSemaphoreNew(SemaphoreNew, sem, initial_count, max_count);
+}
+
+/**
+ * @fn          osError_t osSemaphoreDelete(TN_SEM *sem)
+ * @brief       Deletes a semaphore
+ * @param[out]  sem   Pointer to the semaphore structure to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osSemaphoreDelete(TN_SEM *sem)
+{
+  if (sem == NULL)
+    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcSemaphoreDelete(SemaphoreDelete, sem);
+}
+
+/**
+ * @fn          osError_t osSemaphoreRelease(TN_SEM *sem)
+ * @brief       Release a Semaphore token up to the initial maximum count.
+ * @param[out]  sem   Pointer to the semaphore structure be released
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ *              TERR_OVERFLOW     Semaphore Resource has max_count value
+ */
+osError_t osSemaphoreRelease(TN_SEM *sem)
+{
+  if (sem == NULL)
+    return TERR_WRONG_PARAM;
+
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return SemaphoreRelease(sem);
+  else
+    return svcSemaphoreRelease(SemaphoreRelease, sem);
+}
+
+/**
+ * @fn          osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+ * @brief       Acquire a Semaphore token or timeout if no tokens are available.
+ * @param[out]  sem       Pointer to the semaphore structure to be acquired
+ * @param[in]   timeout   Timeout value must be equal or greater than 0
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_TIMEOUT      Timeout expired
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+{
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
-  if (sem->id != ID_SEMAPHORE)
-    return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    if (timeout != 0U)
+      return TERR_WRONG_PARAM;
 
-  if (sem->count > 0) {
-    sem->count--;
-    rc = TERR_NO_ERR;
+    return SemaphoreAcquire(sem, timeout);
   }
   else {
-    if (timeout == TN_POLLING) {
-      rc = TERR_TIMEOUT;
-    }
-    else {
-      task = TaskGetCurrent();
-      task->wait_rc = &rc;
-      ThreadToWaitAction(task, &(sem->wait_queue), WAIT_REASON_SEM, timeout);
-    }
+    return svcSemaphoreAcquire(SemaphoreAcquire, sem, timeout);
   }
-
-  END_CRITICAL_SECTION
-
-  return rc;
 }
 
 /*------------------------------ End of file ---------------------------------*/

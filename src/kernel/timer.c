@@ -126,7 +126,7 @@ __NO_RETURN static void TimerTaskFunc(void *par)
       (*timer->callback)(timer->arg);
     }
 
-    osTaskSleep(TN_WAIT_INFINITE);
+    osTaskSleep(TIME_WAIT_INFINITE);
   }
 }
 

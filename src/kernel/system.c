@@ -55,12 +55,8 @@ knlInfo_t knlInfo;
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-#if defined (__ICCARM__)    // IAR ARM
-#pragma data_alignment=8
-#endif
-
 static TN_TCB idle_task;
-stack_t idle_task_stack[IDLE_STACK_SIZE] __WEAK;
+__WEAK stack_t idle_task_stack[IDLE_STACK_SIZE];
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)

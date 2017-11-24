@@ -260,7 +260,7 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
       rc = TERR_NO_ERR;
     }
     else {
-      if (timeout == TN_POLLING) {
+      if (timeout == 0U) {
         rc = TERR_TIMEOUT;
       }
       else {

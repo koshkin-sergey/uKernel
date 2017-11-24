@@ -313,7 +313,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         ThreadChangePriority(task, mutex->ceil_priority);
     }
     else { //-- the mutex is already locked
-      if (timeout == TN_POLLING)
+      if (timeout == 0U)
         rc = TERR_TIMEOUT;
       else {
         task->wait_rc = &rc;
@@ -332,7 +332,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
     }
     else {  //-- the mutex is already locked
-      if (timeout == TN_POLLING)
+      if (timeout == 0U)
         rc = TERR_TIMEOUT;
       else {
         //-- Base priority inheritance protocol

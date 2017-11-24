@@ -181,7 +181,7 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
     rc = mbf_fifo_write(mbf, msg, send_to_first);
     //-- No free entries in the data queue
     if (rc != TERR_NO_ERR) {
-      if (timeout == TN_POLLING) {
+      if (timeout == 0U) {
         rc = TERR_TIMEOUT;
       }
       else {
@@ -350,7 +350,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
-      if (timeout == TN_POLLING) {
+      if (timeout == 0U) {
         rc = TERR_TIMEOUT;
       }
       else {

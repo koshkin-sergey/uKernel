@@ -431,7 +431,7 @@ void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, wait_reason_t wait_
   }
 
   /* Add to the timers queue */
-  if (timeout != TN_WAIT_INFINITE)
+  if (timeout != TIME_WAIT_INFINITE)
     TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)task_wait_release_handler, task);
 }
 
@@ -897,7 +897,7 @@ osError_t osTaskResume(TN_TCB *task)
  * @fn        osError_t osTaskSleep(TIME_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
- *                      A value of TN_WAIT_INFINITE causes an infinite delay.
+ *                      A value of TIME_WAIT_INFINITE causes an infinite delay.
  * @return    TERR_NO_ERR       Normal completion
  *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *            TERR_ISR          The function cannot be called from interrupt service routines

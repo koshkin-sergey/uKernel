@@ -200,7 +200,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
     rc = dque_fifo_write(dque, data_ptr, send_to_first);
     //-- No free entries in the data queue
     if (rc != TERR_NO_ERR) {
-      if (timeout == TN_POLLING) {
+      if (timeout == 0U) {
         rc = TERR_TIMEOUT;
       }
       else {
@@ -371,7 +371,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty
-      if (timeout == TN_POLLING) {
+      if (timeout == 0U) {
         rc = TERR_TIMEOUT;
       }
       else {

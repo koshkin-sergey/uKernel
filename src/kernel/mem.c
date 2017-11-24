@@ -224,7 +224,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
   if (ptr != NULL)  //-- Get memory
     *p_data = ptr;
   else {
-    if (timeout == TN_POLLING)
+    if (timeout == 0U)
       rc = TERR_TIMEOUT;
     else {
       task = TaskGetCurrent();

@@ -64,29 +64,7 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#if defined (__ICCARM__)    // IAR ARM
-
-#define align_attr_start
-  #define align_attr_end
-
-#elif defined (__GNUC__)    //-- GNU Compiler
-
-  #define align_attr_start
-  #define align_attr_end     __attribute__((aligned(0x8)))
-  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
-
-#elif defined ( __CC_ARM )  //-- RealView Compiler
-
-  #define align_attr_start   __align(8)
-  #define align_attr_end
-  #define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
-
-#else
-  #error "Unknown compiler"
-  #define align_attr_start
-  #define align_attr_end
-  #define stack_t        uint32_t
-#endif
+#define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 /* - The system configuration (change it for your particular project) --------*/
 #define USE_MUTEXES           1
@@ -108,8 +86,7 @@
 #define TN_MUTEX_ATTR_CEILING         (1UL<<0)
 #define TN_MUTEX_ATTR_RECURSIVE       (1UL<<1)
 
-#define TN_WAIT_INFINITE                0xFFFFFFFF
-#define TN_POLLING                      0x0
+#define TIME_WAIT_INFINITE             (0xFFFFFFFF)
 
 #define NO_TIME_SLICE                  (0)
 #define MAX_TIME_SLICE            (0xFFFE)
@@ -277,8 +254,8 @@ typedef struct _TN_TCB {
 /* - Semaphore ---------------------------------------------------------------*/
 typedef struct _TN_SEM {
   CDLL_QUEUE wait_queue;
-  int count;
-  int max_count;
+  uint32_t count;
+  uint32_t max_count;
   id_t id;                    ///< ID for verification(is it a semaphore or another object?)
 } TN_SEM;
 
@@ -521,7 +498,7 @@ osError_t osTaskResume(TN_TCB *task);
  * @fn        osError_t osTaskSleep(TIME_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
- *                      A value of TN_WAIT_INFINITE causes an infinite delay.
+ *                      A value of TIME_WAIT_INFINITE causes an infinite delay.
  * @return    TERR_NO_ERR       Normal completion
  *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *            TERR_NOEXS        Object is not a task or non-existent
@@ -557,11 +534,52 @@ osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority);
 
 TIME_t osTaskGetTime(TN_TCB *task);
 
-/* - tn_sem.c ----------------------------------------------------------------*/
-osError_t tn_sem_create(TN_SEM *sem, int start_value, int max_val);
-osError_t tn_sem_delete(TN_SEM *sem);
-osError_t tn_sem_signal(TN_SEM *sem);
-osError_t tn_sem_acquire(TN_SEM *sem, unsigned long timeout);
+/* - Semaphore ---------------------------------------------------------------*/
+/**
+ * @fn          osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
+ * @brief       Creates a semaphore
+ * @param[out]  sem             Pointer to the semaphore structure to be created
+ * @param[in]   initial_count   Initial number of available tokens
+ * @param[in]   max_count       Maximum number of available tokens
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count);
+
+/**
+ * @fn          osError_t osSemaphoreDelete(TN_SEM *sem)
+ * @brief       Deletes a semaphore
+ * @param[out]  sem   Pointer to the semaphore structure to be deleted
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ *              TERR_ISR          The function cannot be called from interrupt service routines
+ */
+osError_t osSemaphoreDelete(TN_SEM *sem);
+
+/**
+ * @fn          osError_t osSemaphoreRelease(TN_SEM *sem)
+ * @brief       Release a Semaphore token up to the initial maximum count.
+ * @param[out]  sem   Pointer to the semaphore structure to be released
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_OVERFLOW     Semaphore Resource has max_count value
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+osError_t osSemaphoreRelease(TN_SEM *sem);
+
+/**
+ * @fn          osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+ * @brief       Acquire a Semaphore token or timeout if no tokens are available.
+ * @param[out]  sem       Pointer to the semaphore structure to be acquired
+ * @param[in]   timeout   Timeout value must be equal or greater than 0
+ * @return      TERR_NO_ERR       Normal completion
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_TIMEOUT      Timeout expired
+ *              TERR_NOEXS        Object is not a semaphore or non-existent
+ */
+osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout);
 
 /* - tn_dqueue.c -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------*
