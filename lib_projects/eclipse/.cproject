@@ -28,7 +28,6 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -42,17 +41,8 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
-			<resource resourceType="PROJECT" workspacePath="/tnkernel"/>
+			<resource resourceType="PROJECT" workspacePath="/uKernel"/>
 		</configuration>
-	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1309303252;com.arm.tool.c.compiler.input.1380032111">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1309303252;com.arm.tool.cpp.compiler.input.245354244">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
-		</scannerConfigBuildInfo>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
@@ -98,5 +88,20 @@
 				<runAllBuilders>true</runAllBuilders>
 			</target>
 		</buildTargets>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.343707335;com.arm.tool.cpp.compiler.input.1812004349">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1309303252;com.arm.tool.cpp.compiler.input.245354244">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.343707335;com.arm.tool.c.compiler.input.315841341">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889;com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311;com.arm.tool.c.compiler.base.var.arm_compiler_5-5.1309303252;com.arm.tool.c.compiler.input.1380032111">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.arm.eclipse.builder.armcc.ARMCompilerDiscoveryProfile"/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>
