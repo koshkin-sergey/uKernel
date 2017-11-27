@@ -172,7 +172,7 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
 
   if (!isQueueEmpty(&mbf->recv_queue)) {
     que = QueueRemoveHead(&mbf->recv_queue);
-    task = get_task_by_tsk_queue(que);
+    task = GetTaskByQueue(que);
     memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
     ThreadWaitComplete(task);
   }
@@ -336,7 +336,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
     if (!isQueueEmpty(&mbf->send_queue)) {
       que = QueueRemoveHead(&mbf->send_queue);
-      task = get_task_by_tsk_queue(que);
+      task = GetTaskByQueue(que);
       mbf_fifo_write(mbf, task->wait_info.smbf.msg, task->wait_info.smbf.send_to_first);
       ThreadWaitComplete(task);
     }
@@ -344,7 +344,7 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
   else {  //-- data FIFO is empty
     if (!isQueueEmpty(&mbf->send_queue)) {
       que = QueueRemoveHead(&mbf->send_queue);
-      task = get_task_by_tsk_queue(que);
+      task = GetTaskByQueue(que);
       memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
       ThreadWaitComplete(task);
       rc = TERR_NO_ERR;

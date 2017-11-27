@@ -298,6 +298,9 @@ void SVC_Handler(void)
   MOV     R4,LR
   BLX     R12                     ; Call SVC Function
 
+  MRS     R3,PSP                  ; Read PSP
+  STMIA   R3!,{R0-R2}             ; Store return values
+
 SVC_Exit
   MOVS    R0,#:NOT:0xFFFFFFFD     ; Set EXC_RETURN value
   MVNS    R0,R0

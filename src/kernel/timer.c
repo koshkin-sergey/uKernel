@@ -97,7 +97,7 @@ TMEB* GetTimer(void)
   BEGIN_CRITICAL_SECTION
 
   if (!isQueueEmpty(&timer_queue)) {
-    timer = get_timer_address(timer_queue.next);
+    timer = GetTimerByQueue(timer_queue.next);
     if (time_after(timer->time, knlInfo.jiffies))
       timer = NULL;
     else
@@ -199,7 +199,7 @@ void TimerInsert(TMEB *event, TIME_t time, CBACK callback, void *arg)
   event->time = time;
 
   for (que = timer_queue.next; que != &timer_queue; que = que->next) {
-    timer = get_timer_address(que);
+    timer = GetTimerByQueue(que);
     if (time_before(event->time, timer->time))
       break;
   }

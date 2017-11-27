@@ -156,7 +156,9 @@ osError_t SemaphoreRelease(TN_SEM *sem)
     return TERR_NOEXS;
 
   if (!isQueueEmpty(&sem->wait_queue)) {
-    ThreadWaitComplete(get_task_by_tsk_queue(QueueRemoveHead(&sem->wait_queue)));
+    CDLL_QUEUE *que = QueueRemoveHead(&sem->wait_queue);
+    TN_TCB *task = GetTaskByQueue(que);
+    ThreadWaitComplete(task);
   }
   else if (sem->count < sem->max_count) {
     sem->count++;

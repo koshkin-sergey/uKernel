@@ -93,111 +93,83 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueReset
- * Описание : Сбрасывает двунаправленный список
- * Параметры: que - Указатель на список
- * Результат: Нет
- *-----------------------------------------------------------------------------*/
 __FORCEINLINE void QueueReset(CDLL_QUEUE *que)
 {
   que->prev = que->next = que;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : isQueueEmpty
- * Описание : Проверяет очередь на пустоту
- * Параметры: que - Указатель на очередь
- * Результат: Возвращает true если очередь пуста, в противном случае false
- *-----------------------------------------------------------------------------*/
 __FORCEINLINE bool isQueueEmpty(CDLL_QUEUE *que)
 {
   return ((que->next == que) ? true : false);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueAddHead
- * Описание :
- * Параметры:
- * Результат:
- *-----------------------------------------------------------------------------*/
-void QueueAddHead(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+/**
+ * @fn          void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @brief       Inserts an entry at the head of the queue.
+ * @param[out]  que     Pointer to the queue
+ * @param[out]  entry   Pointer to an entry
+ */
+void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
 {
-  //--  Insert an entry at the head of the queue.
-
   entry->next = que->next;
   entry->prev = que;
   entry->next->prev = entry;
   que->next = entry;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueAddTail
- * Описание :
- * Параметры:
- * Результат:
- *-----------------------------------------------------------------------------*/
-void QueueAddTail(CDLL_QUEUE * que, CDLL_QUEUE * entry)
+/**
+ * @fn          void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @brief       Inserts an entry at the tail of the queue.
+ * @param[out]  que     Pointer to the queue
+ * @param[out]  entry   Pointer to an entry
+ */
+void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
 {
-  //-- Insert an entry at the tail of the queue.
-
   entry->next = que;
   entry->prev = que->prev;
   entry->prev->next = entry;
   que->prev = entry;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueRemoveHead
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-CDLL_QUEUE * QueueRemoveHead(CDLL_QUEUE * que)
+/**
+ * @fn          CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
+ * @brief       Remove and return an entry at the head of the queue.
+ * @param[out]  que   Pointer to the queue
+ * @return      Returns a pointer to an entry at the head of the queue
+ */
+CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
 {
-  //-- Remove and return an entry at the head of the queue.
+  CDLL_QUEUE *entry = que->next;
 
-  CDLL_QUEUE *entry;
-
-  if(que == NULL || que->next == que)
-  return (CDLL_QUEUE *)NULL;
-
-  entry = que->next;
   entry->next->prev = que;
   que->next = entry->next;
+
   return entry;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueRemoveTail
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-CDLL_QUEUE * QueueRemoveTail(CDLL_QUEUE * que)
+/**
+ * @fn          CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
+ * @brief       Remove and return an entry at the tail of the queue.
+ * @param[out]  que   Pointer to the queue
+ * @return      Returns a pointer to an entry at the tail of the queue
+ */
+CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
 {
-  //-- Remove and return an entry at the tail of the queue.
+  CDLL_QUEUE *entry = que->prev;
 
-  CDLL_QUEUE * entry;
-
-  if(que->prev == que)
-  return (CDLL_QUEUE *)NULL;
-
-  entry = que->prev;
   entry->prev->next = que;
   que->prev = entry->prev;
+
   return entry;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : QueueRemoveEntry
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
+/**
+ * @fn          void QueueRemoveEntry(CDLL_QUEUE *entry)
+ * @brief       Removes an entry from the queue.
+ * @param[out]  entry   Pointer to an entry of the queue
+ */
 void QueueRemoveEntry(CDLL_QUEUE *entry)
 {
-  //--  Remove an entry from the queue.
   if (!isQueueEmpty(entry)) {
     entry->prev->next = entry->next;
     entry->next->prev = entry->prev;

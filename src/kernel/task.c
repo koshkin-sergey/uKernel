@@ -129,7 +129,7 @@ void ThreadDispatch(void)
   }
 #endif
 
-  TaskSetNext(get_task_by_tsk_queue(knlInfo.ready_list[priority].next));
+  TaskSetNext(GetTaskByQueue(knlInfo.ready_list[priority].next));
 }
 
 /**
@@ -163,7 +163,7 @@ void TaskToNonRunnable(TN_TCB *task)
   CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
 
   /* Remove the current task from any queue (now - from ready queue) */
-  QueueRemoveEntry(&(task->task_queue));
+  QueueRemoveEntry(&task->task_queue);
 
   if (isQueueEmpty(que)) {
     /* No ready tasks for the curr priority */
@@ -176,7 +176,7 @@ void TaskToNonRunnable(TN_TCB *task)
   }
   else if (task == TaskGetNext()) {
     /* There are 'ready to run' task(s) for the curr priority */
-    TaskSetNext(get_task_by_tsk_queue(que->next));
+    TaskSetNext(GetTaskByQueue(que->next));
   }
 }
 
@@ -189,22 +189,17 @@ static
 void task_wait_release(TN_TCB *task)
 {
 #ifdef USE_MUTEXES
-  int fmutex;
-  int curr_priority;
-  TN_MUTEX * mutex;
-  TN_TCB * mt_holder_task;
-  CDLL_QUEUE * t_que;
 
-  t_que = NULL;
+  CDLL_QUEUE *que = NULL;
+
   if (task->wait_reason == WAIT_REASON_MUTEX_I || task->wait_reason == WAIT_REASON_MUTEX_C) {
-    fmutex = 1;
-    t_que = task->pwait_queue;
+    que = task->pwait_queue;
   }
-  else
-    fmutex = 0;
+
 #endif
 
   task->pwait_queue = NULL;
+  QueueRemoveEntry(&task->task_queue);
 
   if (!(task->state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);
@@ -216,23 +211,19 @@ void task_wait_release(TN_TCB *task)
 
 #ifdef USE_MUTEXES
 
-  if (fmutex) {
-    mutex = get_mutex_by_wait_queque(t_que);
+  if (que && !isQueueEmpty(que)) {
+    TN_MUTEX *mutex = GetMutexByWaitQueque(que);
+    TN_TCB *holder = mutex->holder;
 
-    mt_holder_task = mutex->holder;
-    if (mt_holder_task != NULL) {
-      //-- if task was blocked by another task and its pri was changed
-      //--  - recalc current priority
-
-      if (mt_holder_task->priority != mt_holder_task->base_priority
-        && mt_holder_task->priority == task->priority) {
-        curr_priority = find_max_blocked_priority(
-          mutex, mt_holder_task->base_priority);
-
-        ThreadSetPriority(mt_holder_task, curr_priority);
+    if (holder != NULL) {
+      /* If task was blocked by another task and its priority was changed */
+      /* Recalculate current priority */
+      if (holder->priority != holder->base_priority && holder->priority == task->priority) {
+        ThreadSetPriority(holder, find_max_blocked_priority(mutex, holder->base_priority));
       }
     }
   }
+
 #endif
 
   task->wait_reason = WAIT_REASON_NO;
@@ -268,10 +259,6 @@ void task_set_dormant_state(TN_TCB* task)
 static
 void task_wait_release_handler(TN_TCB *task)
 {
-//  if (task == NULL)
-//    return;
-
-  QueueRemoveEntry(&task->task_queue);
   task_wait_release(task);
 
   if (task->wait_rc != NULL)
@@ -327,9 +314,6 @@ void ThreadSetReady(TN_TCB *thread)
  *----------------------------------------------------------------------------*/
 void ThreadWaitComplete(TN_TCB *task)
 {
-  if (task == NULL)
-    return;
-
   TimerDelete(&task->wait_timer);
   task_wait_release(task);
 
@@ -343,7 +327,7 @@ void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
   int32_t old_priority = task->priority;
 
   //-- remove curr task from any (wait/ready) queue
-  QueueRemoveEntry(&(task->task_queue));
+  QueueRemoveEntry(&task->task_queue);
 
   //-- If there are no ready tasks for the old priority
   //-- clear ready bit for old priority
@@ -389,7 +373,7 @@ void ThreadSetPriority(TN_TCB * task, int32_t priority)
       if (task->wait_reason == WAIT_REASON_MUTEX_I) {
         task->priority = priority;
 
-        mutex = get_mutex_by_wait_queque(task->pwait_queue);
+        mutex = GetMutexByWaitQueque(task->pwait_queue);
         task = mutex->holder;
 
         continue;
@@ -410,8 +394,10 @@ void ThreadWaitDelete(CDLL_QUEUE *wait_que)
 
   while (!isQueueEmpty(wait_que)) {
     que = QueueRemoveHead(wait_que);
-    task = get_task_by_tsk_queue(que);
-    ThreadWaitComplete(task);
+    task = GetTaskByQueue(que);
+    TimerDelete(&task->wait_timer);
+    task_wait_release(task);
+
     if (task->wait_rc != NULL)
       *task->wait_rc = TERR_DLT;
   }
@@ -528,7 +514,7 @@ osError_t TaskTerminate(TN_TCB *task)
   }
   else if (task->state & TSK_STATE_WAIT) {
     /* Free all queues, involved in the 'waiting' */
-    QueueRemoveEntry(&(task->task_queue));
+    QueueRemoveEntry(&task->task_queue);
     TimerDelete(&task->wait_timer);
   }
 
@@ -537,9 +523,9 @@ osError_t TaskTerminate(TN_TCB *task)
   CDLL_QUEUE *que;
   TN_MUTEX *mutex;
 
-  while (!isQueueEmpty(&(task->mutex_queue))) {
-    que = QueueRemoveHead(&(task->mutex_queue));
-    mutex = get_mutex_by_mutex_queque(que);
+  while (!isQueueEmpty(&task->mutex_queue)) {
+    que = QueueRemoveHead(&task->mutex_queue);
+    mutex = GetMutexByMutexQueque(que);
     do_unlock_mutex(mutex);
   }
 #endif
@@ -566,9 +552,9 @@ void TaskExit(task_exit_attr_t attr)
   CDLL_QUEUE *que;
   TN_MUTEX *mutex;
 
-  while (!isQueueEmpty(&(task->mutex_queue))) {
-    que = QueueRemoveHead(&(task->mutex_queue));
-    mutex = get_mutex_by_mutex_queque(que);
+  while (!isQueueEmpty(&task->mutex_queue)) {
+    que = QueueRemoveHead(&task->mutex_queue);
+    mutex = GetMutexByMutexQueque(que);
     do_unlock_mutex(mutex);
   }
 #endif
@@ -654,10 +640,10 @@ void TaskSleep(TIME_t timeout)
 static
 osError_t TaskWakeup(TN_TCB *task)
 {
-  if ((task->state & TSK_STATE_WAIT) && (task->wait_reason == WAIT_REASON_SLEEP))
-    ThreadWaitComplete(task);
-  else
+  if (!(task->state & TSK_STATE_WAIT) || (task->wait_reason != WAIT_REASON_SLEEP))
     return TERR_WSTATE;
+
+  ThreadWaitComplete(task);
 
   return TERR_NO_ERR;
 }
@@ -674,7 +660,6 @@ osError_t TaskReleaseWait(TN_TCB *task)
   if (!(task->state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
 
-  QueueRemoveEntry(&(task->task_queue));
   ThreadWaitComplete(task);
 
   return TERR_NO_ERR;

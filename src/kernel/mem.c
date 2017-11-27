@@ -256,9 +256,9 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 
   BEGIN_CRITICAL_SECTION
 
-  if (!isQueueEmpty(&(fmp->wait_queue))) {
-    que = QueueRemoveHead(&(fmp->wait_queue));
-    task = get_task_by_tsk_queue(que);
+  if (!isQueueEmpty(&fmp->wait_queue)) {
+    que = QueueRemoveHead(&fmp->wait_queue);
+    task = GetTaskByQueue(que);
     task->wait_info.fmem.data_elem = p_data;
     ThreadWaitComplete(task);
   }

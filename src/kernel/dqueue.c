@@ -189,9 +189,9 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
 
   //-- there are task(s) in the data queue's wait_receive list
 
-  if (!isQueueEmpty(&(dque->wait_receive_list))) {
-    que = QueueRemoveHead(&(dque->wait_receive_list));
-    task = get_task_by_tsk_queue(que);
+  if (!isQueueEmpty(&dque->wait_receive_list)) {
+    que = QueueRemoveHead(&dque->wait_receive_list);
+    task = GetTaskByQueue(que);
     *task->wait_info.rdque.data_elem = data_ptr;
     ThreadWaitComplete(task);
   }
@@ -354,18 +354,18 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
 
   rc = dque_fifo_read(dque, data_ptr);
   if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!isQueueEmpty(&(dque->wait_send_list))) {
-      que = QueueRemoveHead(&(dque->wait_send_list));
-      task = get_task_by_tsk_queue(que);
+    if (!isQueueEmpty(&dque->wait_send_list)) {
+      que = QueueRemoveHead(&dque->wait_send_list);
+      task = GetTaskByQueue(que);
       dque_fifo_write(dque, task->wait_info.sdque.data_elem,
           task->wait_info.sdque.send_to_first);
       ThreadWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
-    if (!isQueueEmpty(&(dque->wait_send_list))) {
-      que = QueueRemoveHead(&(dque->wait_send_list));
-      task = get_task_by_tsk_queue(que);
+    if (!isQueueEmpty(&dque->wait_send_list)) {
+      que = QueueRemoveHead(&dque->wait_send_list);
+      task = GetTaskByQueue(que);
       *data_ptr = task->wait_info.sdque.data_elem; //-- Return to caller
       ThreadWaitComplete(task);
       rc = TERR_NO_ERR;

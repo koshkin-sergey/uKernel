@@ -109,8 +109,8 @@ int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority)
 
   priority = ref_priority;
   curr_que = mutex->wait_queue.next;
-  while (curr_que != &(mutex->wait_queue)) {
-    task = get_task_by_tsk_queue(curr_que);
+  while (curr_que != &mutex->wait_queue) {
+    task = GetTaskByQueue(curr_que);
     if (task->priority < priority) //--  task priority is higher
       priority = task->priority;
 
@@ -135,14 +135,14 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 
   //-- Delete curr mutex from task's locked mutexes queue
 
-  QueueRemoveEntry(&(mutex->mutex_queue));
+  QueueRemoveEntry(&mutex->mutex_queue);
   pr = task->base_priority;
 
   //---- No more mutexes, locked by the our task
-  if (!isQueueEmpty(&(task->mutex_queue))) {
+  if (!isQueueEmpty(&task->mutex_queue)) {
     curr_que = task->mutex_queue.next;
-    while (curr_que != &(task->mutex_queue)) {
-      tmp_mutex = get_mutex_by_mutex_queque(curr_que);
+    while (curr_que != &task->mutex_queue) {
+      tmp_mutex = GetMutexByMutexQueque(curr_que);
 
       if (tmp_mutex->attr & TN_MUTEX_ATTR_CEILING) {
         if (tmp_mutex->ceil_priority < pr)
@@ -161,14 +161,14 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     ThreadChangePriority(task, pr);
 
   //-- Check for the task(s) that want to lock the mutex
-  if (isQueueEmpty(&(mutex->wait_queue))) {
+  if (isQueueEmpty(&mutex->wait_queue)) {
     mutex->holder = NULL;
     return true;
   }
 
   //--- Now lock the mutex by the first task in the mutex queue
-  curr_que = QueueRemoveHead(&(mutex->wait_queue));
-  task = get_task_by_tsk_queue(curr_que);
+  curr_que = QueueRemoveHead(&mutex->wait_queue);
+  task = GetTaskByQueue(curr_que);
   mutex->holder = task;
   if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
     mutex->cnt++;

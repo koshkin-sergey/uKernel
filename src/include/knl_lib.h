@@ -34,28 +34,12 @@
 #define BITS_IN_INT                32
 #define NUM_PRIORITY               BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
 
-#ifndef CONTAINING_RECORD
-#define CONTAINING_RECORD(address, type, field)     \
-        ((type *)((uint8_t *)(address) - (uint8_t *)(&((type *)0)->field)))
-#endif
+#define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define get_task_by_tsk_queue(que)                  \
-        que ? CONTAINING_RECORD(que, TN_TCB, task_queue) : 0
-
-#define get_mutex_by_mutex_queque(que)              \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
-
-#define get_mutex_by_wait_queque(que)               \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, wait_queue) : 0
-
-#define get_task_by_block_queque(que)  \
-        que ? CONTAINING_RECORD(que, TN_TCB, block_queue) : 0
-
-#define get_mutex_by_lock_mutex_queque(que) \
-        que ? CONTAINING_RECORD(que, TN_MUTEX, mutex_queue) : 0
-
-#define get_timer_address(que) \
-        que ? CONTAINING_RECORD(que, TMEB, queue) : 0
+#define GetTaskByQueue(que)         container_of(que, TN_TCB, task_queue)
+#define GetMutexByMutexQueque(que)  container_of(que, TN_MUTEX, mutex_queue)
+#define GetMutexByWaitQueque(que)   container_of(que, TN_MUTEX, wait_queue)
+#define GetTimerByQueue(que)        container_of(que, TMEB, queue)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -130,10 +114,44 @@ void TimerDelete(TMEB *event);
 /* Queue */
 void QueueReset(CDLL_QUEUE *que);
 bool isQueueEmpty(CDLL_QUEUE *que);
+
+/**
+ * @fn          void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @brief       Inserts an entry at the head of the queue.
+ * @param[out]  que     Pointer to the queue
+ * @param[out]  entry   Pointer to an entry
+ */
 void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+
+/**
+ * @fn          void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @brief       Inserts an entry at the tail of the queue.
+ * @param[out]  que     Pointer to the queue
+ * @param[out]  entry   Pointer to an entry
+ */
 void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+
+/**
+ * @fn          void QueueRemoveEntry(CDLL_QUEUE *entry)
+ * @brief       Removes an entry from the queue.
+ * @param[out]  entry   Pointer to an entry of the queue
+ */
 void QueueRemoveEntry(CDLL_QUEUE *entry);
+
+/**
+ * @fn          CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
+ * @brief       Remove and return an entry at the head of the queue.
+ * @param[out]  que   Pointer to the queue
+ * @return      Returns a pointer to an entry at the head of the queue
+ */
 CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que);
+
+/**
+ * @fn          CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
+ * @brief       Remove and return an entry at the tail of the queue.
+ * @param[out]  que   Pointer to the queue
+ * @return      Returns a pointer to an entry at the tail of the queue
+ */
 CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que);
 
 #endif /* _KNL_LIB_H_ */

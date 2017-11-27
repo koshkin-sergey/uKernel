@@ -110,7 +110,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
       for the event with attr TN_EVENT_ATTR_SINGLE the only one task
       may be in the queue */
   while (que != &evf->wait_queue) {
-    task = get_task_by_tsk_queue(que);
+    task = GetTaskByQueue(que);
     que = que->next;
 
     if (task->wait_info.event.mode & TN_EVENT_WCOND_OR)
@@ -119,7 +119,6 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
       fCond = ((evf->pattern & task->wait_info.event.pattern) == task->wait_info.event.pattern);
 
     if (fCond) {
-      QueueRemoveEntry(&task->task_queue);
       *task->wait_info.event.flags_pattern = evf->pattern;
       ThreadWaitComplete(task);
       rc = true;
