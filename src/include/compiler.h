@@ -471,6 +471,25 @@
   #endif
 
 #else
+  #define __ASM
+  #define __INLINE
+  #define __FORCEINLINE
+  #define __STATIC_INLINE
+  #define __STATIC_FORCEINLINE
+  #define __NO_RETURN
+  #define __USED
+  #define __WEAK
+  #define __PACKED
+  #define __PACKED_STRUCT
+  #define __PACKED_UNION
+  #define __UNALIGNED_UINT32(x)
+  #define __UNALIGNED_UINT16_WRITE(addr, val)
+  #define __UNALIGNED_UINT16_READ(addr)
+  #define __UNALIGNED_UINT32_WRITE(addr, val)
+  #define __UNALIGNED_UINT32_READ(addr)
+  #define __ALIGNED(x)
+  #define __RESTRICT
+
   #error Unknown compiler.
 #endif
 

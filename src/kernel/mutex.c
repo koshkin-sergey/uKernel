@@ -316,9 +316,8 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
       if (timeout == 0U)
         rc = TERR_TIMEOUT;
       else {
-        task->wait_rc = &rc;
         //--- Task -> to the mutex wait queue
-        ThreadToWaitAction(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_C, timeout);
+        TaskWaitEnter(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_C, timeout);
       }
     }
   }
@@ -339,8 +338,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         //-- if run_task curr priority higher holder's curr priority
         if (task->priority < mutex->holder->priority)
           ThreadSetPriority(mutex->holder, task->priority);
-        task->wait_rc = &rc;
-        ThreadToWaitAction(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_I, timeout);
+        TaskWaitEnter(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_I, timeout);
       }
     }
   }

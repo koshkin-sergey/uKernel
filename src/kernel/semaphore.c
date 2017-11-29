@@ -182,25 +182,20 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
 static
 osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
 {
-  osError_t rc;
-
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
   if (sem->count > 0U) {
     sem->count--;
-    rc = TERR_NO_ERR;
-  }
-  else if (timeout == 0U) {
-    rc = TERR_TIMEOUT;
-  }
-  else {
-    osTask_t *task = TaskGetCurrent();
-    task->wait_rc = &rc;
-    ThreadToWaitAction(task, &sem->wait_queue, WAIT_REASON_SEM, timeout);
+    return TERR_NO_ERR;
   }
 
-  return rc;
+  if (timeout == 0U)
+    return TERR_TIMEOUT;
+
+  TaskWaitEnter(TaskGetCurrent(), &sem->wait_queue, WAIT_REASON_SEM, timeout);
+
+  return TERR_TIMEOUT;
 }
 
 /*******************************************************************************

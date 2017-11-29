@@ -190,7 +190,7 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_p
   if (!isQueueEmpty(&mq->recv_queue)) {
     /* There are task(s) in the data queue's wait_receive list */
     task = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
-    memcpy(task->wait_info.rmbf.msg, msg, mq->msz);
+    memcpy(task->wait_info.rmq.msg, msg, mq->msz);
     ThreadWaitComplete(task);
     return TERR_NO_ERR;
   }
@@ -203,10 +203,9 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_p
     }
 
     task = TaskGetCurrent();
-    task->wait_rc = &rc;
-    task->wait_info.smbf.msg = msg;
-    task->wait_info.smbf.msg_pri = msg_pri;
-    ThreadToWaitAction(task, &mq->send_queue, WAIT_REASON_MBF_WSEND, timeout);
+    task->wait_info.smq.msg = msg;
+    task->wait_info.smq.msg_pri = msg_pri;
+    TaskWaitEnter(task, &mq->send_queue, WAIT_REASON_MBF_WSEND, timeout);
   }
 
   return rc;
@@ -226,9 +225,9 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
   if (!isQueueEmpty(&mq->send_queue)) {
     task = GetTaskByQueue(QueueRemoveHead(&mq->send_queue));
     if (rc == TERR_NO_ERR)
-      mbf_fifo_write(mq, task->wait_info.smbf.msg, task->wait_info.smbf.msg_pri);
+      mbf_fifo_write(mq, task->wait_info.smq.msg, task->wait_info.smq.msg_pri);
     else
-      memcpy(msg, task->wait_info.smbf.msg, mq->msz);
+      memcpy(msg, task->wait_info.smq.msg, mq->msz);
     ThreadWaitComplete(task);
     return TERR_NO_ERR;
   }
@@ -239,9 +238,8 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
     }
     else {
       task = TaskGetCurrent();
-      task->wait_rc = &rc;
-      task->wait_info.rmbf.msg = msg;
-      ThreadToWaitAction(task, &mq->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
+      task->wait_info.rmq.msg = msg;
+      TaskWaitEnter(task, &mq->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
     }
   }
 

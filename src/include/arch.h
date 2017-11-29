@@ -66,6 +66,7 @@
   #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
   #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
   #define IS_IRQ_MASKED()         (__get_PRIMASK() != 0U)
+  #define STACK_OFFSET_R0         (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
@@ -97,6 +98,7 @@
   #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
   #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
   #define IS_IRQ_MASKED()         ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U))
+  #define STACK_OFFSET_R0         (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(knlInfo.max_syscall_interrupt_priority);

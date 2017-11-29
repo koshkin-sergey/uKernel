@@ -267,8 +267,7 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
         task->wait_info.event.mode = wait_mode;
         task->wait_info.event.pattern = wait_pattern;
         task->wait_info.event.flags_pattern = p_flags_pattern;
-        task->wait_rc = &rc;
-        ThreadToWaitAction(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
+        TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
       }
     }
   }

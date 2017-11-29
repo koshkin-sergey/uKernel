@@ -205,10 +205,9 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
       }
       else {
         task = TaskGetCurrent();
-        task->wait_rc = &rc;
         task->wait_info.sdque.data_elem = data_ptr;  //-- Store data_ptr
         task->wait_info.sdque.send_to_first = send_to_first;
-        ThreadToWaitAction(task, &(dque->wait_send_list), WAIT_REASON_DQUE_WSEND, timeout);
+        TaskWaitEnter(task, &(dque->wait_send_list), WAIT_REASON_DQUE_WSEND, timeout);
       }
     }
   }
@@ -376,9 +375,8 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
       }
       else {
         task = TaskGetCurrent();
-        task->wait_rc = &rc;
         task->wait_info.rdque.data_elem = data_ptr;
-        ThreadToWaitAction(task, &(dque->wait_receive_list), WAIT_REASON_DQUE_WRECEIVE, timeout);
+        TaskWaitEnter(task, &(dque->wait_receive_list), WAIT_REASON_DQUE_WRECEIVE, timeout);
       }
     }
   }

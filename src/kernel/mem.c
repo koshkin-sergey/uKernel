@@ -228,8 +228,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
       rc = TERR_TIMEOUT;
     else {
       task = TaskGetCurrent();
-      task->wait_rc = &rc;
-      ThreadToWaitAction(task, &(fmp->wait_queue), WAIT_REASON_WFIXMEM, timeout);
+      TaskWaitEnter(task, &(fmp->wait_queue), WAIT_REASON_WFIXMEM, timeout);
       
       END_CRITICAL_SECTION
 

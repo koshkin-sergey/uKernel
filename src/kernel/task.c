@@ -101,9 +101,20 @@ osError_t svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint
 __svc_indirect(0)
 osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
+static
+void TaskWaitExit(osTask_t *task, osError_t ret_val);
+static
+void TaskWaitExit_Handler(osTask_t *task);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
+
+static
+uint32_t* TaskRegPtr(osTask_t *task)
+{
+  return (task->stk + STACK_OFFSET_R0);
+}
 
 /**
  * @brief
@@ -180,13 +191,31 @@ void TaskToNonRunnable(osTask_t *task)
   }
 }
 
+void TaskWaitEnter(osTask_t *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, osTime_t timeout)
+{
+  TaskToNonRunnable(task);
+
+  task->state = TSK_STATE_WAIT;
+  task->wait_reason = wait_reason;
+
+  /* Add to the wait queue - FIFO */
+  if (wait_que != NULL) {
+    QueueAddTail(wait_que, &(task->task_queue));
+    task->pwait_queue = wait_que;
+  }
+
+  /* Add to the timers queue */
+  if (timeout != TIME_WAIT_INFINITE)
+    TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)TaskWaitExit_Handler, task);
+}
+
 /**
  * @brief
  * @param
  * @return
  */
 static
-void task_wait_release(osTask_t *task)
+void TaskWaitExit(osTask_t *task, osError_t ret_val)
 {
 #ifdef USE_MUTEXES
 
@@ -200,6 +229,9 @@ void task_wait_release(osTask_t *task)
 
   task->pwait_queue = NULL;
   QueueRemoveEntry(&task->task_queue);
+
+  uint32_t *reg = TaskRegPtr(task);
+  *reg = (uint32_t)ret_val;
 
   if (!(task->state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);
@@ -235,6 +267,34 @@ void task_wait_release(osTask_t *task)
  * @return
  */
 static
+void TaskWaitExit_Handler(osTask_t *task)
+{
+  TaskWaitExit(task, TERR_TIMEOUT);
+}
+
+void ThreadWaitComplete(osTask_t *task)
+{
+  TimerDelete(&task->wait_timer);
+  TaskWaitExit(task, TERR_NO_ERR);
+}
+
+void ThreadWaitDelete(CDLL_QUEUE *wait_que)
+{
+  osTask_t *task;
+
+  while (!isQueueEmpty(wait_que)) {
+    task = GetTaskByQueue(QueueRemoveHead(wait_que));
+    TimerDelete(&task->wait_timer);
+    TaskWaitExit(task, TERR_DLT);
+  }
+}
+
+/**
+ * @brief
+ * @param
+ * @return
+ */
+static
 void task_set_dormant_state(osTask_t* task)
 {
   QueueReset(&(task->task_queue));
@@ -247,22 +307,7 @@ void task_set_dormant_state(osTask_t* task)
   task->priority = task->base_priority;
   task->state = TSK_STATE_DORMANT;
   task->wait_reason = WAIT_REASON_NO;
-  task->wait_rc = NULL;
   task->tslice_count = 0;
-}
-
-/**
- * @brief
- * @param
- * @return
- */
-static
-void task_wait_release_handler(osTask_t *task)
-{
-  task_wait_release(task);
-
-  if (task->wait_rc != NULL)
-    *task->wait_rc = TERR_TIMEOUT;
 }
 
 __FORCEINLINE
@@ -304,21 +349,6 @@ void ThreadSetReady(osTask_t *thread)
 
   QueueAddTail(&info->ready_list[priority], &thread->task_queue);
   info->ready_to_run_bmp |= (1 << priority);
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : ThreadWaitComplete
- * Описание : Выводит задачу из состояния ожидания и удаляет из очереди таймеров
- * Параметры: task - Указатель на задачу
- * Результат: Возвращает true при успешном выполнении, иначе возвращает false
- *----------------------------------------------------------------------------*/
-void ThreadWaitComplete(osTask_t *task)
-{
-  TimerDelete(&task->wait_timer);
-  task_wait_release(task);
-
-  if (task->wait_rc != NULL)
-    *task->wait_rc = TERR_NO_ERR;
 }
 
 void ThreadChangePriority(osTask_t * task, int32_t new_priority)
@@ -387,40 +417,6 @@ void ThreadSetPriority(osTask_t * task, int32_t priority)
 
 #endif
 
-void ThreadWaitDelete(CDLL_QUEUE *wait_que)
-{
-  CDLL_QUEUE *que;
-  osTask_t *task;
-
-  while (!isQueueEmpty(wait_que)) {
-    que = QueueRemoveHead(wait_que);
-    task = GetTaskByQueue(que);
-    TimerDelete(&task->wait_timer);
-    task_wait_release(task);
-
-    if (task->wait_rc != NULL)
-      *task->wait_rc = TERR_DLT;
-  }
-}
-
-void ThreadToWaitAction(osTask_t *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, osTime_t timeout)
-{
-  TaskToNonRunnable(task);
-
-  task->state = TSK_STATE_WAIT;
-  task->wait_reason = wait_reason;
-
-  /* Add to the wait queue - FIFO */
-  if (wait_que != NULL) {
-    QueueAddTail(wait_que, &(task->task_queue));
-    task->pwait_queue = wait_que;
-  }
-
-  /* Add to the timers queue */
-  if (timeout != TIME_WAIT_INFINITE)
-    TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)task_wait_release_handler, task);
-}
-
 /**
  * @fn    void ThreadExit(void)
  */
@@ -444,7 +440,6 @@ void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
   task->base_priority = attr->priority;
   task->id = ID_TASK;
   task->time = 0;
-  task->wait_rc = NULL;
 
   /* Fill all task stack space by TN_FILL_STACK_VAL - only inside create_task */
   uint32_t *ptr = task->stk_start;
@@ -625,10 +620,7 @@ osError_t TaskResume(osTask_t *task)
 static
 void TaskSleep(osTime_t timeout)
 {
-  osTask_t *task = TaskGetCurrent();
-
-  task->wait_rc = NULL;
-  ThreadToWaitAction(task, NULL, WAIT_REASON_SLEEP, timeout);
+  TaskWaitEnter(TaskGetCurrent(), NULL, WAIT_REASON_SLEEP, timeout);
 }
 
 /**

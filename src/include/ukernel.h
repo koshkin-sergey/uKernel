@@ -222,7 +222,7 @@ typedef struct {
  */
 typedef struct {
   void *msg; /* Address that has a received message */
-} WINFO_RMBF;
+} WINFO_RMQ;
 
 typedef struct {
   void *msg; /* Send message head address */
@@ -241,15 +241,15 @@ typedef struct {
 typedef union {
   WINFO_RDQUE rdque;
   WINFO_SDQUE sdque;
-  WINFO_RMBF rmbf;
-  WINFO_SMQ smbf;
+  WINFO_RMQ rmq;
+  WINFO_SMQ smq;
   WINFO_FMEM fmem;
   WINFO_EVENT event;
 } WINFO;
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct osTask_s {
-  uint32_t *task_stk;         ///< Pointer to task's top of stack
+  uint32_t *stk;              ///< Pointer to task's top of stack
   CDLL_QUEUE task_queue;      ///< Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;    ///< Ptr to object's(semaphor,event,etc.) wait list
 #ifdef USE_MUTEXES
@@ -264,7 +264,6 @@ typedef struct osTask_s {
   id_t id;                    ///< ID for verification(is it a task or another object?)
   task_state_t state;         ///< Task state
   wait_reason_t wait_reason;  ///< Reason for waiting
-  osError_t *wait_rc;         ///< Waiting return code(reason why waiting  finished)
   WINFO wait_info;            ///< Wait information
   TMEB wait_timer;            ///< Wait timer
   int tslice_count;           ///< Time slice counter

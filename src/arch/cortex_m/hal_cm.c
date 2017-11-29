@@ -90,7 +90,7 @@ void SystemIsrInit(void)
 void archKernelStart(void)
 {
   SystemIsrInit();
-  __set_PSP((uint32_t)knlInfo.run.curr->task_stk + 32UL);
+  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0);
   archSwitchContextRequest();
   __enable_irq();
 }
@@ -192,7 +192,7 @@ void StackInit(osTask_t *task)
   *(--stk) = 0x05050505L;                       //-- R5
   *(--stk) = 0x04040404L;                       //-- R4
 
-  task->task_stk = stk;
+  task->stk = stk;
 }
 
 /**
