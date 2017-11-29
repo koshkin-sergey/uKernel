@@ -211,7 +211,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 {
   osError_t rc = TERR_NO_ERR;
   void * ptr;
-  TN_TCB *task;
+  osTask_t *task;
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
@@ -247,7 +247,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 {
   CDLL_QUEUE * que;
-  TN_TCB * task;
+  osTask_t * task;
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;

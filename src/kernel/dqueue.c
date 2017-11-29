@@ -178,7 +178,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
 {
   osError_t rc = TERR_NO_ERR;
   CDLL_QUEUE *que;
-  TN_TCB *task;
+  osTask_t *task;
 
   if (dque == NULL)
     return TERR_WRONG_PARAM;
@@ -343,7 +343,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
 {
   osError_t rc; //-- return code
   CDLL_QUEUE *que;
-  TN_TCB *task;
+  osTask_t *task;
 
   if (dque == NULL || data_ptr == NULL)
     return TERR_WRONG_PARAM;

@@ -55,6 +55,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
+__svc_indirect(0)
+osError_t svcMessageQueueNew(osError_t (*)(osMessageQueue_t*, void*, uint32_t, uint32_t), osMessageQueue_t*, void*, uint32_t, uint32_t);
+__svc_indirect(0)
+osError_t svcMessageQueueDelete(osError_t (*)(osMessageQueue_t*), osMessageQueue_t*);
+__svc_indirect(0)
+osError_t svcMessageQueuePut(osError_t (*)(osMessageQueue_t*, void*, osMsgPriority_t, osTime_t), osMessageQueue_t*, void*, osMsgPriority_t, osTime_t);
+__svc_indirect(0)
+osError_t svcMessageQueueGet(osError_t (*)(osMessageQueue_t*, void*, osTime_t), osMessageQueue_t*, void*, osTime_t);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
@@ -64,7 +73,7 @@
  * Описание : Записывает данные в циклический буфер
  * Параметры: mbf - Дескриптор буфера сообщений.
  *            msg - Указатель на данные.
- *            send_to_first - Флаг, указывающий, что необходимо поместить данные
+ *            msg_pri - Флаг, указывающий, что необходимо поместить данные
  *                            в начало буфера.
  * Результат: Возвращает один из вариантов:
  *              TERR_NO_ERR - функция выполнена без ошибок;
@@ -72,7 +81,7 @@
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
+osError_t mbf_fifo_write(osMessageQueue_t *mbf, void *msg, osMsgPriority_t msg_pri)
 {
   int bufsz, msz;
 
@@ -85,7 +94,7 @@ osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
   msz = mbf->msz;
   bufsz = mbf->num_entries * msz;
 
-  if (send_to_first) {
+  if (msg_pri == osMsgPriorityHigh) {
     if (mbf->tail == 0)
       mbf->tail = bufsz - msz;
     else
@@ -116,7 +125,7 @@ osError_t mbf_fifo_write(TN_MBF *mbf, void *msg, bool send_to_first)
  *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
  *-----------------------------------------------------------------------------*/
 static
-osError_t mbf_fifo_read(TN_MBF *mbf, void *msg)
+osError_t mbf_fifo_read(osMessageQueue_t *mbf, void *msg)
 {
   int bufsz, msz;
 
@@ -138,63 +147,104 @@ osError_t mbf_fifo_read(TN_MBF *mbf, void *msg)
   return TERR_NO_ERR;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : do_mbf_send
- * Описание : Помещает данные в буфер сообщений за установленный интервал
- *            времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            timeout - Время, в течении которого данные должны быть помещены
- *                      в буфер.
- *            send_to_first - Флаг, указывающий, что необходимо поместить данные
- *                            в начало буфера.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
-                       bool send_to_first)
+static
+osError_t MessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
 {
-  osError_t rc = TERR_NO_ERR;
-  CDLL_QUEUE *que;
-  TN_TCB *task;
-
-  if (mbf == NULL)
+  if ( mq->id == ID_MESSAG_QUEUE)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
+
+  QueueReset(&mq->send_queue);
+  QueueReset(&mq->recv_queue);
+
+  mq->buf = buf;
+  mq->msz = msz;
+  mq->num_entries = bufsz / msz;
+  mq->cnt = mq->head = mq->tail = 0;
+  mq->id = ID_MESSAG_QUEUE;
+
+  return TERR_NO_ERR;
+}
+
+static
+osError_t MessageQueueDelete(osMessageQueue_t *mq)
+{
+  if (mq->id != ID_MESSAG_QUEUE)
     return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
+  ThreadWaitDelete(&mq->send_queue);
+  ThreadWaitDelete(&mq->recv_queue);
+  mq->id = ID_INVALID;
 
-  //-- there are task(s) in the data queue's wait_receive list
+  return TERR_NO_ERR;
+}
 
-  if (!isQueueEmpty(&mbf->recv_queue)) {
-    que = QueueRemoveHead(&mbf->recv_queue);
-    task = GetTaskByQueue(que);
-    memcpy(task->wait_info.rmbf.msg, msg, mbf->msz);
+static
+osError_t MessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+{
+  osError_t rc;
+  osTask_t *task;
+
+  if (mq->id != ID_MESSAG_QUEUE)
+    return TERR_NOEXS;
+
+  if (!isQueueEmpty(&mq->recv_queue)) {
+    /* There are task(s) in the data queue's wait_receive list */
+    task = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
+    memcpy(task->wait_info.rmbf.msg, msg, mq->msz);
     ThreadWaitComplete(task);
+    return TERR_NO_ERR;
   }
-  /* the data queue's  wait_receive list is empty */
-  else {
-    rc = mbf_fifo_write(mbf, msg, send_to_first);
-    //-- No free entries in the data queue
-    if (rc != TERR_NO_ERR) {
-      if (timeout == 0U) {
-        rc = TERR_TIMEOUT;
-      }
-      else {
-        task = TaskGetCurrent();
-        task->wait_rc = &rc;
-        task->wait_info.smbf.msg = msg;
-        task->wait_info.smbf.send_to_first = send_to_first;
-        ThreadToWaitAction(task, &mbf->send_queue, WAIT_REASON_MBF_WSEND, timeout);
-      }
+
+  rc = mbf_fifo_write(mq, msg, msg_pri);
+  if (rc != TERR_NO_ERR) {
+    /* No free entries in the data queue */
+    if (timeout == 0U) {
+      return TERR_TIMEOUT;
+    }
+
+    task = TaskGetCurrent();
+    task->wait_rc = &rc;
+    task->wait_info.smbf.msg = msg;
+    task->wait_info.smbf.msg_pri = msg_pri;
+    ThreadToWaitAction(task, &mq->send_queue, WAIT_REASON_MBF_WSEND, timeout);
+  }
+
+  return rc;
+}
+
+static
+osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+{
+  osError_t rc;
+  osTask_t *task;
+
+  if (mq->id != ID_MESSAG_QUEUE)
+    return TERR_NOEXS;
+
+  rc = mbf_fifo_read(mq, msg);
+
+  if (!isQueueEmpty(&mq->send_queue)) {
+    task = GetTaskByQueue(QueueRemoveHead(&mq->send_queue));
+    if (rc == TERR_NO_ERR)
+      mbf_fifo_write(mq, task->wait_info.smbf.msg, task->wait_info.smbf.msg_pri);
+    else
+      memcpy(msg, task->wait_info.smbf.msg, mq->msz);
+    ThreadWaitComplete(task);
+    return TERR_NO_ERR;
+  }
+
+  if (rc != TERR_NO_ERR) {
+    if (timeout == 0U) {
+      rc = TERR_TIMEOUT;
+    }
+    else {
+      task = TaskGetCurrent();
+      task->wait_rc = &rc;
+      task->wait_info.rmbf.msg = msg;
+      ThreadToWaitAction(task, &mq->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
     }
   }
 
-  END_CRITICAL_SECTION
   return rc;
 }
 
@@ -203,9 +253,9 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  ******************************************************************************/
 
 /*-----------------------------------------------------------------------------*
- * Название : tn_mbf_create
+ * Название : osMessageQueueNew
  * Описание : Создает буфер сообщений.
- * Параметры: mbf - Указатель на существующую структуру TN_MBF.
+ * Параметры: mbf - Указатель на существующую структуру osMessageQueue_t.
  *            buf - Указатель на выделенную под буфер сообщений область памяти.
  *                  Может быть равен NULL.
  *            bufsz - Размер буфера сообщений в байтах. Может быть равен 0,
@@ -216,155 +266,65 @@ static osError_t do_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout,
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_OUT_OF_MEM - Ошибка установки размера буфера.
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz)
+osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
 {
-  if (mbf == NULL)
+  if (mq == NULL || msz == 0U)
     return TERR_WRONG_PARAM;
-  if (bufsz < 0 || msz <= 0 || mbf->id == ID_MESSAGEBUF)
-    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
-
-  QueueReset(&mbf->send_queue);
-  QueueReset(&mbf->recv_queue);
-
-  mbf->buf = buf;
-  mbf->msz = msz;
-  mbf->num_entries = bufsz / msz;
-  mbf->cnt = mbf->head = mbf->tail = 0;
-
-  mbf->id = ID_MESSAGEBUF;
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svcMessageQueueNew(MessageQueueNew, mq, buf, bufsz, msz);
 }
 
 /*-----------------------------------------------------------------------------*
- * Название : tn_mbf_delete
+ * Название : osMessageQueueDelete
  * Описание : Удаляет буфер сообщений.
- * Параметры: mbf - Указатель на существующую структуру TN_MBF.
+ * Параметры: mbf - Указатель на существующую структуру osMessageQueue_t.
  * Результат: Возвращает один из вариантов:
  *              TERR_NO_ERR - функция выполнена без ошибок;
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не существует;
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_delete(TN_MBF *mbf)
+osError_t osMessageQueueDelete(osMessageQueue_t *mq)
 {
-  if (mbf == NULL)
+  if (mq == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id == 0)
-    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
-
-  ThreadWaitDelete(&mbf->send_queue);
-  ThreadWaitDelete(&mbf->recv_queue);
-
-  mbf->id = ID_INVALID;
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svcMessageQueueDelete(MessageQueueDelete, mq);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_send
- * Описание : Помещает данные в конец буфера сообщений за установленный
- *            интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            timeout - Время, в течении которого данные должны быть помещены
- *                      в буфер.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout)
+osError_t osMessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
 {
-  return do_mbf_send(mbf, msg, timeout, false);
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_send_first
- * Описание : Помещает данные в начало буфера сообщений за установленный
- *            интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            timeout - Время, в течении которого данные должны быть помещены
- *                      в буфер.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout)
-{
-  return do_mbf_send(mbf, msg, timeout, true);
-}
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_receive
- * Описание : Считывает один элемент данных из начала буфера сообщений
- *            за установленный интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на буфер, куда будут считаны данные.
- *            timeout - Время, в течении которого данные должны быть считаны.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
-{
-  osError_t rc; //-- return code
-  CDLL_QUEUE *que;
-  TN_TCB *task;
-
-  if (mbf == NULL || msg == NULL)
+  if (mq == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
-    return TERR_NOEXS;
 
-  BEGIN_CRITICAL_SECTION
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    if (timeout != 0U)
+      return TERR_WRONG_PARAM;
 
-  rc = mbf_fifo_read(mbf, msg);
-  if (rc == TERR_NO_ERR) {  //-- There was entry(s) in data queue
-    if (!isQueueEmpty(&mbf->send_queue)) {
-      que = QueueRemoveHead(&mbf->send_queue);
-      task = GetTaskByQueue(que);
-      mbf_fifo_write(mbf, task->wait_info.smbf.msg, task->wait_info.smbf.send_to_first);
-      ThreadWaitComplete(task);
-    }
+    return MessageQueuePut(mq, msg, msg_pri, timeout);
   }
-  else {  //-- data FIFO is empty
-    if (!isQueueEmpty(&mbf->send_queue)) {
-      que = QueueRemoveHead(&mbf->send_queue);
-      task = GetTaskByQueue(que);
-      memcpy(msg, task->wait_info.smbf.msg, mbf->msz);
-      ThreadWaitComplete(task);
-      rc = TERR_NO_ERR;
-    }
-    else {  //-- wait_send_list is empty
-      if (timeout == 0U) {
-        rc = TERR_TIMEOUT;
-      }
-      else {
-        task = TaskGetCurrent();
-        task->wait_rc = &rc;
-        task->wait_info.rmbf.msg = msg;
-        ThreadToWaitAction(task, &mbf->recv_queue, WAIT_REASON_MBF_WRECEIVE, timeout);
-      }
-    }
+  else {
+    return svcMessageQueuePut(MessageQueuePut, mq, msg, msg_pri, timeout);
   }
+}
 
-  END_CRITICAL_SECTION
+osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+{
+  if (mq == NULL || msg == NULL)
+    return TERR_WRONG_PARAM;
 
-  return rc;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    if (timeout != 0U)
+      return TERR_WRONG_PARAM;
+
+    return MessageQueueGet(mq, msg, timeout);
+  }
+  else {
+    return svcMessageQueueGet(MessageQueueGet, mq, msg, timeout);
+  }
 }
 
 /*-----------------------------------------------------------------------------*
@@ -376,11 +336,11 @@ osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_flush(TN_MBF *mbf)
+osError_t tn_mbf_flush(osMessageQueue_t *mbf)
 {
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAG_QUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -402,13 +362,13 @@ osError_t tn_mbf_flush(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_empty(TN_MBF *mbf)
+osError_t tn_mbf_empty(osMessageQueue_t *mbf)
 {
   osError_t rc;
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAG_QUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -433,13 +393,13 @@ osError_t tn_mbf_empty(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_full(TN_MBF *mbf)
+osError_t tn_mbf_full(osMessageQueue_t *mbf)
 {
   osError_t rc;
 
   if (mbf == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAG_QUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
@@ -465,11 +425,11 @@ osError_t tn_mbf_full(TN_MBF *mbf)
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt)
+osError_t tn_mbf_cnt(osMessageQueue_t *mbf, int *cnt)
 {
   if (mbf == NULL || cnt == NULL)
     return TERR_WRONG_PARAM;
-  if (mbf->id != ID_MESSAGEBUF)
+  if (mbf->id != ID_MESSAG_QUEUE)
     return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION

@@ -101,7 +101,7 @@
 static bool scan_event_waitqueue(TN_EVENT *evf)
 {
   CDLL_QUEUE * que;
-  TN_TCB * task;
+  osTask_t * task;
   int fCond;
   bool rc = false;
 
@@ -263,7 +263,7 @@ osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
         rc = TERR_TIMEOUT;
       }
       else {
-        TN_TCB *task = TaskGetCurrent();
+        osTask_t *task = TaskGetCurrent();
         task->wait_info.event.mode = wait_mode;
         task->wait_info.event.pattern = wait_pattern;
         task->wait_info.event.flags_pattern = p_flags_pattern;

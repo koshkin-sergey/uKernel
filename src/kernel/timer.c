@@ -52,14 +52,14 @@ extern void calibrate_delay(void);
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-static TN_TCB timer_task;
+static osTask_t timer_task;
 static CDLL_QUEUE timer_queue;
 
 #if defined (__ICCARM__)    // IAR ARM
 #pragma data_alignment=8
 #endif
 
-__WEAK stack_t timer_task_stack[TIMER_STACK_SIZE];
+__WEAK osStack_t timer_task_stack[TIMER_STACK_SIZE];
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -70,7 +70,7 @@ void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
 __svc_indirect(0)
 void svcAlarm(void (*)(TN_ALARM*), TN_ALARM*);
 __svc_indirect(0)
-void svcAlarmStart(void (*)(TN_ALARM*, TIME_t), TN_ALARM*, TIME_t);
+void svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
 __svc_indirect(0)
 void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
 __svc_indirect(0)
@@ -131,9 +131,9 @@ __NO_RETURN static void TimerTaskFunc(void *par)
 }
 
 static
-TIME_t CyclicNextTime(TN_CYCLIC *cyc)
+osTime_t CyclicNextTime(TN_CYCLIC *cyc)
 {
-  TIME_t time, jiffies;
+  osTime_t time, jiffies;
   uint32_t n;
 
   time = cyc->timer.time + cyc->time;
@@ -189,7 +189,7 @@ void TimerTaskCreate(void *par)
   TaskCreate(&timer_task, &attr);
 }
 
-void TimerInsert(TMEB *event, TIME_t time, CBACK callback, void *arg)
+void TimerInsert(TMEB *event, osTime_t time, CBACK callback, void *arg)
 {
   CDLL_QUEUE  *que;
   TMEB        *timer;
@@ -244,12 +244,12 @@ void AlarmDelete(TN_ALARM *alarm)
 }
 
 /**
- * @fn          void AlarmStart(TN_ALARM *alarm, TIME_t time)
+ * @fn          void AlarmStart(TN_ALARM *alarm, osTime_t time)
  * @param[out]  alarm
  * @param[in]   time
  */
 static
-void AlarmStart(TN_ALARM *alarm, TIME_t timeout)
+void AlarmStart(TN_ALARM *alarm, osTime_t timeout)
 {
   if (alarm->state == TIMER_START)
     TimerDelete(&alarm->timer);
@@ -287,7 +287,7 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
   cyc->time     = param->cyc_time;
   cyc->id       = ID_CYCLIC;
 
-  TIME_t time = knlInfo.jiffies + param->cyc_phs;
+  osTime_t time = knlInfo.jiffies + param->cyc_phs;
 
   if (cyc->attr & CYCLIC_ATTR_START) {
     cyc->state = TIMER_START;
@@ -322,11 +322,11 @@ void CyclicDelete(TN_CYCLIC *cyc)
 static
 void CyclicStart(TN_CYCLIC *cyc)
 {
-  TIME_t jiffies = knlInfo.jiffies;
+  osTime_t jiffies = knlInfo.jiffies;
 
   if (cyc->attr & CYCLIC_ATTR_PHS) {
     if (cyc->state == TIMER_STOP) {
-      TIME_t time = cyc->timer.time;
+      osTime_t time = cyc->timer.time;
 
       if (time_before_eq(time, jiffies))
         time = CyclicNextTime(cyc);
@@ -367,7 +367,7 @@ void osTimerHandle(void)
     volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
     volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
     volatile int        priority;
-    TN_TCB *task = TaskGetCurrent();
+    osTask_t *task = TaskGetCurrent();
     uint16_t *tslice_ticks = knlInfo.tslice_ticks;
 
     //-------  Round -robin (if is used)
@@ -396,7 +396,7 @@ void osTimerHandle(void)
   }
 }
 
-TIME_t osGetTickCount(void)
+osTime_t osGetTickCount(void)
 {
   return knlInfo.jiffies;
 }
@@ -447,7 +447,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
 }
 
 /**
- * @fn          osError_t osAlarmStart(TN_ALARM *alarm, TIME_t time)
+ * @fn          osError_t osAlarmStart(TN_ALARM *alarm, osTime_t time)
  * @param[out]  alarm
  * @param[in]   time
  * @return      TERR_NO_ERR       Normal completion
@@ -455,7 +455,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout)
+osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
 {
   if (alarm == NULL || timeout == 0)
     return TERR_WRONG_PARAM;

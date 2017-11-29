@@ -165,12 +165,12 @@ int32_t ffs_asm(uint32_t val)
 #endif
 
 /**
- * @fn    uint32_t* StackInit(const TN_TCB *task)
+ * @fn    uint32_t* StackInit(const osTask_t *task)
  * @brief
  * @param[in] task
  * @return
  */
-void StackInit(TN_TCB *task)
+void StackInit(osTask_t *task)
 {
   uint32_t *stk = task->stk_start;              //-- Load stack pointer
   stk++;
@@ -285,26 +285,22 @@ void SVC_Handler(void)
 {
   PRESERVE8
 
-  MRS     R0,PSP                  ; Read PSP
+  MRS     R0,PSP                  ; Get PSP
   LDR     R1,[R0,#24]             ; Read Saved PC from Stack
   SUBS    R1,R1,#2                ; Point to SVC Instruction
   LDRB    R1,[R1]                 ; Load SVC Number
   CMP     R1,#0
   BNE     SVC_Exit                ; User SVC Number > 0
 
-  MOV     LR,R4
-  LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
-  MOV     R12,R4
-  MOV     R4,LR
+  PUSH    {R0,LR}                 ; Save SP and EXC_RETURN
+  LDMIA   R0,{R0-R3}              ; Read R0-R3 from stack
   BLX     R12                     ; Call SVC Function
-
-  MRS     R3,PSP                  ; Read PSP
-  STMIA   R3!,{R0-R2}             ; Store return values
+  POP     {R2,R3}                 ; Restore SP and EXC_RETURN
+  MOV     LR,R3                   ; Set EXC_RETURN
+  STMIA   R2!,{R0-R1}             ; Store function return values
 
 SVC_Exit
-  MOVS    R0,#:NOT:0xFFFFFFFD     ; Set EXC_RETURN value
-  MVNS    R0,R0
-  BX      R0                      ; RETI to Thread Mode, use PSP
+  BX      LR                      ; Exit from handler
 
   ALIGN
 }

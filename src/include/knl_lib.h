@@ -36,7 +36,7 @@
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define GetTaskByQueue(que)         container_of(que, TN_TCB, task_queue)
+#define GetTaskByQueue(que)         container_of(que, osTask_t, task_queue)
 #define GetMutexByMutexQueque(que)  container_of(que, TN_MUTEX, mutex_queue)
 #define GetMutexByWaitQueque(que)   container_of(que, TN_MUTEX, wait_queue)
 #define GetTimerByQueue(que)        container_of(que, TMEB, queue)
@@ -52,15 +52,15 @@ typedef enum {
 } kernel_state_t;
 
 typedef struct {
-  TN_TCB *curr;                     // Task that is running now
-  TN_TCB *next;                     // Task to be run after switch context
+  osTask_t *curr;                     // Task that is running now
+  osTask_t *next;                     // Task to be run after switch context
 } knlRun_t;
 
 typedef struct {
   knlRun_t run;
   uint32_t HZ;                            ///< Frequency system timer
   uint32_t os_period;
-  volatile TIME_t jiffies;
+  volatile osTime_t jiffies;
   uint32_t max_syscall_interrupt_priority;
   kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
@@ -90,25 +90,25 @@ extern knlInfo_t knlInfo;
  ******************************************************************************/
 
 /* Thread */
-void ThreadSetReady(TN_TCB *thread);
-void ThreadWaitComplete(TN_TCB *task);
-void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
-                           TIME_t timeout);
-void ThreadChangePriority(TN_TCB *task, int32_t new_priority);
-void ThreadSetPriority(TN_TCB *task, int32_t priority);
+void ThreadSetReady(osTask_t *thread);
+void ThreadWaitComplete(osTask_t *task);
+void ThreadToWaitAction(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
+                           osTime_t timeout);
+void ThreadChangePriority(osTask_t *task, int32_t new_priority);
+void ThreadSetPriority(osTask_t *task, int32_t priority);
 void ThreadWaitDelete(CDLL_QUEUE *que);
 void ThreadExit(void);
 
-void TaskCreate(TN_TCB *task, const task_create_attr_t *attr);
-void TaskToRunnable(TN_TCB *task);
-TN_TCB* TaskGetCurrent(void);
-void TaskSetCurrent(TN_TCB *task);
-TN_TCB* TaskGetNext(void);
-void TaskSetNext(TN_TCB *task);
+void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
+void TaskToRunnable(osTask_t *task);
+osTask_t* TaskGetCurrent(void);
+void TaskSetCurrent(osTask_t *task);
+osTask_t* TaskGetNext(void);
+void TaskSetNext(osTask_t *task);
 
 /* Timer */
 void TimerTaskCreate(void *par);
-void TimerInsert(TMEB *event, TIME_t time, CBACK callback, void *arg);
+void TimerInsert(TMEB *event, osTime_t time, CBACK callback, void *arg);
 void TimerDelete(TMEB *event);
 
 /* Queue */

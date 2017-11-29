@@ -105,7 +105,7 @@ int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority)
 {
   int priority;
   CDLL_QUEUE *curr_que;
-  TN_TCB *task;
+  osTask_t *task;
 
   priority = ref_priority;
   curr_que = mutex->wait_queue.next;
@@ -130,7 +130,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
 {
   CDLL_QUEUE *curr_que;
   TN_MUTEX *tmp_mutex;
-  TN_TCB *task = TaskGetCurrent();
+  osTask_t *task = TaskGetCurrent();
   int pr;
 
   //-- Delete curr mutex from task's locked mutexes queue
@@ -269,7 +269,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
 osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 {
   osError_t rc = TERR_NO_ERR;
-  TN_TCB *task;
+  osTask_t *task;
 
   if (mutex == NULL)
     return TERR_WRONG_PARAM;

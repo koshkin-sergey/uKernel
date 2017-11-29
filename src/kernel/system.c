@@ -55,8 +55,8 @@ knlInfo_t knlInfo;
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-static TN_TCB idle_task;
-__WEAK stack_t idle_task_stack[IDLE_STACK_SIZE];
+static osTask_t idle_task;
+__WEAK osStack_t idle_task_stack[IDLE_STACK_SIZE];
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)

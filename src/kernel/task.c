@@ -89,17 +89,17 @@ extern int do_unlock_mutex(TN_MUTEX *mutex);
  ******************************************************************************/
 
 __svc_indirect(0)
-osError_t svcTask(osError_t (*)(TN_TCB*), TN_TCB*);
+osError_t svcTask(osError_t (*)(osTask_t*), osTask_t*);
 __svc_indirect(0)
-void svcTaskCreate(void (*)(TN_TCB*, const task_create_attr_t*), TN_TCB*, const task_create_attr_t*);
+void svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
 __svc_indirect(0)
 void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
 __svc_indirect(0)
-void svcTaskSleep(void (*)(TIME_t), TIME_t);
+void svcTaskSleep(void (*)(osTime_t), osTime_t);
 __svc_indirect(0)
-osError_t svcTaskSetPriority(osError_t (*)(TN_TCB*, uint32_t), TN_TCB*, uint32_t);
+osError_t svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint32_t);
 __svc_indirect(0)
-TIME_t svcTaskGetTime(TIME_t (*)(TN_TCB*), TN_TCB*);
+osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -137,7 +137,7 @@ void ThreadDispatch(void)
  * @param
  * @return
  */
-void TaskToRunnable(TN_TCB *task)
+void TaskToRunnable(osTask_t *task)
 {
   task->state = TSK_STATE_RUNNABLE;
   task->pwait_queue = NULL;
@@ -157,7 +157,7 @@ void TaskToRunnable(TN_TCB *task)
  * @return
  */
 static
-void TaskToNonRunnable(TN_TCB *task)
+void TaskToNonRunnable(osTask_t *task)
 {
   int32_t priority = task->priority;
   CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
@@ -186,7 +186,7 @@ void TaskToNonRunnable(TN_TCB *task)
  * @return
  */
 static
-void task_wait_release(TN_TCB *task)
+void task_wait_release(osTask_t *task)
 {
 #ifdef USE_MUTEXES
 
@@ -213,7 +213,7 @@ void task_wait_release(TN_TCB *task)
 
   if (que && !isQueueEmpty(que)) {
     TN_MUTEX *mutex = GetMutexByWaitQueque(que);
-    TN_TCB *holder = mutex->holder;
+    osTask_t *holder = mutex->holder;
 
     if (holder != NULL) {
       /* If task was blocked by another task and its priority was changed */
@@ -235,7 +235,7 @@ void task_wait_release(TN_TCB *task)
  * @return
  */
 static
-void task_set_dormant_state(TN_TCB* task)
+void task_set_dormant_state(osTask_t* task)
 {
   QueueReset(&(task->task_queue));
   QueueReset(&(task->wait_timer.queue));
@@ -257,7 +257,7 @@ void task_set_dormant_state(TN_TCB* task)
  * @return
  */
 static
-void task_wait_release_handler(TN_TCB *task)
+void task_wait_release_handler(osTask_t *task)
 {
   task_wait_release(task);
 
@@ -266,24 +266,24 @@ void task_wait_release_handler(TN_TCB *task)
 }
 
 __FORCEINLINE
-TN_TCB* TaskGetCurrent(void)
+osTask_t* TaskGetCurrent(void)
 {
   return knlInfo.run.curr;
 }
 
 __FORCEINLINE
-void TaskSetCurrent(TN_TCB *task)
+void TaskSetCurrent(osTask_t *task)
 {
   knlInfo.run.curr = task;
 }
 
 __FORCEINLINE
-TN_TCB* TaskGetNext(void)
+osTask_t* TaskGetNext(void)
 {
   return knlInfo.run.next;
 }
 
-void TaskSetNext(TN_TCB *task)
+void TaskSetNext(osTask_t *task)
 {
   if (task == TaskGetNext() || task == TaskGetCurrent())
     return;
@@ -293,11 +293,11 @@ void TaskSetNext(TN_TCB *task)
 }
 
 /**
- * @fn    void ThreadSetReady(TN_TCB *thread)
+ * @fn    void ThreadSetReady(osTask_t *thread)
  * @brief Adds task to the end of ready queue for current priority
  * @param thread
  */
-void ThreadSetReady(TN_TCB *thread)
+void ThreadSetReady(osTask_t *thread)
 {
   knlInfo_t *info = &knlInfo;
   int32_t priority = thread->priority;
@@ -312,7 +312,7 @@ void ThreadSetReady(TN_TCB *thread)
  * Параметры: task - Указатель на задачу
  * Результат: Возвращает true при успешном выполнении, иначе возвращает false
  *----------------------------------------------------------------------------*/
-void ThreadWaitComplete(TN_TCB *task)
+void ThreadWaitComplete(osTask_t *task)
 {
   TimerDelete(&task->wait_timer);
   task_wait_release(task);
@@ -321,7 +321,7 @@ void ThreadWaitComplete(TN_TCB *task)
     *task->wait_rc = TERR_NO_ERR;
 }
 
-void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
+void ThreadChangePriority(osTask_t * task, int32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
   int32_t old_priority = task->priority;
@@ -343,7 +343,7 @@ void ThreadChangePriority(TN_TCB * task, int32_t new_priority)
 
 #ifdef USE_MUTEXES
 
-void ThreadSetPriority(TN_TCB * task, int32_t priority)
+void ThreadSetPriority(osTask_t * task, int32_t priority)
 {
   TN_MUTEX * mutex;
 
@@ -390,7 +390,7 @@ void ThreadSetPriority(TN_TCB * task, int32_t priority)
 void ThreadWaitDelete(CDLL_QUEUE *wait_que)
 {
   CDLL_QUEUE *que;
-  TN_TCB *task;
+  osTask_t *task;
 
   while (!isQueueEmpty(wait_que)) {
     que = QueueRemoveHead(wait_que);
@@ -403,7 +403,7 @@ void ThreadWaitDelete(CDLL_QUEUE *wait_que)
   }
 }
 
-void ThreadToWaitAction(TN_TCB *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, TIME_t timeout)
+void ThreadToWaitAction(osTask_t *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, osTime_t timeout)
 {
   TaskToNonRunnable(task);
 
@@ -430,11 +430,11 @@ void ThreadExit(void)
 }
 
 /**
- * @fn          void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
+ * @fn          void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
  * @param[out]  task  Pointer to the task TCB to be created
  * @param[in]   attr  Pointer to the structure with the attributes of the task to be created
  */
-void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
+void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
 {
   /* Init task TCB */
   task->func_addr = attr->func_addr;
@@ -461,13 +461,13 @@ void TaskCreate(TN_TCB *task, const task_create_attr_t *attr)
 }
 
 /**
- * @fn          osError_t TaskDelete(TN_TCB *task)
+ * @fn          osError_t TaskDelete(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be deleted
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WCONTEXT     Unacceptable system's state for this request
  */
 static
-osError_t TaskDelete(TN_TCB *task)
+osError_t TaskDelete(osTask_t *task)
 {
   /* Cannot delete not-terminated task */
   if (task->state != TSK_STATE_DORMANT)
@@ -479,13 +479,13 @@ osError_t TaskDelete(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t TaskActivate(TN_TCB *task)
+ * @fn          osError_t TaskActivate(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be activated
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
  */
 static
-osError_t TaskActivate(TN_TCB *task)
+osError_t TaskActivate(osTask_t *task)
 {
   if (task->state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
@@ -497,13 +497,13 @@ osError_t TaskActivate(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t TaskTerminate(TN_TCB *task)
+ * @fn          osError_t TaskTerminate(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be terminated
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WCONTEXT     Unacceptable system state for this request
  */
 static
-osError_t TaskTerminate(TN_TCB *task)
+osError_t TaskTerminate(osTask_t *task)
 {
   /* Cannot terminate running task */
   if (task->state == TSK_STATE_DORMANT || task == TaskGetCurrent())
@@ -545,7 +545,7 @@ osError_t TaskTerminate(TN_TCB *task)
 static
 void TaskExit(task_exit_attr_t attr)
 {
-  TN_TCB *task = TaskGetCurrent();
+  osTask_t *task = TaskGetCurrent();
 
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
@@ -568,14 +568,14 @@ void TaskExit(task_exit_attr_t attr)
 }
 
 /**
- * @fn          osError_t TaskSuspend(TN_TCB *task)
+ * @fn          osError_t TaskSuspend(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be suspended
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_OVERFLOW     Task already suspended
  *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
  */
 static
-osError_t TaskSuspend(TN_TCB *task)
+osError_t TaskSuspend(osTask_t *task)
 {
   if (task->state & TSK_STATE_SUSPEND)
     return TERR_OVERFLOW;
@@ -594,7 +594,7 @@ osError_t TaskSuspend(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t TaskResume(TN_TCB *task)
+ * @fn          osError_t TaskResume(osTask_t *task)
  * @param[out]  task  Pointer to task TCB to be resumed
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
@@ -603,7 +603,7 @@ osError_t TaskSuspend(TN_TCB *task)
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
 static
-osError_t TaskResume(TN_TCB *task)
+osError_t TaskResume(osTask_t *task)
 {
   if (!(task->state & TSK_STATE_SUSPEND))
     return TERR_WSTATE;
@@ -619,26 +619,26 @@ osError_t TaskResume(TN_TCB *task)
 }
 
 /**
- * @fn        void TaskSleep(TIME_t timeout)
+ * @fn        void TaskSleep(osTime_t timeout)
  * @param[in] timeout   Timeout value must be greater than 0.
  */
 static
-void TaskSleep(TIME_t timeout)
+void TaskSleep(osTime_t timeout)
 {
-  TN_TCB *task = TaskGetCurrent();
+  osTask_t *task = TaskGetCurrent();
 
   task->wait_rc = NULL;
   ThreadToWaitAction(task, NULL, WAIT_REASON_SLEEP, timeout);
 }
 
 /**
- * @fn          osError_t TaskWakeup(TN_TCB *task)
+ * @fn          osError_t TaskWakeup(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be wake up
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WSTATE       Task is not in WAIT state
  */
 static
-osError_t TaskWakeup(TN_TCB *task)
+osError_t TaskWakeup(osTask_t *task)
 {
   if (!(task->state & TSK_STATE_WAIT) || (task->wait_reason != WAIT_REASON_SLEEP))
     return TERR_WSTATE;
@@ -649,13 +649,13 @@ osError_t TaskWakeup(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t TaskReleaseWait(TN_TCB *task)
+ * @fn          osError_t TaskReleaseWait(osTask_t *task)
  * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WCONTEXT     Unacceptable system's state for function's request executing
  */
 static
-osError_t TaskReleaseWait(TN_TCB *task)
+osError_t TaskReleaseWait(osTask_t *task)
 {
   if (!(task->state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
@@ -666,7 +666,7 @@ osError_t TaskReleaseWait(TN_TCB *task)
 }
 
 static
-osError_t TaskSetPriority(TN_TCB *task, uint32_t new_priority)
+osError_t TaskSetPriority(osTask_t *task, uint32_t new_priority)
 {
   if (new_priority == 0)
     new_priority = task->base_priority;
@@ -683,12 +683,12 @@ osError_t TaskSetPriority(TN_TCB *task, uint32_t new_priority)
 }
 
 static
-TIME_t TaskGetTime(TN_TCB *task)
+osTime_t TaskGetTime(osTask_t *task)
 {
   return task->time;
 }
 
-TIME_t osTaskGetTime(TN_TCB *task)
+osTime_t osTaskGetTime(osTask_t *task)
 {
   if (task == NULL)
     return 0;
@@ -701,7 +701,7 @@ TIME_t osTaskGetTime(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
  * @brief       Creates a task.
  * @param[out]  task          Pointer to the task TCB to be created
  * @param[in]   func          Task body function
@@ -716,7 +716,7 @@ TIME_t osTaskGetTime(TN_TCB *task)
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskCreate(TN_TCB *task,
+osError_t osTaskCreate(osTask_t *task,
                        void (*func)(void *),
                        int32_t priority,
                        const uint32_t *stack_start,
@@ -753,7 +753,7 @@ osError_t osTaskCreate(TN_TCB *task,
 }
 
 /**
- * @fn          osError_t osTaskDelete(TN_TCB *task)
+ * @fn          osError_t osTaskDelete(osTask_t *task)
  * @brief       Deletes the task specified by the task.
  * @param[out]  task  Pointer to the task TCB to be deleted
  * @return      TERR_NO_ERR       Normal completion
@@ -762,7 +762,7 @@ osError_t osTaskCreate(TN_TCB *task,
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskDelete(TN_TCB *task)
+osError_t osTaskDelete(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -775,7 +775,7 @@ osError_t osTaskDelete(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t osTaskActivate(TN_TCB *task)
+ * @fn          osError_t osTaskActivate(osTask_t *task)
  * @brief       Activates a task specified by the task
  * @param[out]  task  Pointer to the task TCB to be activated
  * @return      TERR_NO_ERR       Normal completion
@@ -784,7 +784,7 @@ osError_t osTaskDelete(TN_TCB *task)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskActivate(TN_TCB *task)
+osError_t osTaskActivate(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -797,7 +797,7 @@ osError_t osTaskActivate(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t osTaskTerminate(TN_TCB *task)
+ * @fn          osError_t osTaskTerminate(osTask_t *task)
  * @brief       Terminates the task specified by the task
  * @param[out]  task  Pointer to the task TCB to be terminated
  * @return      TERR_NO_ERR       Normal completion
@@ -806,7 +806,7 @@ osError_t osTaskActivate(TN_TCB *task)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskTerminate(TN_TCB *task)
+osError_t osTaskTerminate(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -834,7 +834,7 @@ void osTaskExit(task_exit_attr_t attr)
 }
 
 /**
- * @fn          osError_t osTaskSuspend(TN_TCB *task)
+ * @fn          osError_t osTaskSuspend(osTask_t *task)
  * @brief       Suspends the task specified by the task
  * @param[out]  task  Pointer to the task TCB to be suspended
  * @return      TERR_NO_ERR       Normal completion
@@ -844,7 +844,7 @@ void osTaskExit(task_exit_attr_t attr)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskSuspend(TN_TCB *task)
+osError_t osTaskSuspend(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -857,7 +857,7 @@ osError_t osTaskSuspend(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t osTaskResume(TN_TCB *task)
+ * @fn          osError_t osTaskResume(osTask_t *task)
  * @brief       Releases the task specified by the task from the SUSPENDED state
  * @param[out]  task  Pointer to task TCB to be resumed
  * @return      TERR_NO_ERR       Normal completion
@@ -866,7 +866,7 @@ osError_t osTaskSuspend(TN_TCB *task)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskResume(TN_TCB *task)
+osError_t osTaskResume(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -879,7 +879,7 @@ osError_t osTaskResume(TN_TCB *task)
 }
 
 /**
- * @fn        osError_t osTaskSleep(TIME_t timeout)
+ * @fn        osError_t osTaskSleep(osTime_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
  *                      A value of TIME_WAIT_INFINITE causes an infinite delay.
@@ -887,7 +887,7 @@ osError_t osTaskResume(TN_TCB *task)
  *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *            TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskSleep(TIME_t timeout)
+osError_t osTaskSleep(osTime_t timeout)
 {
   if (timeout == 0)
     return TERR_WRONG_PARAM;
@@ -900,7 +900,7 @@ osError_t osTaskSleep(TIME_t timeout)
 }
 
 /**
- * @fn          osError_t osTaskWakeup(TN_TCB *task)
+ * @fn          osError_t osTaskWakeup(osTask_t *task)
  * @brief       Wakes up the task specified by the task from sleep mode
  * @param[out]  task  Pointer to the task TCB to be wake up
  * @return      TERR_NO_ERR       Normal completion
@@ -909,7 +909,7 @@ osError_t osTaskSleep(TIME_t timeout)
  *              TERR_WSTATE       Task is not in WAIT state
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskWakeup(TN_TCB *task)
+osError_t osTaskWakeup(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -922,7 +922,7 @@ osError_t osTaskWakeup(TN_TCB *task)
 }
 
 /**
- * @fn          osError_t osTaskReleaseWait(TN_TCB *task)
+ * @fn          osError_t osTaskReleaseWait(osTask_t *task)
  * @brief       Forcibly releases the task specified by the task from waiting
  * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
  * @return      TERR_NO_ERR       Normal completion
@@ -931,7 +931,7 @@ osError_t osTaskWakeup(TN_TCB *task)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskReleaseWait(TN_TCB *task)
+osError_t osTaskReleaseWait(osTask_t *task)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;
@@ -943,7 +943,7 @@ osError_t osTaskReleaseWait(TN_TCB *task)
   return svcTask(TaskReleaseWait, task);
 }
 
-osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority)
+osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority)
 {
   if (task == NULL)
     return TERR_WRONG_PARAM;

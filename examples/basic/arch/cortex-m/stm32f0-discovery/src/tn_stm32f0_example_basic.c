@@ -44,11 +44,11 @@
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-static TN_TCB task_A;
-static TN_TCB task_B;
+static osTask_t task_A;
+static osTask_t task_B;
 
-stack_t task_A_stack[TASK_A_STK_SIZE];
-stack_t task_B_stack[TASK_B_STK_SIZE];
+osStack_t task_A_stack[TASK_A_STK_SIZE];
+osStack_t task_B_stack[TASK_B_STK_SIZE];
 
 static volatile bool done_a;
 

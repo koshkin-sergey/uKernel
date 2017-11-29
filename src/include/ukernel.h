@@ -64,7 +64,7 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define stack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
+#define osStack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
 /* - The system configuration (change it for your particular project) --------*/
 #define USE_MUTEXES           1
@@ -113,7 +113,7 @@ typedef enum {
   ID_RENDEZVOUS   = 0x74289EBD,
   ID_ALARM        = 0x7A5762BC,
   ID_CYCLIC       = 0x2B8F746B,
-  ID_MESSAGEBUF   = 0x1C9A6C89,
+  ID_MESSAG_QUEUE = 0x1C9A6C89,
 } id_t;
 
 /// Error code values returned by uKernel functions.
@@ -167,7 +167,7 @@ typedef enum {
   wait_reason_reserved      = 0x7fffffff
 } wait_reason_t;
 
-typedef uint32_t TIME_t;
+typedef uint32_t osTime_t;
 
 typedef void (*CBACK)(void *);
 
@@ -183,6 +183,26 @@ typedef struct timer_event_block {
   CBACK callback;   /**< Callback function */
   void *arg;        /**< Argument to be sent to callback function */
 } TMEB;
+
+/* - Message Queue -----------------------------------------------------------*/
+typedef struct osMessageQueue_s {
+  id_t id;                // Message buffer ID
+  CDLL_QUEUE send_queue;  // Message buffer send wait queue
+  CDLL_QUEUE recv_queue;  // Message buffer receive wait queue
+  uint8_t *buf;           // Message buffer address
+  uint32_t msz;           // Message size in bytes
+  uint32_t num_entries;   // Capacity of data_fifo(num entries)
+  uint32_t cnt;           // Number of queued messages
+  uint32_t tail;          // Next to the last message store address
+  uint32_t head;          // First message store address
+} osMessageQueue_t;
+
+typedef enum {
+  osMsgPriorityLow        = 0,
+  osMsgPriorityHigh       = 1,
+  osMsgPriority_reserved  = 0x7fffffff,
+} osMsgPriority_t;
+
 
 typedef struct {
   void **data_elem;
@@ -206,8 +226,8 @@ typedef struct {
 
 typedef struct {
   void *msg; /* Send message head address */
-  bool send_to_first;
-} WINFO_SMBF;
+  osMsgPriority_t msg_pri;
+} WINFO_SMQ;
 
 typedef struct {
   unsigned int pattern;   // Event wait pattern
@@ -222,13 +242,13 @@ typedef union {
   WINFO_RDQUE rdque;
   WINFO_SDQUE sdque;
   WINFO_RMBF rmbf;
-  WINFO_SMBF smbf;
+  WINFO_SMQ smbf;
   WINFO_FMEM fmem;
   WINFO_EVENT event;
 } WINFO;
 
 /* - Task Control Block ------------------------------------------------------*/
-typedef struct _TN_TCB {
+typedef struct osTask_s {
   uint32_t *task_stk;         ///< Pointer to task's top of stack
   CDLL_QUEUE task_queue;      ///< Queue is used to include task in ready/wait lists
   CDLL_QUEUE *pwait_queue;    ///< Ptr to object's(semaphor,event,etc.) wait list
@@ -248,16 +268,16 @@ typedef struct _TN_TCB {
   WINFO wait_info;            ///< Wait information
   TMEB wait_timer;            ///< Wait timer
   int tslice_count;           ///< Time slice counter
-  TIME_t time;                ///< Time work task
-} TN_TCB;
+  osTime_t time;              ///< Time work task
+} osTask_t;
 
 /* - Semaphore ---------------------------------------------------------------*/
-typedef struct _TN_SEM {
+typedef struct osSemaphore_s {
   CDLL_QUEUE wait_queue;
   uint32_t count;
   uint32_t max_count;
   id_t id;                    ///< ID for verification(is it a semaphore or another object?)
-} TN_SEM;
+} osSemaphore_t;
 
 /* - Eventflag ---------------------------------------------------------------*/
 typedef struct _TN_EVENT {
@@ -295,7 +315,7 @@ typedef struct _TN_MUTEX {
   CDLL_QUEUE wait_queue;       //-- List of tasks that wait a mutex
   CDLL_QUEUE mutex_queue; //-- To include in task's locked mutexes list (if any)
   int attr;             //-- Mutex creation attr - CEILING or INHERIT
-  TN_TCB *holder;          //-- Current mutex owner(task that locked mutex)
+  osTask_t *holder;          //-- Current mutex owner(task that locked mutex)
   int ceil_priority;    //-- When mutex created with CEILING attr
   int cnt;              //-- Reserved
   id_t id;              //-- ID for verification(is it a mutex or another object?)
@@ -341,18 +361,6 @@ typedef struct _TN_CYCLIC {
   id_t id;                  /**< ID for verification */
 } TN_CYCLIC;
 
-/* - Message Buffer ----------------------------------------------------------*/
-typedef struct _TN_MBF {
-  CDLL_QUEUE send_queue;  // Message buffer send wait queue
-  CDLL_QUEUE recv_queue;  // Message buffer receive wait queue
-  char *buf;              // Message buffer address
-  int msz;                // Length of message
-  int num_entries;        // Capacity of data_fifo(num entries)
-  int cnt;                // Кол-во данных в очереди
-  int tail;               // Next to the last message store address
-  int head;               // First message store address
-  id_t id;                // Message buffer ID
-} TN_MBF;
 
 /* - User functions ----------------------------------------------------------*/
 typedef void (*TN_USER_FUNC)(void);
@@ -386,13 +394,13 @@ int tn_sys_tslice_ticks(int priority, int value);
 
 void osTimerHandle(void);
 
-TIME_t osGetTickCount(void);
+osTime_t osGetTickCount(void);
 
 osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf);
 
 osError_t osAlarmDelete(TN_ALARM *alarm);
 
-osError_t osAlarmStart(TN_ALARM *alarm, TIME_t timeout);
+osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout);
 
 osError_t osAlarmStop(TN_ALARM *alarm);
 
@@ -407,7 +415,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc);
 /* - Task --------------------------------------------------------------------*/
 
 /**
- * @fn          osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
  * @brief       Creates a task.
  * @param[out]  task          Pointer to the task TCB to be created
  * @param[in]   func          Task body function
@@ -422,10 +430,10 @@ osError_t osCyclicStop(TN_CYCLIC *cyc);
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
+osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
 
 /**
- * @fn          osError_t osTaskDelete(TN_TCB *task)
+ * @fn          osError_t osTaskDelete(osTask_t *task)
  * @brief       Deletes the task specified by the task.
  * @param[out]  task  Pointer to the task TCB to be deleted
  * @return      TERR_NO_ERR       Normal completion
@@ -434,10 +442,10 @@ osError_t osTaskCreate(TN_TCB *task, void (*func)(void *), int32_t priority, con
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskDelete(TN_TCB *task);
+osError_t osTaskDelete(osTask_t *task);
 
 /**
- * @fn          osError_t osTaskActivate(TN_TCB *task)
+ * @fn          osError_t osTaskActivate(osTask_t *task)
  * @brief       Activates a task specified by the task
  * @param[out]  task  Pointer to the task TCB to be activated
  * @return      TERR_NO_ERR       Normal completion
@@ -446,10 +454,10 @@ osError_t osTaskDelete(TN_TCB *task);
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskActivate(TN_TCB *task);
+osError_t osTaskActivate(osTask_t *task);
 
 /**
- * @fn          osError_t osTaskTerminate(TN_TCB *task)
+ * @fn          osError_t osTaskTerminate(osTask_t *task)
  * @brief       Terminates the task specified by the task
  * @param[out]  task  Pointer to the task TCB to be terminated
  * @return      TERR_NO_ERR       Normal completion
@@ -458,7 +466,7 @@ osError_t osTaskActivate(TN_TCB *task);
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskTerminate(TN_TCB *task);
+osError_t osTaskTerminate(osTask_t *task);
 
 /**
  * @fn        void osTaskExit(task_exit_attr_t attr)
@@ -470,7 +478,7 @@ osError_t osTaskTerminate(TN_TCB *task);
 void osTaskExit(task_exit_attr_t attr);
 
 /**
- * @fn          osError_t osTaskSuspend(TN_TCB *task)
+ * @fn          osError_t osTaskSuspend(osTask_t *task)
  * @brief       Suspends the task specified by the task
  * @param[out]  task  Pointer to the task TCB to be suspended
  * @return      TERR_NO_ERR       Normal completion
@@ -480,10 +488,10 @@ void osTaskExit(task_exit_attr_t attr);
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskSuspend(TN_TCB *task);
+osError_t osTaskSuspend(osTask_t *task);
 
 /**
- * @fn          osError_t osTaskResume(TN_TCB *task)
+ * @fn          osError_t osTaskResume(osTask_t *task)
  * @brief       Releases the task specified by the task from the SUSPENDED state
  * @param[out]  task  Pointer to task TCB to be resumed
  * @return      TERR_NO_ERR       Normal completion
@@ -492,10 +500,10 @@ osError_t osTaskSuspend(TN_TCB *task);
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskResume(TN_TCB *task);
+osError_t osTaskResume(osTask_t *task);
 
 /**
- * @fn        osError_t osTaskSleep(TIME_t timeout)
+ * @fn        osError_t osTaskSleep(osTime_t timeout)
  * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
  * @param[in] timeout   Timeout value must be greater than 0.
  *                      A value of TIME_WAIT_INFINITE causes an infinite delay.
@@ -504,10 +512,10 @@ osError_t osTaskResume(TN_TCB *task);
  *            TERR_NOEXS        Object is not a task or non-existent
  *            TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskSleep(TIME_t timeout);
+osError_t osTaskSleep(osTime_t timeout);
 
 /**
- * @fn          osError_t osTaskWakeup(TN_TCB *task)
+ * @fn          osError_t osTaskWakeup(osTask_t *task)
  * @brief       Wakes up the task specified by the task from sleep mode
  * @param[out]  task  Pointer to the task TCB to be wake up
  * @return      TERR_NO_ERR       Normal completion
@@ -516,10 +524,10 @@ osError_t osTaskSleep(TIME_t timeout);
  *              TERR_WSTATE       Task is not in WAIT state
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskWakeup(TN_TCB *task);
+osError_t osTaskWakeup(osTask_t *task);
 
 /**
- * @fn          osError_t osTaskReleaseWait(TN_TCB *task)
+ * @fn          osError_t osTaskReleaseWait(osTask_t *task)
  * @brief       Forcibly releases the task specified by the task from waiting
  * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
  * @return      TERR_NO_ERR       Normal completion
@@ -528,15 +536,15 @@ osError_t osTaskWakeup(TN_TCB *task);
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskReleaseWait(TN_TCB *task);
+osError_t osTaskReleaseWait(osTask_t *task);
 
-osError_t osTaskSetPriority(TN_TCB *task, uint32_t new_priority);
+osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority);
 
-TIME_t osTaskGetTime(TN_TCB *task);
+osTime_t osTaskGetTime(osTask_t *task);
 
 /* - Semaphore ---------------------------------------------------------------*/
 /**
- * @fn          osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count)
+ * @fn          osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
  * @brief       Creates a semaphore
  * @param[out]  sem             Pointer to the semaphore structure to be created
  * @param[in]   initial_count   Initial number of available tokens
@@ -545,10 +553,10 @@ TIME_t osTaskGetTime(TN_TCB *task);
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count);
+osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count);
 
 /**
- * @fn          osError_t osSemaphoreDelete(TN_SEM *sem)
+ * @fn          osError_t osSemaphoreDelete(osSemaphore_t *sem)
  * @brief       Deletes a semaphore
  * @param[out]  sem   Pointer to the semaphore structure to be deleted
  * @return      TERR_NO_ERR       Normal completion
@@ -556,10 +564,10 @@ osError_t osSemaphoreNew(TN_SEM *sem, uint32_t initial_count, uint32_t max_count
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osSemaphoreDelete(TN_SEM *sem);
+osError_t osSemaphoreDelete(osSemaphore_t *sem);
 
 /**
- * @fn          osError_t osSemaphoreRelease(TN_SEM *sem)
+ * @fn          osError_t osSemaphoreRelease(osSemaphore_t *sem)
  * @brief       Release a Semaphore token up to the initial maximum count.
  * @param[out]  sem   Pointer to the semaphore structure to be released
  * @return      TERR_NO_ERR       Normal completion
@@ -567,10 +575,10 @@ osError_t osSemaphoreDelete(TN_SEM *sem);
  *              TERR_OVERFLOW     Semaphore Resource has max_count value
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  */
-osError_t osSemaphoreRelease(TN_SEM *sem);
+osError_t osSemaphoreRelease(osSemaphore_t *sem);
 
 /**
- * @fn          osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout)
+ * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
  * @param[out]  sem       Pointer to the semaphore structure to be acquired
  * @param[in]   timeout   Timeout value must be equal or greater than 0
@@ -579,7 +587,7 @@ osError_t osSemaphoreRelease(TN_SEM *sem);
  *              TERR_TIMEOUT      Timeout expired
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  */
-osError_t osSemaphoreAcquire(TN_SEM *sem, TIME_t timeout);
+osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout);
 
 /* - tn_dqueue.c -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------*
@@ -701,80 +709,15 @@ osError_t tn_queue_full(TN_DQUE *dque);
  *----------------------------------------------------------------------------*/
 osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt);
 
-/* - tn_message_buf.c --------------------------------------------------------*/
+/* - Message Queue -----------------------------------------------------------*/
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_create
- * Описание : Создает буфер сообщений.
- * Параметры: mbf - Указатель на существующую структуру TN_MBF.
- *            buf - Указатель на выделенную под буфер сообщений область памяти.
- *                  Может быть равен NULL.
- *            bufsz - Размер буфера сообщений в байтах. Может быть равен 0,
- *                    тогда задачи общаются через буфер в синхронном режиме.
- *            msz - Размер сообщения в байтах. Должен быть больше нуля.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_create(TN_MBF *mbf, void *buf, int bufsz, int msz);
+osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_delete
- * Описание : Удаляет буфер сообщений.
- * Параметры: mbf - Указатель на существующую структуру TN_MBF.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер сообщений не существует;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_delete(TN_MBF *mbf);
+osError_t osMessageQueueDelete(osMessageQueue_t *mq);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_send
- * Описание : Помещает данные в конец буфера сообщений за установленный
- *            интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            timeout - Время, в течении которого данные должны быть помещены
- *                      в буфер.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_send(TN_MBF *mbf, void *msg, unsigned long timeout);
+osError_t osMessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_pri, osTime_t timeout);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_send_first
- * Описание : Помещает данные в начало буфера сообщений за установленный
- *            интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            timeout - Время, в течении которого данные должны быть помещены
- *                      в буфер.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_send_first(TN_MBF *mbf, void *msg, unsigned long timeout);
-
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_receive
- * Описание : Считывает один элемент данных из начала буфера сообщений
- *            за установленный интервал времени.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на буфер, куда будут считаны данные.
- *            timeout - Время, в течении которого данные должны быть считаны.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не существует;
- *              TERR_TIMEOUT  - Превышен заданный интервал времени;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout);
+osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_flush
@@ -785,7 +728,7 @@ extern osError_t tn_mbf_receive(TN_MBF *mbf, void *msg, unsigned long timeout);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_flush(TN_MBF *mbf);
+osError_t tn_mbf_flush(osMessageQueue_t *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_empty
@@ -797,7 +740,7 @@ extern osError_t tn_mbf_flush(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер не был создан.
  *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_empty(TN_MBF *mbf);
+osError_t tn_mbf_empty(osMessageQueue_t *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_full
@@ -809,7 +752,7 @@ extern osError_t tn_mbf_empty(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_full(TN_MBF *mbf);
+osError_t tn_mbf_full(osMessageQueue_t *mbf);
 
 /*-----------------------------------------------------------------------------*
  * Название : tn_mbf_cnt
@@ -822,7 +765,7 @@ extern osError_t tn_mbf_full(TN_MBF *mbf);
  *              TERR_WRONG_PARAM  - некорректно заданы параметры;
  *              TERR_NOEXS  - буфер сообщений не был создан.
  *----------------------------------------------------------------------------*/
-extern osError_t tn_mbf_cnt(TN_MBF *mbf, int *cnt);
+osError_t tn_mbf_cnt(osMessageQueue_t *mbf, int *cnt);
 
 /* - tn_event.c --------------------------------------------------------------*/
 

@@ -144,7 +144,7 @@
  ******************************************************************************/
 
 void archKernelStart(void);
-void StackInit(TN_TCB *task);
+void StackInit(osTask_t *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 
