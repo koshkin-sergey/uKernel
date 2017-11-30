@@ -135,7 +135,7 @@ osError_t SemaphoreDelete(osSemaphore_t *sem)
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
-  ThreadWaitDelete(&sem->wait_queue);
+  TaskWaitDelete(&sem->wait_queue);
   sem->id = ID_INVALID;
 
   return TERR_NO_ERR;
@@ -155,19 +155,22 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
+  BEGIN_CRITICAL_SECTION
+
   if (!isQueueEmpty(&sem->wait_queue)) {
-    CDLL_QUEUE *que = QueueRemoveHead(&sem->wait_queue);
-    osTask_t *task = GetTaskByQueue(que);
-    ThreadWaitComplete(task);
-  }
-  else if (sem->count < sem->max_count) {
-    sem->count++;
-  }
-  else {
-    return TERR_OVERFLOW;
+    ThreadWaitComplete(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)));
+    END_CRITICAL_SECTION
+    return TERR_NO_ERR;
   }
 
-  return TERR_NO_ERR;
+  if (sem->count < sem->max_count) {
+    sem->count++;
+    END_CRITICAL_SECTION
+    return TERR_NO_ERR;
+  }
+
+  END_CRITICAL_SECTION
+  return TERR_OVERFLOW;
 }
 
 /**
@@ -185,16 +188,22 @@ osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
+  BEGIN_CRITICAL_SECTION
+
   if (sem->count > 0U) {
     sem->count--;
+    END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }
 
-  if (timeout == 0U)
+  if (timeout == 0U) {
+    END_CRITICAL_SECTION
     return TERR_TIMEOUT;
+  }
 
   TaskWaitEnter(TaskGetCurrent(), &sem->wait_queue, WAIT_REASON_SEM, timeout);
 
+  END_CRITICAL_SECTION
   return TERR_TIMEOUT;
 }
 

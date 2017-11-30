@@ -279,8 +279,8 @@ osError_t tn_queue_delete(TN_DQUE *dque)
 
   BEGIN_CRITICAL_SECTION
 
-  ThreadWaitDelete(&dque->wait_send_list);
-  ThreadWaitDelete(&dque->wait_receive_list);
+  TaskWaitDelete(&dque->wait_send_list);
+  TaskWaitDelete(&dque->wait_receive_list);
 
   dque->id = ID_INVALID; // Data queue not exists now
 

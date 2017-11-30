@@ -96,7 +96,7 @@ void TaskWaitEnter(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reas
                            osTime_t timeout);
 void ThreadChangePriority(osTask_t *task, int32_t new_priority);
 void ThreadSetPriority(osTask_t *task, int32_t priority);
-void ThreadWaitDelete(CDLL_QUEUE *que);
+void TaskWaitDelete(CDLL_QUEUE *que);
 void ThreadExit(void);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);

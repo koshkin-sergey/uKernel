@@ -205,6 +205,7 @@ void PendSV_Handler(void)
   PRESERVE8
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+  cpsid  I                          ; Disable core int
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3!, {r1,r2}
@@ -238,13 +239,15 @@ void PendSV_Handler(void)
 
 exit_context_switch
 
+  cpsie  I                          ; enable core int
+
   ldr    r0, =0xFFFFFFFD
 
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-;  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
-;  msr    BASEPRI, r0                ; Start critical section
+  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
+  msr    BASEPRI, r0                ; Start critical section
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3, {r1,r2}
@@ -261,8 +264,8 @@ exit_context_switch
 
 exit_context_switch
 
-;  mov    r0, #0
-;  msr    BASEPRI, r0                ; End critical section
+  mov    r0, #0
+  msr    BASEPRI, r0                ; End critical section
 
   ldr    r0, =0xFFFFFFFD
 
@@ -289,15 +292,18 @@ void SVC_Handler(void)
   CMP     R1,#0
   BNE     SVC_Exit                ; User SVC Number > 0
 
-  PUSH    {R0,LR}                 ; Save SP and EXC_RETURN
-  LDMIA   R0,{R0-R3}              ; Read R0-R3 from stack
-  BLX     R12                     ; Call SVC Function
-  POP     {R2,R3}                 ; Restore SP and EXC_RETURN
-  MOV     LR,R3                   ; Set EXC_RETURN
-  STMIA   R2!,{R0-R1}             ; Store function return values
+  PUSH    {R4}
+  LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
+  MOV     R12,R4
+  POP     {R4}
+  BLX     R12                     ; Call SVC Function 
+  MRS     R2,PSP                  ; Read PSP
+  STMIA   R2!,{R0-R1}             ; Store return values
 
+;  B       PendSV_Handler
 SVC_Exit
-  BX      LR                      ; Exit from handler
+  LDR     R0,=0xFFFFFFFD          ; Set EXC_RETURN value
+  BX      R0                      ; RETI to Thread Mode, use PSP
 
   ALIGN
 }

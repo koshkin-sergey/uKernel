@@ -252,7 +252,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
   }
 
   //-- Remove all tasks(if any) from mutex's wait queue
-  ThreadWaitDelete(&mutex->wait_queue);
+  TaskWaitDelete(&mutex->wait_queue);
 
   if (mutex->holder != NULL) {  //-- If the mutex is locked
     do_unlock_mutex(mutex);

@@ -197,7 +197,7 @@ osError_t tn_fmem_delete(TN_FMP *fmp)
 
   BEGIN_CRITICAL_SECTION
 
-  ThreadWaitDelete(&fmp->wait_queue);
+  TaskWaitDelete(&fmp->wait_queue);
 
   fmp->id = ID_INVALID;   //-- Fixed-size memory pool not exists now
 

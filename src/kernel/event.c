@@ -194,7 +194,7 @@ osError_t tn_event_delete(TN_EVENT *evf)
 
   BEGIN_CRITICAL_SECTION
 
-  ThreadWaitDelete(&evf->wait_queue);
+  TaskWaitDelete(&evf->wait_queue);
 
   evf->id = ID_INVALID; // Event not exists now
 

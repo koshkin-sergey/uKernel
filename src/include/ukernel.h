@@ -626,8 +626,8 @@ typedef enum {
   WAIT_REASON_MUTEX_I       = 0x0080,
   WAIT_REASON_MUTEX_H       = 0x0100,
   WAIT_REASON_RENDEZVOUS    = 0x0200,
-  WAIT_REASON_MBF_WSEND     = 0x0400,
-  WAIT_REASON_MBF_WRECEIVE  = 0x0800,
+  WAIT_REASON_MQUE_WSEND    = 0x0400,
+  WAIT_REASON_MQUE_WRECEIVE = 0x0800,
   WAIT_REASON_WFIXMEM       = 0x1000,
   wait_reason_reserved      = 0x7fffffff
 } wait_reason_t;
@@ -687,12 +687,12 @@ typedef struct {
  */
 typedef struct {
   void *msg; /* Address that has a received message */
-} WINFO_RMQ;
+} WINFO_RMQUE;
 
 typedef struct {
   void *msg; /* Send message head address */
   osMsgPriority_t msg_pri;
-} WINFO_SMQ;
+} WINFO_SMQUE;
 
 typedef struct {
   unsigned int pattern;   // Event wait pattern
@@ -706,8 +706,8 @@ typedef struct {
 typedef union {
   WINFO_RDQUE rdque;
   WINFO_SDQUE sdque;
-  WINFO_RMQ rmq;
-  WINFO_SMQ smq;
+  WINFO_RMQUE rmque;
+  WINFO_SMQUE smque;
   WINFO_FMEM fmem;
   WINFO_EVENT event;
 } WINFO;

@@ -269,7 +269,9 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
 static
 void TaskWaitExit_Handler(osTask_t *task)
 {
+  BEGIN_CRITICAL_SECTION
   TaskWaitExit(task, TERR_TIMEOUT);
+  END_CRITICAL_SECTION
 }
 
 void ThreadWaitComplete(osTask_t *task)
@@ -278,7 +280,7 @@ void ThreadWaitComplete(osTask_t *task)
   TaskWaitExit(task, TERR_NO_ERR);
 }
 
-void ThreadWaitDelete(CDLL_QUEUE *wait_que)
+void TaskWaitDelete(CDLL_QUEUE *wait_que)
 {
   osTask_t *task;
 
