@@ -10,8 +10,6 @@
  *  includes
  ******************************************************************************/
 
-#include <stddef.h>
-#include <stdint.h>
 #include "ukernel.h"
 #include "stm32f0xx.h"
 #include "system_stm32f0xx.h"
@@ -148,7 +146,7 @@ int main(void)
   /* Старт операционной системы */
   tn_opt.app_init       = app_init;
   tn_opt.freq_timer     = HZ;
-  KernelStart(&tn_opt);
+  osKernelStart(&tn_opt);
 
   return (-1);
 }
