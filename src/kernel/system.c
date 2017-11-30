@@ -102,11 +102,11 @@ void IdleTaskCreate(void)
  ******************************************************************************/
 
 /**
- * @brief Initial TNKernel system start function, never returns. Typically
+ * @brief Initial Kernel system start function, never returns. Typically
  *        called from main().
  * @param opt - Pointer to struct TN_OPTIONS.
  */
-void KernelStart(TN_OPTIONS *opt)
+void osKernelStart(TN_OPTIONS *opt)
 {
   __disable_irq();
 
@@ -133,6 +133,8 @@ void KernelStart(TN_OPTIONS *opt)
 
   //-- Run OS - first context switch
   archKernelStart();
+
+  for(;;);
 }
 
 #if defined(ROUND_ROBIN_ENABLE)

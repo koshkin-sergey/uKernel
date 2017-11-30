@@ -90,7 +90,7 @@ void SystemIsrInit(void)
 void archKernelStart(void)
 {
   SystemIsrInit();
-  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0);
+  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
   archSwitchContextRequest();
   __enable_irq();
 }
@@ -192,7 +192,7 @@ void StackInit(osTask_t *task)
   *(--stk) = 0x05050505L;                       //-- R5
   *(--stk) = 0x04040404L;                       //-- R4
 
-  task->stk = stk;
+  task->stk = (uint32_t)stk;
 }
 
 /**
@@ -205,7 +205,6 @@ void PendSV_Handler(void)
   PRESERVE8
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-  cpsid  I                          ; Disable core int
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3!, {r1,r2}
@@ -239,15 +238,13 @@ void PendSV_Handler(void)
 
 exit_context_switch
 
-  cpsie  I                          ; enable core int
-
   ldr    r0, =0xFFFFFFFD
 
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
-  msr    BASEPRI, r0                ; Start critical section
+;  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
+;  msr    BASEPRI, r0                ; Start critical section
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3, {r1,r2}
@@ -264,8 +261,8 @@ exit_context_switch
 
 exit_context_switch
 
-  mov    r0, #0
-  msr    BASEPRI, r0                ; End critical section
+;  mov    r0, #0
+;  msr    BASEPRI, r0                ; End critical section
 
   ldr    r0, =0xFFFFFFFD
 

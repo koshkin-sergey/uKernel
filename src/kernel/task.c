@@ -110,10 +110,10 @@ void TaskWaitExit_Handler(osTask_t *task);
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static
+__STATIC_FORCEINLINE
 uint32_t* TaskRegPtr(osTask_t *task)
 {
-  return (task->stk + STACK_OFFSET_R0);
+  return (uint32_t *)(task->stk + STACK_OFFSET_R0());
 }
 
 /**
