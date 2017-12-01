@@ -568,17 +568,17 @@
  ******************************************************************************/
 
 typedef enum {
-  ID_INVALID      = 0x00000000,
-  ID_TASK         = 0x47ABCF69,
-  ID_SEMAPHORE    = 0x6FA173EB,
-  ID_EVENT        = 0x5E224F25,
-  ID_DATAQUEUE    = 0x0C8A6C89,
-  ID_FSMEMORYPOOL = 0x26B7CE8B,
-  ID_MUTEX        = 0x17129E45,
-  ID_RENDEZVOUS   = 0x74289EBD,
-  ID_ALARM        = 0x7A5762BC,
-  ID_CYCLIC       = 0x2B8F746B,
-  ID_MESSAG_QUEUE = 0x1C9A6C89,
+  ID_INVALID        = 0x00000000,
+  ID_TASK           = 0x47ABCF69,
+  ID_SEMAPHORE      = 0x6FA173EB,
+  ID_EVENT          = 0x5E224F25,
+  ID_DATAQUEUE      = 0x0C8A6C89,
+  ID_FSMEMORYPOOL   = 0x26B7CE8B,
+  ID_MUTEX          = 0x17129E45,
+  ID_RENDEZVOUS     = 0x74289EBD,
+  ID_ALARM          = 0x7A5762BC,
+  ID_CYCLIC         = 0x2B8F746B,
+  ID_MESSAGE_QUEUE  = 0x1C9A6C89,
 } id_t;
 
 /// Error code values returned by uKernel functions.
@@ -655,7 +655,7 @@ typedef struct osMessageQueue_s {
   CDLL_QUEUE send_queue;  // Message buffer send wait queue
   CDLL_QUEUE recv_queue;  // Message buffer receive wait queue
   uint8_t *buf;           // Message buffer address
-  uint32_t msz;           // Message size in bytes
+  uint32_t msg_size;      // Message size in bytes
   uint32_t num_entries;   // Capacity of data_fifo(num entries)
   uint32_t cnt;           // Number of queued messages
   uint32_t tail;          // Next to the last message store address
@@ -690,7 +690,7 @@ typedef struct {
 } WINFO_RMQUE;
 
 typedef struct {
-  void *msg; /* Send message head address */
+  const void *msg; /* Send message head address */
   osMsgPriority_t msg_pri;
 } WINFO_SMQUE;
 
@@ -1176,61 +1176,101 @@ osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt);
 
 /* - Message Queue -----------------------------------------------------------*/
 
+/**
+ * @fn          osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
+ * @brief       Creates and initializes a message queue object
+ * @param[out]  mq      Pointer to the osMessageQueue_t structure
+ * @param[out]  buf     Pointer to buffer for message
+ * @param[in]   bufsz   Buffer size in bytes
+ * @param[in]   msz     Maximum message size in bytes
+ * @return      TERR_NO_ERR       The message queue object has been created
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
 osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz);
 
+/**
+ * @fn          osError_t osMessageQueueDelete(osMessageQueue_t *mq)
+ * @brief       Deletes a message queue object
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      TERR_NO_ERR       The message queue object has been deleted
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
 osError_t osMessageQueueDelete(osMessageQueue_t *mq);
 
-osError_t osMessageQueuePut(osMessageQueue_t *mq, void *msg, osMsgPriority_t msg_pri, osTime_t timeout);
+/**
+ * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+ * @brief       Puts the message into the the message queue
+ * @param[out]  mq        Pointer to the osMessageQueue_t structure
+ * @param[in]   msg       Pointer to buffer with message to put into a queue
+ * @param[in]   msg_pri   Message priority
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out
+ * @return      TERR_NO_ERR       The message has been put into the queue
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_TIMEOUT      The message could not be put into the queue in the given time
+ */
+osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout);
 
+/**
+ * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+ * @brief       Retrieves a message from the message queue and saves it to the buffer
+ * @param[out]  mq        Pointer to the osMessageQueue_t structure
+ * @param[out]  msg       Pointer to buffer for message to get from a queue
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out
+ * @return      TERR_NO_ERR       The message has been retrieved from the queue
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_TIMEOUT      The message could not be retrieved from the queue in the given time
+ */
 osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_flush
- * Описание : Сбрасывает буфер сообщений.
- * Параметры: mbf - Дескриптор буфера сообщений.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не был создан.
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_flush(osMessageQueue_t *mbf);
+/**
+ * @fn          uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq)
+ * @brief       Returns the maximum message size in bytes for the message queue
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      Maximum message size in bytes or 0 in case of an error
+ */
+uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_empty
- * Описание : Проверяет буфер сообщений на пустоту.
- * Параметры: mbf - Дескриптор буфера сообщений.
- * Результат: Возвращает один из вариантов:
- *              TERR_TRUE - буфер сообщений пуст;
- *              TERR_NO_ERR - в буфере данные есть;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер не был создан.
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_empty(osMessageQueue_t *mbf);
+/**
+ * @fn          uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq)
+ * @brief       Returns the maximum number of messages in the message queue
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      Maximum number of messages or 0 in case of an error
+ */
+uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_full
- * Описание : Проверяет буфер сообщений на полное заполнение.
- * Параметры: mbf - Дескриптор буфера сообщений.
- * Результат: Возвращает один из вариантов:
- *              TERR_TRUE - буфер сообщений полный;
- *              TERR_NO_ERR - буфер сообщений не полный;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер сообщений не был создан.
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_full(osMessageQueue_t *mbf);
+/**
+ * @fn          uint32_t osMessageQueueGetCount(osMessageQueue_t *mq)
+ * @brief       Returns the number of queued messages in the message queue
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      Number of queued messages or 0 in case of an error
+ */
+uint32_t osMessageQueueGetCount(osMessageQueue_t *mq);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mbf_cnt
- * Описание : Функция возвращает количество элементов в буфере сообщений.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            cnt - Указатель на ячейку памяти, в которую будет возвращено
- *                  количество элементов.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - буфер сообщений не был создан.
- *----------------------------------------------------------------------------*/
-osError_t tn_mbf_cnt(osMessageQueue_t *mbf, int *cnt);
+/**
+ * @fn          uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq)
+ * @brief       Returns the number available slots for messages in the message queue
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      Number of available slots for messages or 0 in case of an error
+ */
+uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq);
+
+/**
+ * @fn          osError_t osMessageQueueReset(osMessageQueue_t *mq)
+ * @brief       Resets the message queue
+ * @param[out]  mq  Pointer to the osMessageQueue_t structure
+ * @return      TERR_NO_ERR       The message queue has been reset
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMessageQueueReset(osMessageQueue_t *mq);
+
 
 /* - tn_event.c --------------------------------------------------------------*/
 
