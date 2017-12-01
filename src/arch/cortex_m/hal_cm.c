@@ -205,7 +205,7 @@ void PendSV_Handler(void)
   PRESERVE8
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-  cpsid  I                          ; Disable core int
+;  cpsid  I                          ; Disable core int
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3!, {r1,r2}
@@ -239,15 +239,13 @@ void PendSV_Handler(void)
 
 exit_context_switch
 
-  cpsie  I                          ; enable core int
-
-  ldr    r0, =0xFFFFFFFD
+;  cpsie  I                          ; enable core int
 
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
-  msr    BASEPRI, r0                ; Start critical section
+;  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
+;  msr    BASEPRI, r0                ; Start critical section
 
   ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
   ldm    r3, {r1,r2}
@@ -264,13 +262,12 @@ exit_context_switch
 
 exit_context_switch
 
-  mov    r0, #0
-  msr    BASEPRI, r0                ; End critical section
-
-  ldr    r0, =0xFFFFFFFD
+;  mov    r0, #0
+;  msr    BASEPRI, r0                ; End critical section
 
 #endif
 
+  ldr    r0, =0xFFFFFFFD
   bx     r0
 
   ALIGN
@@ -285,6 +282,8 @@ void SVC_Handler(void)
 {
   PRESERVE8
 
+#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+
   MRS     R0,PSP                  ; Get PSP
   LDR     R1,[R0,#24]             ; Read Saved PC from Stack
   SUBS    R1,R1,#2                ; Point to SVC Instruction
@@ -292,15 +291,29 @@ void SVC_Handler(void)
   CMP     R1,#0
   BNE     SVC_Exit                ; User SVC Number > 0
 
-  PUSH    {R4}
+  MOV     LR,R4
   LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
   MOV     R12,R4
-  POP     {R4}
+  MOV     R4,LR
   BLX     R12                     ; Call SVC Function 
   MRS     R2,PSP                  ; Read PSP
   STMIA   R2!,{R0-R1}             ; Store return values
 
-;  B       PendSV_Handler
+#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
+       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+
+  MRS     R0,PSP                  ; Read PSP
+  LDR     R1,[R0,#24]             ; Read Saved PC from Stack
+  LDRB    R1,[R1,#-2]             ; Load SVC Number
+  CBNZ    R1,SVC_Exit
+
+  LDM     R0,{R0-R3,R12}          ; Read R0-R3,R12 from stack
+  BLX     R12                     ; Call SVC Function
+  MRS     R12,PSP                 ; Read PSP
+  STM     R12,{R0-R1}             ; Store return values
+
+#endif
+
 SVC_Exit
   LDR     R0,=0xFFFFFFFD          ; Set EXC_RETURN value
   BX      R0                      ; RETI to Thread Mode, use PSP

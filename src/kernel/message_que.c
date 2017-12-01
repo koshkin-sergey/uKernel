@@ -290,13 +290,7 @@ uint32_t MessageQueueGetCount(osMessageQueue_t *mq)
   if (mq->id != ID_MESSAGE_QUEUE)
     return 0U;
 
-  BEGIN_CRITICAL_SECTION
-
-  uint32_t cnt = mq->cnt;
-
-  END_CRITICAL_SECTION
-
-  return cnt;
+  return mq->cnt;
 }
 
 static

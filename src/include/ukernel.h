@@ -1054,7 +1054,17 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem);
  */
 osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout);
 
+/**
+ * @fn          uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
+ * @brief       Returns the number of available tokens of the semaphore object
+ * @param[out]  sem   Pointer to the semaphore structure to be acquired
+ * @return      Number of tokens available or 0 in case of an error
+ */
+uint32_t osSemaphoreGetCount(osSemaphore_t *sem);
+
+
 /* - tn_dqueue.c -------------------------------------------------------------*/
+
 /*-----------------------------------------------------------------------------*
  * Название : tn_queue_create
  * Описание : Создает очередь данных. Поле id структуры TN_DQUE предварительно

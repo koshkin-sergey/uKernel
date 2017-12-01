@@ -93,6 +93,8 @@ __svc_indirect(0)
 osError_t svcSemaphoreRelease(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
 __svc_indirect(0)
 osError_t svcSemaphoreAcquire(osError_t (*)(osSemaphore_t*, osTime_t), osSemaphore_t*, osTime_t);
+__svc_indirect(0)
+uint32_t svcSemaphoreGetCount(uint32_t (*)(osSemaphore_t*), osSemaphore_t*);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -207,6 +209,15 @@ osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
   return TERR_TIMEOUT;
 }
 
+static
+uint32_t SemaphoreGetCount(osSemaphore_t *sem)
+{
+  if (sem->id != ID_SEMAPHORE)
+    return 0U;
+
+  return sem->count;
+}
+
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -293,6 +304,25 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
   }
   else {
     return svcSemaphoreAcquire(SemaphoreAcquire, sem, timeout);
+  }
+}
+
+/**
+ * @fn          uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
+ * @brief       Returns the number of available tokens of the semaphore object
+ * @param[out]  sem   Pointer to the semaphore structure to be acquired
+ * @return      Number of tokens available or 0 in case of an error
+ */
+uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
+{
+  if (sem == NULL)
+    return 0U;
+
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    return SemaphoreGetCount(sem);
+  }
+  else {
+    return svcSemaphoreGetCount(SemaphoreGetCount, sem);
   }
 }
 
