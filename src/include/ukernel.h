@@ -547,9 +547,8 @@
 #define TN_EVENT_WCOND_OR               8
 #define TN_EVENT_WCOND_AND           0x10
 
-#define TN_MUTEX_ATTR_INHERIT           0
-#define TN_MUTEX_ATTR_CEILING         (1UL<<0)
-#define TN_MUTEX_ATTR_RECURSIVE       (1UL<<1)
+#define osMutexPrioCeiling            (1UL<<0)
+#define osMutexRecursive              (1UL<<1)
 
 #define TIME_WAIT_INFINITE             (0xFFFFFFFF)
 
@@ -775,15 +774,24 @@ typedef struct _TN_FMP {
 } TN_FMP;
 
 /* - Mutex -------------------------------------------------------------------*/
-typedef struct _TN_MUTEX {
-  CDLL_QUEUE wait_queue;       //-- List of tasks that wait a mutex
-  CDLL_QUEUE mutex_queue; //-- To include in task's locked mutexes list (if any)
-  int attr;             //-- Mutex creation attr - CEILING or INHERIT
-  osTask_t *holder;          //-- Current mutex owner(task that locked mutex)
-  int ceil_priority;    //-- When mutex created with CEILING attr
-  int cnt;              //-- Reserved
-  id_t id;              //-- ID for verification(is it a mutex or another object?)
-} TN_MUTEX;
+
+typedef struct osMutexAttr_s {
+  uint32_t attr_bits;
+  uint32_t ceil_priority;
+} osMutexAttr_t;
+
+typedef struct osMutex_s {
+  id_t id;                ///< ID for verification(is it a mutex or another object?)
+  CDLL_QUEUE wait_que;    ///< List of tasks that wait a mutex
+  CDLL_QUEUE mutex_que;   ///< To include in task's locked mutexes list (if any)
+  uint32_t attr;          ///< Mutex creation attr - CEILING or INHERIT
+  osTask_t *holder;       ///< Current mutex owner(task that locked mutex)
+  uint32_t ceil_priority; ///< When mutex created with CEILING attr
+  int cnt;                ///< Reserved
+} osMutex_t;
+
+
+/* - Alarm Timer -------------------------------------------------------------*/
 
 typedef enum {
   TIMER_STOP            = 0x00,
@@ -791,7 +799,6 @@ typedef enum {
   timer_state_reserved  = 0x7fffffff
 } timer_state_t;
 
-/* - Alarm Timer -------------------------------------------------------------*/
 typedef struct _TN_ALARM {
   void *exinf;              /**< Extended information */
   CBACK handler;            /**< Alarm handler address */
@@ -1381,35 +1388,23 @@ osError_t tn_fmem_delete(TN_FMP *fmp);
 osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
 osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
 
-/* - tn_mutex.c --------------------------------------------------------------*/
+/* - Mutex -------------------------------------------------------------------*/
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_mutex_create
- * Описание : Создает мьютекс
- * Параметры: mutex - Указатель на инициализируемую структуру TN_MUTEX
- *                    (дескриптор мьютекса)
- *            attribute - Атрибуты создаваемого мьютекса.
- *                        Возможно сочетание следующих значений:
- *                        TN_MUTEX_ATTR_CEILING - Используется протокол
- *                                                увеличения приоритета для
- *                                                исключения инверсии приоритета
- *                                                и взаимной блокировки.
- *                        TN_MUTEX_ATTR_INHERIT - Используется протокол
- *                                                наследования приоритета для
- *                                                исключения инверсии приоритета.
- *                        TN_MUTEX_ATTR_RECURSIVE - Разрешен рекурсивный захват
- *                                                  мьютекса, задачей, которая
- *                                                  уже захватила мьютекс.
- *            ceil_priority - Максимальный приоритет из всех задач, которые
- *                            могут владеть мютексом. Параметр игнорируется,
- *                            если attribute = TN_MUTEX_ATTR_INHERIT
- * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
- *            случае TERR_WRONG_PARAM
- *----------------------------------------------------------------------------*/
-osError_t tn_mutex_create(TN_MUTEX *mutex, int attribute, int ceil_priority);
-osError_t tn_mutex_delete(TN_MUTEX *mutex);
-osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout);
-osError_t tn_mutex_unlock(TN_MUTEX *mutex);
+/**
+ * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+ * @brief       Creates and initializes a new mutex object
+ * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
+ * @param[in]   attr    Sets the mutex object attributes (refer to osMutexAttr_t).
+ *                      Default attributes will be used if set to NULL.
+ * @return      TERR_NO_ERR       The mutex object has been created
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr);
+
+osError_t tn_mutex_delete(osMutex_t *mutex);
+osError_t tn_mutex_lock(osMutex_t *mutex, unsigned long timeout);
+osError_t tn_mutex_unlock(osMutex_t *mutex);
 
 /* - tn_delay.c --------------------------------------------------------------*/
 void tn_mdelay(unsigned long ms);

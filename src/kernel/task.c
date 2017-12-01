@@ -65,8 +65,8 @@
  *  external declarations
  ******************************************************************************/
 
-extern int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority);
-extern int do_unlock_mutex(TN_MUTEX *mutex);
+extern int find_max_blocked_priority(osMutex_t *mutex, int ref_priority);
+extern int do_unlock_mutex(osMutex_t *mutex);
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -244,7 +244,7 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
 #ifdef USE_MUTEXES
 
   if (que && !isQueueEmpty(que)) {
-    TN_MUTEX *mutex = GetMutexByWaitQueque(que);
+    osMutex_t *mutex = GetMutexByWaitQueque(que);
     osTask_t *holder = mutex->holder;
 
     if (holder != NULL) {
@@ -377,7 +377,7 @@ void ThreadChangePriority(osTask_t * task, int32_t new_priority)
 
 void ThreadSetPriority(osTask_t * task, int32_t priority)
 {
-  TN_MUTEX * mutex;
+  osMutex_t * mutex;
 
   //-- transitive priority changing
 
@@ -518,7 +518,7 @@ osError_t TaskTerminate(osTask_t *task)
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
   CDLL_QUEUE *que;
-  TN_MUTEX *mutex;
+  osMutex_t *mutex;
 
   while (!isQueueEmpty(&task->mutex_queue)) {
     que = QueueRemoveHead(&task->mutex_queue);
@@ -547,7 +547,7 @@ void TaskExit(task_exit_attr_t attr)
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
   CDLL_QUEUE *que;
-  TN_MUTEX *mutex;
+  osMutex_t *mutex;
 
   while (!isQueueEmpty(&task->mutex_queue)) {
     que = QueueRemoveHead(&task->mutex_queue);

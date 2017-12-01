@@ -37,8 +37,8 @@
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
 #define GetTaskByQueue(que)         container_of(que, osTask_t, task_queue)
-#define GetMutexByMutexQueque(que)  container_of(que, TN_MUTEX, mutex_queue)
-#define GetMutexByWaitQueque(que)   container_of(que, TN_MUTEX, wait_queue)
+#define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
+#define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
 #define GetTimerByQueue(que)        container_of(que, TMEB, queue)
 
 /*******************************************************************************

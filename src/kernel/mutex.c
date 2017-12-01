@@ -87,9 +87,32 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
+__svc_indirect(0)
+void svcMutexNew(void (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
+
+static
+void MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+{
+  QueueReset(&mutex->wait_que);
+  QueueReset(&mutex->mutex_que);
+
+  if (attr ==NULL) {
+    mutex->attr = 0U;
+    mutex->ceil_priority = 0U;
+  }
+  else {
+    mutex->attr = attr->attr_bits;
+    mutex->ceil_priority = attr->ceil_priority;
+  }
+
+  mutex->holder = NULL;
+  mutex->cnt = 0;
+  mutex->id = ID_MUTEX;
+}
 
 /*******************************************************************************
  *  function implementations (scope: module-exported)
@@ -101,15 +124,15 @@
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority)
+int find_max_blocked_priority(osMutex_t *mutex, int ref_priority)
 {
   int priority;
   CDLL_QUEUE *curr_que;
   osTask_t *task;
 
   priority = ref_priority;
-  curr_que = mutex->wait_queue.next;
-  while (curr_que != &mutex->wait_queue) {
+  curr_que = mutex->wait_que.next;
+  while (curr_que != &mutex->wait_que) {
     task = GetTaskByQueue(curr_que);
     if (task->priority < priority) //--  task priority is higher
       priority = task->priority;
@@ -126,16 +149,16 @@ int find_max_blocked_priority(TN_MUTEX *mutex, int ref_priority)
  * Параметры:
  * Результат:
  *----------------------------------------------------------------------------*/
-int do_unlock_mutex(TN_MUTEX *mutex)
+int do_unlock_mutex(osMutex_t *mutex)
 {
   CDLL_QUEUE *curr_que;
-  TN_MUTEX *tmp_mutex;
+  osMutex_t *tmp_mutex;
   osTask_t *task = TaskGetCurrent();
   int pr;
 
   //-- Delete curr mutex from task's locked mutexes queue
 
-  QueueRemoveEntry(&mutex->mutex_queue);
+  QueueRemoveEntry(&mutex->mutex_que);
   pr = task->base_priority;
 
   //---- No more mutexes, locked by the our task
@@ -144,7 +167,7 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     while (curr_que != &task->mutex_queue) {
       tmp_mutex = GetMutexByMutexQueque(curr_que);
 
-      if (tmp_mutex->attr & TN_MUTEX_ATTR_CEILING) {
+      if (tmp_mutex->attr & osMutexPrioCeiling) {
         if (tmp_mutex->ceil_priority < pr)
           pr = tmp_mutex->ceil_priority;
       }
@@ -161,40 +184,32 @@ int do_unlock_mutex(TN_MUTEX *mutex)
     ThreadChangePriority(task, pr);
 
   //-- Check for the task(s) that want to lock the mutex
-  if (isQueueEmpty(&mutex->wait_queue)) {
+  if (isQueueEmpty(&mutex->wait_que)) {
     mutex->holder = NULL;
     return true;
   }
 
   //--- Now lock the mutex by the first task in the mutex queue
-  curr_que = QueueRemoveHead(&mutex->wait_queue);
+  curr_que = QueueRemoveHead(&mutex->wait_que);
   task = GetTaskByQueue(curr_que);
   mutex->holder = task;
-  if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
+  if (mutex->attr & osMutexRecursive)
     mutex->cnt++;
 
-  if ((mutex->attr & TN_MUTEX_ATTR_CEILING)
+  if ((mutex->attr & osMutexPrioCeiling)
     && (task->priority > mutex->ceil_priority))
     task->priority = mutex->ceil_priority;
 
   ThreadWaitComplete(task);
-  QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
+  QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
 
   return true;
 }
 
-/*
- The ceiling protocol in ver 2.6 is more "lightweight" in comparison
- to previous versions.
- The code of ceiling protocol is derived from Vyacheslav Ovsiyenko version
- */
-
-// L. Sha, R. Rajkumar, J. Lehoczky, Priority Inheritance Protocols: An Approach
-// to Real-Time Synchronization, IEEE Transactions on Computers, Vol.39, No.9, 1990
 /*-----------------------------------------------------------------------------*
- * Название : tn_mutex_create
+ * Название : osMutexNew
  * Описание : Создает мьютекс
- * Параметры: mutex - Указатель на инициализируемую структуру TN_MUTEX
+ * Параметры: mutex - Указатель на инициализируемую структуру osMutex_t
  *                    (дескриптор мьютекса)
  *            attribute - Атрибуты создаваемого мьютекса.
  *                        Возможно сочетание следующих значений:
@@ -214,30 +229,34 @@ int do_unlock_mutex(TN_MUTEX *mutex)
  * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
  *            случае TERR_WRONG_PARAM
  *----------------------------------------------------------------------------*/
-osError_t tn_mutex_create(TN_MUTEX * mutex, int attribute, int ceil_priority)
+/**
+ * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+ * @brief       Creates and initializes a new mutex object
+ * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
+ * @param[in]   attr    Sets the mutex object attributes (refer to osMutexAttr_t).
+ *                      Default attributes will be used if set to NULL.
+ * @return      TERR_NO_ERR       The mutex object has been created
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id != 0) //-- no recreation
+  if (mutex->id == ID_MUTEX)
+    return TERR_NO_ERR;
+  if ((attr->attr_bits & osMutexPrioCeiling) && ((attr->ceil_priority < 1) || (attr->ceil_priority > (NUM_PRIORITY-2))))
     return TERR_WRONG_PARAM;
-  if ((attribute & TN_MUTEX_ATTR_CEILING)
-    && ((ceil_priority < 1) || (ceil_priority > (NUM_PRIORITY-2))))
-    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  QueueReset(&(mutex->wait_queue));
-  QueueReset(&(mutex->mutex_queue));
-
-  mutex->attr = attribute;
-  mutex->holder = NULL;
-  mutex->ceil_priority = ceil_priority;
-  mutex->cnt = 0;
-  mutex->id = ID_MUTEX;
+  svcMutexNew(MutexNew, mutex, attr);
 
   return TERR_NO_ERR;
 }
 
 //----------------------------------------------------------------------------
-osError_t tn_mutex_delete(TN_MUTEX *mutex)
+osError_t tn_mutex_delete(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
@@ -252,11 +271,11 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
   }
 
   //-- Remove all tasks(if any) from mutex's wait queue
-  TaskWaitDelete(&mutex->wait_queue);
+  TaskWaitDelete(&mutex->wait_que);
 
   if (mutex->holder != NULL) {  //-- If the mutex is locked
     do_unlock_mutex(mutex);
-    QueueReset(&(mutex->mutex_queue));
+    QueueReset(&(mutex->mutex_que));
   }
   mutex->id = ID_INVALID; // Mutex not exists now
 
@@ -266,7 +285,7 @@ osError_t tn_mutex_delete(TN_MUTEX *mutex)
 }
 
 //----------------------------------------------------------------------------
-osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
+osError_t tn_mutex_lock(osMutex_t *mutex, unsigned long timeout)
 {
   osError_t rc = TERR_NO_ERR;
   osTask_t *task;
@@ -281,7 +300,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
   task = TaskGetCurrent();
 
   if (task == mutex->holder) {
-    if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE) {
+    if (mutex->attr & osMutexRecursive) {
       /*Recursive locking enabled*/
       mutex->cnt++;
       END_DISABLE_INTERRUPT
@@ -294,7 +313,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
     }
   }
 
-  if (mutex->attr & TN_MUTEX_ATTR_CEILING) {
+  if (mutex->attr & osMutexPrioCeiling) {
     if (task->base_priority < mutex->ceil_priority) { //-- base pri of task higher
       END_DISABLE_INTERRUPT
       return TERR_ILUSE;
@@ -303,11 +322,11 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
     if (mutex->holder == NULL) {  //-- mutex not locked
       mutex->holder = task;
 
-      if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
+      if (mutex->attr & osMutexRecursive)
         mutex->cnt++;
 
       //-- Add mutex to task's locked mutexes queue
-      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
+      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
       //-- Ceiling protocol
       if (task->priority > mutex->ceil_priority)
         ThreadChangePriority(task, mutex->ceil_priority);
@@ -317,7 +336,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         rc = TERR_TIMEOUT;
       else {
         //--- Task -> to the mutex wait queue
-        TaskWaitEnter(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_C, timeout);
+        TaskWaitEnter(task, &(mutex->wait_que), WAIT_REASON_MUTEX_C, timeout);
       }
     }
   }
@@ -325,10 +344,10 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
     if (mutex->holder == NULL) {  //-- mutex not locked
       mutex->holder = task;
 
-      if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
+      if (mutex->attr & osMutexRecursive)
         mutex->cnt++;
 
-      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_queue));
+      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
     }
     else {  //-- the mutex is already locked
       if (timeout == 0U)
@@ -338,7 +357,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
         //-- if run_task curr priority higher holder's curr priority
         if (task->priority < mutex->holder->priority)
           ThreadSetPriority(mutex->holder, task->priority);
-        TaskWaitEnter(task, &(mutex->wait_queue), WAIT_REASON_MUTEX_I, timeout);
+        TaskWaitEnter(task, &(mutex->wait_que), WAIT_REASON_MUTEX_I, timeout);
       }
     }
   }
@@ -348,7 +367,7 @@ osError_t tn_mutex_lock(TN_MUTEX *mutex, unsigned long timeout)
 }
 
 //----------------------------------------------------------------------------
-osError_t tn_mutex_unlock(TN_MUTEX *mutex)
+osError_t tn_mutex_unlock(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
@@ -363,7 +382,7 @@ osError_t tn_mutex_unlock(TN_MUTEX *mutex)
     return TERR_ILUSE;
   }
 
-  if (mutex->attr & TN_MUTEX_ATTR_RECURSIVE)
+  if (mutex->attr & osMutexRecursive)
     mutex->cnt--;
 
   if (mutex->cnt == 0)

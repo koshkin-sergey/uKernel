@@ -86,7 +86,7 @@
  ******************************************************************************/
 
 __svc_indirect(0)
-osError_t svcSemaphoreNew(osError_t (*)(osSemaphore_t*, uint32_t, uint32_t), osSemaphore_t*, uint32_t, uint32_t);
+void svcSemaphoreNew(void (*)(osSemaphore_t*, uint32_t, uint32_t), osSemaphore_t*, uint32_t, uint32_t);
 __svc_indirect(0)
 osError_t svcSemaphoreDelete(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
 __svc_indirect(0)
@@ -110,18 +110,13 @@ uint32_t svcSemaphoreGetCount(uint32_t (*)(osSemaphore_t*), osSemaphore_t*);
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  */
 static
-osError_t SemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
+void SemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
 {
-  if (sem->id == ID_SEMAPHORE)
-    return TERR_WRONG_PARAM;
-
   QueueReset(&sem->wait_queue);
 
   sem->count      = initial_count;
   sem->max_count  = max_count;
   sem->id         = ID_SEMAPHORE;
-
-  return TERR_NO_ERR;
 }
 
 /**
@@ -236,10 +231,14 @@ osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t ma
 {
   if (sem == NULL || max_count == 0U || initial_count > max_count)
     return TERR_WRONG_PARAM;
+  if (sem->id == ID_SEMAPHORE)
+    return TERR_NO_ERR;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcSemaphoreNew(SemaphoreNew, sem, initial_count, max_count);
+  svcSemaphoreNew(SemaphoreNew, sem, initial_count, max_count);
+
+  return TERR_NO_ERR;
 }
 
 /**
