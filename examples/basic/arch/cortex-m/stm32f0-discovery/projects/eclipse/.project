@@ -28,13 +28,7 @@
 		<link>
 			<name>src</name>
 			<type>2</type>
-			<locationURI>copy_PARENT/src</locationURI>
+			<locationURI>PARENT-2-PROJECT_LOC/src</locationURI>
 		</link>
 	</linkedResources>
-	<variableList>
-		<variable>
-			<name>copy_PARENT</name>
-			<value>$%7BPARENT-1-PROJECT_LOC%7D/uKernel/examples/basic/arch/cortex-m/stm32f0-discovery</value>
-		</variable>
-	</variableList>
 </projectDescription>
