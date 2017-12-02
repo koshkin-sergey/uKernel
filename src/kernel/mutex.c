@@ -88,45 +88,183 @@
  ******************************************************************************/
 
 __svc_indirect(0)
-void svcMutexNew(void (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
+osError_t svcMutexNew(osError_t (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
+__svc_indirect(0)
+osError_t svcMutexDelete(osError_t (*)(osMutex_t*), osMutex_t*);
+__svc_indirect(0)
+osError_t svcMutexAcquire(osError_t (*)(osMutex_t*, osTime_t), osMutex_t*, osTime_t);
+__svc_indirect(0)
+osError_t svcMutexRelease(osError_t (*)(osMutex_t*), osMutex_t*);
+__svc_indirect(0)
+osTask_t* svcMutexGetOwner(osTask_t* (*)(osMutex_t*), osMutex_t*);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
 static
-void MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+osError_t MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
 {
-  QueueReset(&mutex->wait_que);
-  QueueReset(&mutex->mutex_que);
+  if (mutex->id == ID_MUTEX)
+    return TERR_NO_ERR;
 
-  if (attr ==NULL) {
-    mutex->attr = 0U;
-    mutex->ceil_priority = 0U;
-  }
-  else {
+  if (attr != NULL) {
+    if ((attr->attr_bits & osMutexPrioCeiling) &&
+       ((attr->ceil_priority < 1) || (attr->ceil_priority > (NUM_PRIORITY-2))))
+      return TERR_WRONG_PARAM;
+
     mutex->attr = attr->attr_bits;
     mutex->ceil_priority = attr->ceil_priority;
   }
+  else {
+    mutex->attr = 0U;
+    mutex->ceil_priority = 0U;
+  }
+
+  QueueReset(&mutex->wait_que);
+  QueueReset(&mutex->mutex_que);
 
   mutex->holder = NULL;
   mutex->cnt = 0;
   mutex->id = ID_MUTEX;
+
+  return TERR_NO_ERR;
+}
+
+static
+osError_t MutexDelete(osMutex_t *mutex)
+{
+  if (mutex->id != ID_MUTEX)
+    return TERR_NOEXS;
+
+  if (mutex->holder != NULL && mutex->holder != TaskGetCurrent()) {
+    return TERR_ILUSE;
+  }
+
+  /* Remove all tasks(if any) from mutex's wait queue */
+  TaskWaitDelete(&mutex->wait_que);
+
+  /* If the mutex is locked */
+  if (mutex->holder != NULL) {
+    MutexUnLock(mutex);
+    QueueReset(&mutex->mutex_que);
+  }
+
+  /* Mutex not exists now */
+  mutex->id = ID_INVALID;
+
+  return TERR_NO_ERR;
+}
+
+static
+osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
+{
+  if (mutex->id != ID_MUTEX)
+    return TERR_NOEXS;
+
+  osTask_t *task = TaskGetCurrent();
+
+  if (task == mutex->holder) {
+    if (mutex->attr & osMutexRecursive) {
+      /* Recursive locking enabled */
+      mutex->cnt++;
+      return TERR_NO_ERR;
+    }
+    else {
+      /* Recursive locking not enabled */
+      return TERR_ILUSE;
+    }
+  }
+
+  if (mutex->attr & osMutexPrioCeiling) {
+    if (task->base_priority < mutex->ceil_priority) {
+      /* base priority of task higher */
+      return TERR_ILUSE;
+    }
+
+    if (mutex->holder == NULL) {
+      /* mutex not locked */
+      mutex->holder = task;
+
+      if (mutex->attr & osMutexRecursive)
+        mutex->cnt++;
+
+      /* Add mutex to task's locked mutexes queue */
+      QueueAddTail(&task->mutex_queue, &mutex->mutex_que);
+      /* Ceiling protocol */
+      if (task->priority > mutex->ceil_priority)
+        ThreadChangePriority(task, mutex->ceil_priority);
+    }
+    else {
+      /* the mutex is already locked */
+      if (timeout == 0U)
+        return TERR_TIMEOUT;
+
+      /* Task -> to the mutex wait queue */
+      TaskWaitEnter(task, &mutex->wait_que, WAIT_REASON_MUTEX_C, timeout);
+    }
+  }
+  else {
+    if (mutex->holder == NULL) {
+      /* mutex not locked */
+      mutex->holder = task;
+
+      if (mutex->attr & osMutexRecursive)
+        mutex->cnt++;
+
+      QueueAddTail(&task->mutex_queue, &mutex->mutex_que);
+    }
+    else {
+      /* the mutex is already locked */
+      if (timeout == 0U)
+        return TERR_TIMEOUT;
+
+      //-- Base priority inheritance protocol
+      //-- if run_task curr priority higher holder's curr priority
+      if (task->priority < mutex->holder->priority)
+        ThreadSetPriority(mutex->holder, task->priority);
+
+      TaskWaitEnter(task, &mutex->wait_que, WAIT_REASON_MUTEX_I, timeout);
+    }
+  }
+
+  return TERR_NO_ERR;
+}
+
+static
+osError_t MutexRelease(osMutex_t *mutex)
+{
+  if (mutex->id != ID_MUTEX)
+    return TERR_NOEXS;
+
+  /* Unlocking is enabled only for the owner and already locked mutex */
+  if (TaskGetCurrent() != mutex->holder)
+    return TERR_ILUSE;
+
+  if (mutex->attr & osMutexRecursive)
+    mutex->cnt--;
+
+  if (mutex->cnt == 0)
+    MutexUnLock(mutex);
+
+  return TERR_NO_ERR;
+}
+
+osTask_t* MutexGetOwner(osMutex_t *mutex)
+{
+  if (mutex->id != ID_MUTEX)
+    return NULL;
+
+  return mutex->holder;
 }
 
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : find_max_blocked_priority
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int find_max_blocked_priority(osMutex_t *mutex, int ref_priority)
+uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
 {
-  int priority;
+  uint32_t priority;
   CDLL_QUEUE *curr_que;
   osTask_t *task;
 
@@ -143,18 +281,12 @@ int find_max_blocked_priority(osMutex_t *mutex, int ref_priority)
   return priority;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : do_unlock_mutex
- * Описание :
- * Параметры:
- * Результат:
- *----------------------------------------------------------------------------*/
-int do_unlock_mutex(osMutex_t *mutex)
+void MutexUnLock(osMutex_t *mutex)
 {
   CDLL_QUEUE *curr_que;
   osMutex_t *tmp_mutex;
   osTask_t *task = TaskGetCurrent();
-  int pr;
+  uint32_t pr;
 
   //-- Delete curr mutex from task's locked mutexes queue
 
@@ -172,7 +304,7 @@ int do_unlock_mutex(osMutex_t *mutex)
           pr = tmp_mutex->ceil_priority;
       }
       else {
-        pr = find_max_blocked_priority(tmp_mutex, pr);
+        pr = MutexGetMaxPriority(tmp_mutex, pr);
       }
 
       curr_que = curr_que->next;
@@ -186,7 +318,7 @@ int do_unlock_mutex(osMutex_t *mutex)
   //-- Check for the task(s) that want to lock the mutex
   if (isQueueEmpty(&mutex->wait_que)) {
     mutex->holder = NULL;
-    return true;
+    return;
   }
 
   //--- Now lock the mutex by the first task in the mutex queue
@@ -196,39 +328,13 @@ int do_unlock_mutex(osMutex_t *mutex)
   if (mutex->attr & osMutexRecursive)
     mutex->cnt++;
 
-  if ((mutex->attr & osMutexPrioCeiling)
-    && (task->priority > mutex->ceil_priority))
+  if ((mutex->attr & osMutexPrioCeiling) && (task->priority > mutex->ceil_priority))
     task->priority = mutex->ceil_priority;
 
   ThreadWaitComplete(task);
   QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
-
-  return true;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : osMutexNew
- * Описание : Создает мьютекс
- * Параметры: mutex - Указатель на инициализируемую структуру osMutex_t
- *                    (дескриптор мьютекса)
- *            attribute - Атрибуты создаваемого мьютекса.
- *                        Возможно сочетание следующих значений:
- *                        TN_MUTEX_ATTR_CEILING - Используется протокол
- *                                                увеличения приоритета для
- *                                                исключения инверсии приоритета
- *                                                и взаимной блокировки.
- *                        TN_MUTEX_ATTR_INHERIT - Используется протокол
- *                                                наследования приоритета для
- *                                                исключения инверсии приоритета.
- *                        TN_MUTEX_ATTR_RECURSIVE - Разрешен рекурсивный захват
- *                                                  мьютекса, задачей, которая
- *                                                  уже захватила мьютекс.
- *            ceil_priority - Максимальный приоритет из всех задач, которые
- *                            могут владеть мютексом. Параметр игнорируется,
- *                            если attribute = TN_MUTEX_ATTR_INHERIT
- * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
- *            случае TERR_WRONG_PARAM
- *----------------------------------------------------------------------------*/
 /**
  * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
  * @brief       Creates and initializes a new mutex object
@@ -243,154 +349,86 @@ osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id == ID_MUTEX)
-    return TERR_NO_ERR;
-  if ((attr->attr_bits & osMutexPrioCeiling) && ((attr->ceil_priority < 1) || (attr->ceil_priority > (NUM_PRIORITY-2))))
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
+
+  return svcMutexNew(MutexNew, mutex, attr);
+}
+
+/**
+ * @fn          osError_t osMutexDelete(osMutex_t *mutex)
+ * @brief       Deletes a mutex object
+ * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
+ * @return      TERR_NO_ERR       The mutex object has been deleted
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexDelete(osMutex_t *mutex)
+{
+  if (mutex == NULL)
     return TERR_WRONG_PARAM;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  svcMutexNew(MutexNew, mutex, attr);
-
-  return TERR_NO_ERR;
+  return svcMutexDelete(MutexDelete, mutex);
 }
 
-//----------------------------------------------------------------------------
-osError_t tn_mutex_delete(osMutex_t *mutex)
+/**
+ * @fn          osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+ * @brief       Waits until a mutex object becomes available
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out. Specifies
+ *                        how long the system waits to acquire the mutex.
+ * @return      TERR_NO_ERR       The mutex has been obtained
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_TIMEOUT      The mutex could not be obtained in the given time
+ *              TERR_ILUSE        Illegal usage, e.g. trying to acquire already obtained mutex
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
-
-  if (mutex->holder != NULL && mutex->holder != TaskGetCurrent()) {
-    END_DISABLE_INTERRUPT
-    return TERR_ILUSE;
-  }
-
-  //-- Remove all tasks(if any) from mutex's wait queue
-  TaskWaitDelete(&mutex->wait_que);
-
-  if (mutex->holder != NULL) {  //-- If the mutex is locked
-    do_unlock_mutex(mutex);
-    QueueReset(&(mutex->mutex_que));
-  }
-  mutex->id = ID_INVALID; // Mutex not exists now
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svcMutexAcquire(MutexAcquire, mutex, timeout);
 }
 
-//----------------------------------------------------------------------------
-osError_t tn_mutex_lock(osMutex_t *mutex, unsigned long timeout)
-{
-  osError_t rc = TERR_NO_ERR;
-  osTask_t *task;
-
-  if (mutex == NULL)
-    return TERR_WRONG_PARAM;
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
-  task = TaskGetCurrent();
-
-  if (task == mutex->holder) {
-    if (mutex->attr & osMutexRecursive) {
-      /*Recursive locking enabled*/
-      mutex->cnt++;
-      END_DISABLE_INTERRUPT
-      return rc;
-    }
-    else {
-      /*Recursive locking not enabled*/
-      END_DISABLE_INTERRUPT
-      return TERR_ILUSE;
-    }
-  }
-
-  if (mutex->attr & osMutexPrioCeiling) {
-    if (task->base_priority < mutex->ceil_priority) { //-- base pri of task higher
-      END_DISABLE_INTERRUPT
-      return TERR_ILUSE;
-    }
-
-    if (mutex->holder == NULL) {  //-- mutex not locked
-      mutex->holder = task;
-
-      if (mutex->attr & osMutexRecursive)
-        mutex->cnt++;
-
-      //-- Add mutex to task's locked mutexes queue
-      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
-      //-- Ceiling protocol
-      if (task->priority > mutex->ceil_priority)
-        ThreadChangePriority(task, mutex->ceil_priority);
-    }
-    else { //-- the mutex is already locked
-      if (timeout == 0U)
-        rc = TERR_TIMEOUT;
-      else {
-        //--- Task -> to the mutex wait queue
-        TaskWaitEnter(task, &(mutex->wait_que), WAIT_REASON_MUTEX_C, timeout);
-      }
-    }
-  }
-  else {
-    if (mutex->holder == NULL) {  //-- mutex not locked
-      mutex->holder = task;
-
-      if (mutex->attr & osMutexRecursive)
-        mutex->cnt++;
-
-      QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
-    }
-    else {  //-- the mutex is already locked
-      if (timeout == 0U)
-        rc = TERR_TIMEOUT;
-      else {
-        //-- Base priority inheritance protocol
-        //-- if run_task curr priority higher holder's curr priority
-        if (task->priority < mutex->holder->priority)
-          ThreadSetPriority(mutex->holder, task->priority);
-        TaskWaitEnter(task, &(mutex->wait_que), WAIT_REASON_MUTEX_I, timeout);
-      }
-    }
-  }
-
-  END_CRITICAL_SECTION
-  return rc;
-}
-
-//----------------------------------------------------------------------------
-osError_t tn_mutex_unlock(osMutex_t *mutex)
+/**
+ * @fn          osError_t osMutexRelease(osMutex_t *mutex)
+ * @brief       Releases a mutex
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @return      TERR_NO_ERR       The mutex has been correctly released
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ILUSE        Illegal usage, e.g. trying to release already free mutex
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexRelease(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
+  return svcMutexRelease(MutexRelease, mutex);
+}
 
-  //-- Unlocking is enabled only for the owner and already locked mutex
-  if (TaskGetCurrent() != mutex->holder) {
-    END_DISABLE_INTERRUPT
-    return TERR_ILUSE;
-  }
+/**
+ * @fn          osTask_t* osMutexGetOwner(osMutex_t *mutex)
+ * @brief       Returns the pointer to the task that acquired a mutex. In case
+ *              of an error or if the mutex is not blocked by any task, it returns NULL.
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @return      Pointer to owner task or NULL when mutex was not acquired
+ */
+osTask_t* osMutexGetOwner(osMutex_t *mutex)
+{
+  if (mutex == NULL)
+    return NULL;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return NULL;
 
-  if (mutex->attr & osMutexRecursive)
-    mutex->cnt--;
-
-  if (mutex->cnt == 0)
-    do_unlock_mutex(mutex);
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svcMutexGetOwner(MutexGetOwner, mutex);
 }
 
 #endif //-- USE_MUTEXES

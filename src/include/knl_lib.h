@@ -94,8 +94,8 @@ void ThreadSetReady(osTask_t *thread);
 void ThreadWaitComplete(osTask_t *task);
 void TaskWaitEnter(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
                            osTime_t timeout);
-void ThreadChangePriority(osTask_t *task, int32_t new_priority);
-void ThreadSetPriority(osTask_t *task, int32_t priority);
+void ThreadChangePriority(osTask_t *task, uint32_t new_priority);
+void ThreadSetPriority(osTask_t *task, uint32_t priority);
 void TaskWaitDelete(CDLL_QUEUE *que);
 void ThreadExit(void);
 
@@ -153,5 +153,10 @@ CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que);
  * @return      Returns a pointer to an entry at the tail of the queue
  */
 CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que);
+
+/* - Mutex Management --------------------------------------------------------*/
+
+uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority);
+void MutexUnLock(osMutex_t *mutex);
 
 #endif /* _KNL_LIB_H_ */

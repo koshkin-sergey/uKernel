@@ -621,13 +621,10 @@ typedef enum {
   WAIT_REASON_DQUE_WSEND    = 0x0008,
   WAIT_REASON_DQUE_WRECEIVE = 0x0010,
   WAIT_REASON_MUTEX_C       = 0x0020,
-  WAIT_REASON_MUTEX_C_BLK   = 0x0040,
-  WAIT_REASON_MUTEX_I       = 0x0080,
-  WAIT_REASON_MUTEX_H       = 0x0100,
-  WAIT_REASON_RENDEZVOUS    = 0x0200,
-  WAIT_REASON_MQUE_WSEND    = 0x0400,
-  WAIT_REASON_MQUE_WRECEIVE = 0x0800,
-  WAIT_REASON_WFIXMEM       = 0x1000,
+  WAIT_REASON_MUTEX_I       = 0x0040,
+  WAIT_REASON_MQUE_WSEND    = 0x0080,
+  WAIT_REASON_MQUE_WRECEIVE = 0x0100,
+  WAIT_REASON_WFIXMEM       = 0x0200,
   wait_reason_reserved      = 0x7fffffff
 } wait_reason_t;
 
@@ -776,8 +773,14 @@ typedef struct _TN_FMP {
 /* - Mutex -------------------------------------------------------------------*/
 
 typedef struct osMutexAttr_s {
-  uint32_t attr_bits;
-  uint32_t ceil_priority;
+  uint32_t attr_bits;     /**< Creation attribute bits. The following predefined
+                               bit masks can be assigned to set options for a mutex object:
+                                 osMutexPrioCeiling − Mutex uses the priority ceiling protocol;
+                                                      Default mutex uses the priority inheritance protocol;
+                                 osMutexRecursive - Mutex is recursive. */
+  uint32_t ceil_priority; /**< Valid only when the osMutexPrioCeiling bit is set.
+                               The ceil_priority parameter should be set to
+                               the maximum priority of the task(s) that may lock the mutex. */
 } osMutexAttr_t;
 
 typedef struct osMutex_s {
@@ -1388,7 +1391,7 @@ osError_t tn_fmem_delete(TN_FMP *fmp);
 osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
 osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
 
-/* - Mutex -------------------------------------------------------------------*/
+/* - Mutex Management --------------------------------------------------------*/
 
 /**
  * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
@@ -1402,9 +1405,50 @@ osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
  */
 osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr);
 
-osError_t tn_mutex_delete(osMutex_t *mutex);
-osError_t tn_mutex_lock(osMutex_t *mutex, unsigned long timeout);
-osError_t tn_mutex_unlock(osMutex_t *mutex);
+/**
+ * @fn          osError_t osMutexDelete(osMutex_t *mutex)
+ * @brief       Deletes a mutex object
+ * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
+ * @return      TERR_NO_ERR       The mutex object has been deleted
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexDelete(osMutex_t *mutex);
+
+/**
+ * @fn          osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+ * @brief       Waits until a mutex object becomes available
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out. Specifies
+ *                        how long the system waits to acquire the mutex.
+ * @return      TERR_NO_ERR       The mutex has been obtained
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_TIMEOUT      The mutex could not be obtained in the given time
+ *              TERR_ILUSE        Illegal usage, e.g. trying to acquire already obtained mutex
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout);
+
+/**
+ * @fn          osError_t osMutexRelease(osMutex_t *mutex)
+ * @brief       Releases a mutex
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @return      TERR_NO_ERR       The mutex has been correctly released
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ILUSE        Illegal usage, e.g. trying to release already free mutex
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osMutexRelease(osMutex_t *mutex);
+
+/**
+ * @fn          osTask_t* osMutexGetOwner(osMutex_t *mutex)
+ * @brief       Returns the pointer to the task that acquired a mutex. In case
+ *              of an error or if the mutex is not blocked by any task, it returns NULL.
+ * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
+ * @return      Pointer to owner task or NULL when mutex was not acquired
+ */
+osTask_t* osMutexGetOwner(osMutex_t *mutex);
+
 
 /* - tn_delay.c --------------------------------------------------------------*/
 void tn_mdelay(unsigned long ms);

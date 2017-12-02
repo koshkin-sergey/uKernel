@@ -65,9 +65,6 @@
  *  external declarations
  ******************************************************************************/
 
-extern int find_max_blocked_priority(osMutex_t *mutex, int ref_priority);
-extern int do_unlock_mutex(osMutex_t *mutex);
-
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
@@ -221,7 +218,7 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
 
   CDLL_QUEUE *que = NULL;
 
-  if (task->wait_reason == WAIT_REASON_MUTEX_I || task->wait_reason == WAIT_REASON_MUTEX_C) {
+  if (task->wait_reason & (WAIT_REASON_MUTEX_I | WAIT_REASON_MUTEX_C)) {
     que = task->pwait_queue;
   }
 
@@ -251,7 +248,7 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
       /* If task was blocked by another task and its priority was changed */
       /* Recalculate current priority */
       if (holder->priority != holder->base_priority && holder->priority == task->priority) {
-        ThreadSetPriority(holder, find_max_blocked_priority(mutex, holder->base_priority));
+        ThreadSetPriority(holder, MutexGetMaxPriority(mutex, holder->base_priority));
       }
     }
   }
@@ -353,10 +350,10 @@ void ThreadSetReady(osTask_t *thread)
   info->ready_to_run_bmp |= (1 << priority);
 }
 
-void ThreadChangePriority(osTask_t * task, int32_t new_priority)
+void ThreadChangePriority(osTask_t *task, uint32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
-  int32_t old_priority = task->priority;
+  uint32_t old_priority = task->priority;
 
   //-- remove curr task from any (wait/ready) queue
   QueueRemoveEntry(&task->task_queue);
@@ -375,9 +372,9 @@ void ThreadChangePriority(osTask_t * task, int32_t new_priority)
 
 #ifdef USE_MUTEXES
 
-void ThreadSetPriority(osTask_t * task, int32_t priority)
+void ThreadSetPriority(osTask_t *task, uint32_t priority)
 {
-  osMutex_t * mutex;
+  osMutex_t *mutex;
 
   //-- transitive priority changing
 
@@ -523,7 +520,7 @@ osError_t TaskTerminate(osTask_t *task)
   while (!isQueueEmpty(&task->mutex_queue)) {
     que = QueueRemoveHead(&task->mutex_queue);
     mutex = GetMutexByMutexQueque(que);
-    do_unlock_mutex(mutex);
+    MutexUnLock(mutex);
   }
 #endif
 
@@ -552,7 +549,7 @@ void TaskExit(task_exit_attr_t attr)
   while (!isQueueEmpty(&task->mutex_queue)) {
     que = QueueRemoveHead(&task->mutex_queue);
     mutex = GetMutexByMutexQueque(que);
-    do_unlock_mutex(mutex);
+    MutexUnLock(mutex);
   }
 #endif
 

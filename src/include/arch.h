@@ -103,9 +103,6 @@
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(knlInfo.max_syscall_interrupt_priority);
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
 
-  #define BEGIN_ENABLE_INTERRUPT  uint32_t tn_save_status_reg = tn_cpu_set_basepri(0);
-  #define END_ENABLE_INTERRUPT    tn_cpu_restore_basepri(tn_save_status_reg);
-
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
 
@@ -125,11 +122,6 @@
 #ifndef BEGIN_DISABLE_INTERRUPT
   #define BEGIN_DISABLE_INTERRUPT
   #define END_DISABLE_INTERRUPT
-#endif
-
-#ifndef BEGIN_ENABLE_INTERRUPT
-  #define BEGIN_ENABLE_INTERRUPT
-  #define END_ENABLE_INTERRUPT
 #endif
 
 /*******************************************************************************
