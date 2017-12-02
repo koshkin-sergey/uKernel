@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>tstm32f0_example_basic</name>
+	<name>stm32f0_example_basic</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -28,7 +28,13 @@
 		<link>
 			<name>src</name>
 			<type>2</type>
-			<locationURI>PARENT-2-PROJECT_LOC/src</locationURI>
+			<locationURI>copy_PARENT/src</locationURI>
 		</link>
 	</linkedResources>
+	<variableList>
+		<variable>
+			<name>copy_PARENT</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D/uKernel/examples/basic/arch/cortex-m/stm32f0-discovery</value>
+		</variable>
+	</variableList>
 </projectDescription>
