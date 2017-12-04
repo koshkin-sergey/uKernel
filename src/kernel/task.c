@@ -102,6 +102,8 @@ static
 void TaskWaitExit(osTask_t *task, osError_t ret_val);
 static
 void TaskWaitExit_Handler(osTask_t *task);
+static
+osError_t TaskActivate(osTask_t *task);
 
 /*******************************************************************************
  *  function implementations (scope: module-local)
@@ -119,7 +121,7 @@ uint32_t* TaskRegPtr(osTask_t *task)
  * @return
  */
 static
-void ThreadDispatch(void)
+void TaskDispatch(void)
 {
   int32_t priority = 0;
 
@@ -151,7 +153,7 @@ void TaskToRunnable(osTask_t *task)
   task->pwait_queue = NULL;
 
   /* Add the task to the end of 'ready queue' for the current priority */
-  ThreadSetReady(task);
+  TaskSetReady(task);
 
   /* less value - greater priority, so '<' operation is used here */
   if (task->priority < TaskGetNext()->priority) {
@@ -180,7 +182,7 @@ void TaskToNonRunnable(osTask_t *task)
 
     /* Find highest priority ready to run -
        at least, MSB bit must be set for the idle task */
-    ThreadDispatch();
+    TaskDispatch();
   }
   else if (task == TaskGetNext()) {
     /* There are 'ready to run' task(s) for the curr priority */
@@ -248,7 +250,7 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
       /* If task was blocked by another task and its priority was changed */
       /* Recalculate current priority */
       if (holder->priority != holder->base_priority && holder->priority == task->priority) {
-        ThreadSetPriority(holder, MutexGetMaxPriority(mutex, holder->base_priority));
+        MutexSetPriority(holder, MutexGetMaxPriority(mutex, holder->base_priority));
       }
     }
   }
@@ -271,7 +273,7 @@ void TaskWaitExit_Handler(osTask_t *task)
   END_CRITICAL_SECTION
 }
 
-void ThreadWaitComplete(osTask_t *task)
+void TaskWaitComplete(osTask_t *task)
 {
   TimerDelete(&task->wait_timer);
   TaskWaitExit(task, TERR_NO_ERR);
@@ -294,7 +296,7 @@ void TaskWaitDelete(CDLL_QUEUE *wait_que)
  * @return
  */
 static
-void task_set_dormant_state(osTask_t* task)
+void TaskSetDormantState(osTask_t* task)
 {
   QueueReset(&(task->task_queue));
   QueueReset(&(task->wait_timer.queue));
@@ -337,11 +339,11 @@ void TaskSetNext(osTask_t *task)
 }
 
 /**
- * @fn    void ThreadSetReady(osTask_t *thread)
+ * @fn    void TaskSetReady(osTask_t *thread)
  * @brief Adds task to the end of ready queue for current priority
  * @param thread
  */
-void ThreadSetReady(osTask_t *thread)
+void TaskSetReady(osTask_t *thread)
 {
   knlInfo_t *info = &knlInfo;
   int32_t priority = thread->priority;
@@ -350,7 +352,7 @@ void ThreadSetReady(osTask_t *thread)
   info->ready_to_run_bmp |= (1 << priority);
 }
 
-void ThreadChangePriority(osTask_t *task, uint32_t new_priority)
+void TaskChangePriority(osTask_t *task, uint32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
   uint32_t old_priority = task->priority;
@@ -366,62 +368,8 @@ void ThreadChangePriority(osTask_t *task, uint32_t new_priority)
   task->priority = new_priority;
 
   //-- Add task to the end of ready queue for current priority
-  ThreadSetReady(task);
-  ThreadDispatch();
-}
-
-#ifdef USE_MUTEXES
-
-void ThreadSetPriority(osTask_t *task, uint32_t priority)
-{
-  osMutex_t *mutex;
-
-  //-- transitive priority changing
-
-  // if we have a task A that is blocked by the task B and we changed priority
-  // of task A,priority of task B also have to be changed. I.e, if we have
-  // the task A that is waiting for the mutex M1 and we changed priority
-  // of this task, a task B that holds a mutex M1 now, also needs priority's
-  // changing.  Then, if a task B now is waiting for the mutex M2, the same
-  // procedure have to be applied to the task C that hold a mutex M2 now
-  // and so on.
-
-  //-- This function in ver 2.6 is more "lightweight".
-  //-- The code is derived from Vyacheslav Ovsiyenko version
-
-  for (;;) {
-    if (task->priority <= priority)
-      return;
-
-    if (task->state == TSK_STATE_RUNNABLE) {
-      ThreadChangePriority(task, priority);
-      return;
-    }
-
-    if (task->state & TSK_STATE_WAIT) {
-      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
-        task->priority = priority;
-
-        mutex = GetMutexByWaitQueque(task->pwait_queue);
-        task = mutex->holder;
-
-        continue;
-      }
-    }
-
-    task->priority = priority;
-    return;
-  }
-}
-
-#endif
-
-/**
- * @fn    void ThreadExit(void)
- */
-void ThreadExit(void)
-{
-  osTaskExit(TASK_EXIT);
+  TaskSetReady(task);
+  TaskDispatch();
 }
 
 /**
@@ -446,12 +394,10 @@ void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
     *ptr-- = TN_FILL_STACK_VAL;
   }
 
-  task_set_dormant_state(task);
+  TaskSetDormantState(task);
 
-  if ((attr->option & TN_TASK_START_ON_CREATION) != 0) {
-    StackInit(task);
-    TaskToRunnable(task);
-  }
+  if ((attr->option & osTaskStarOnCreating) != 0)
+    TaskActivate(task);
 }
 
 /**
@@ -524,7 +470,7 @@ osError_t TaskTerminate(osTask_t *task)
   }
 #endif
 
-  task_set_dormant_state(task);
+  TaskSetDormantState(task);
 
   return TERR_NO_ERR;
 }
@@ -554,7 +500,7 @@ void TaskExit(task_exit_attr_t attr)
 #endif
 
   TaskToNonRunnable(task);
-  task_set_dormant_state(task);
+  TaskSetDormantState(task);
 
   if (attr == TASK_EXIT_AND_DELETE) {
     task->id = ID_INVALID;
@@ -634,7 +580,7 @@ osError_t TaskWakeup(osTask_t *task)
   if (!(task->state & TSK_STATE_WAIT) || (task->wait_reason != WAIT_REASON_SLEEP))
     return TERR_WSTATE;
 
-  ThreadWaitComplete(task);
+  TaskWaitComplete(task);
 
   return TERR_NO_ERR;
 }
@@ -651,7 +597,7 @@ osError_t TaskReleaseWait(osTask_t *task)
   if (!(task->state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
 
-  ThreadWaitComplete(task);
+  TaskWaitComplete(task);
 
   return TERR_NO_ERR;
 }
@@ -666,7 +612,7 @@ osError_t TaskSetPriority(osTask_t *task, uint32_t new_priority)
     return TERR_WCONTEXT;
 
   if (task->state == TSK_STATE_RUNNABLE)
-    ThreadChangePriority(task, new_priority);
+    TaskChangePriority(task, new_priority);
   else
     task->priority = new_priority;
 
@@ -702,30 +648,24 @@ osTime_t osTaskGetTime(osTask_t *task)
  * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
  * @param[in]   option        Creation option. Option values:
  *                              0                           After creation task has a DORMANT state
- *                              TN_TASK_START_ON_CREATION   After creation task is switched to the runnable state (READY/RUNNING)
+ *                              osTaskStarOnCreating   After creation task is switched to the runnable state (READY/RUNNING)
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
 osError_t osTaskCreate(osTask_t *task,
                        void (*func)(void *),
-                       int32_t priority,
+                       uint32_t priority,
                        const uint32_t *stack_start,
-                       int32_t stack_size,
+                       uint32_t stack_size,
                        const void *param,
-                       int32_t option)
+                       uint32_t option)
 {
-  /* Light weight checking of system tasks recreation */
-
-  if ( ((priority == 0) && ((option & TN_TASK_TIMER) == 0))
-    || ((priority == (NUM_PRIORITY-1)) && ((option & TN_TASK_IDLE) == 0)) )
+  if (priority == 0U || priority >= (NUM_PRIORITY-1))
     return TERR_WRONG_PARAM;
-
-  if ( ((priority < 0) || (priority > (NUM_PRIORITY - 1)))
-    || (stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
+  if ((stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
     || (stack_start == NULL) || (task->id != 0) )
     return TERR_WRONG_PARAM;
-
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 

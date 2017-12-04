@@ -31,7 +31,7 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define BITS_IN_INT                32
+#define BITS_IN_INT                (32UL)
 #define NUM_PRIORITY               BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
@@ -90,14 +90,12 @@ extern knlInfo_t knlInfo;
  ******************************************************************************/
 
 /* Thread */
-void ThreadSetReady(osTask_t *thread);
-void ThreadWaitComplete(osTask_t *task);
+void TaskSetReady(osTask_t *thread);
+void TaskWaitComplete(osTask_t *task);
 void TaskWaitEnter(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
                            osTime_t timeout);
-void ThreadChangePriority(osTask_t *task, uint32_t new_priority);
-void ThreadSetPriority(osTask_t *task, uint32_t priority);
+void TaskChangePriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(CDLL_QUEUE *que);
-void ThreadExit(void);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
 void TaskToRunnable(osTask_t *task);
@@ -156,6 +154,7 @@ CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que);
 
 /* - Mutex Management --------------------------------------------------------*/
 
+void MutexSetPriority(osTask_t *task, uint32_t priority);
 uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority);
 void MutexUnLock(osMutex_t *mutex);
 

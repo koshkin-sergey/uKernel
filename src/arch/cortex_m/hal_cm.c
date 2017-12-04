@@ -165,6 +165,15 @@ int32_t ffs_asm(uint32_t val)
 #endif
 
 /**
+ * @fn    void ThreadExit(void)
+ */
+static
+void TaskExit(void)
+{
+  osTaskExit(TASK_EXIT);
+}
+
+/**
  * @fn    uint32_t* StackInit(const osTask_t *task)
  * @brief
  * @param[in] task
@@ -177,7 +186,7 @@ void StackInit(osTask_t *task)
 
   *(--stk) = 0x01000000L;                       //-- xPSR
   *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
-  *(--stk) = (uint32_t)ThreadExit;              //-- R14 (LR)    (1 for THUMB mode)
+  *(--stk) = (uint32_t)TaskExit;                //-- R14 (LR)
   *(--stk) = 0x12121212L;                       //-- R12
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2

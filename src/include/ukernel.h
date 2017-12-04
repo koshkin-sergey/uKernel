@@ -536,9 +536,7 @@
 #define USE_EVENTS            1
 
 /* - Constants ---------------------------------------------------------------*/
-#define TN_TASK_START_ON_CREATION        1 
-#define TN_TASK_TIMER                 0x80
-#define TN_TASK_IDLE                  0x40
+#define osTaskStarOnCreating            1
 
 #define TN_EVENT_ATTR_SINGLE            1
 #define TN_EVENT_ATTR_MULTI             2
@@ -900,12 +898,12 @@ osError_t osCyclicStop(TN_CYCLIC *cyc);
  * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
  * @param[in]   option        Creation option. Option values:
  *                              0                           After creation task has a DORMANT state
- *                              TN_TASK_START_ON_CREATION   After creation task is switched to the runnable state (READY/RUNNING)
+ *                              osTaskStarOnCreating   After creation task is switched to the runnable state (READY/RUNNING)
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option);
+osError_t osTaskCreate(osTask_t *task, void (*func)(void *), uint32_t priority, const uint32_t *stack_start, uint32_t stack_size, const void *param, uint32_t option);
 
 /**
  * @fn          osError_t osTaskDelete(osTask_t *task)

@@ -184,7 +184,7 @@ void TimerTaskCreate(void *par)
   attr.stk_size = sizeof(timer_task_stack)/sizeof(*timer_task_stack);
   attr.stk_start = (uint32_t *)&timer_task_stack[attr.stk_size-1];
   attr.priority = 0;
-  attr.option = (TN_TASK_TIMER | TN_TASK_START_ON_CREATION);
+  attr.option = osTaskStarOnCreating;
 
   TaskCreate(&timer_task, &attr);
 }

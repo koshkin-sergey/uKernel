@@ -193,7 +193,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
     que = QueueRemoveHead(&dque->wait_receive_list);
     task = GetTaskByQueue(que);
     *task->wait_info.rdque.data_elem = data_ptr;
-    ThreadWaitComplete(task);
+    TaskWaitComplete(task);
   }
   /* the data queue's  wait_receive list is empty */
   else {
@@ -358,7 +358,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
       task = GetTaskByQueue(que);
       dque_fifo_write(dque, task->wait_info.sdque.data_elem,
           task->wait_info.sdque.send_to_first);
-      ThreadWaitComplete(task);
+      TaskWaitComplete(task);
     }
   }
   else {  //-- data FIFO is empty
@@ -366,7 +366,7 @@ osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout
       que = QueueRemoveHead(&dque->wait_send_list);
       task = GetTaskByQueue(que);
       *data_ptr = task->wait_info.sdque.data_elem; //-- Return to caller
-      ThreadWaitComplete(task);
+      TaskWaitComplete(task);
       rc = TERR_NO_ERR;
     }
     else {  //-- wait_send_list is empty

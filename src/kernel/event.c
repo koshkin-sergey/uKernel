@@ -120,7 +120,7 @@ static bool scan_event_waitqueue(TN_EVENT *evf)
 
     if (fCond) {
       *task->wait_info.event.flags_pattern = evf->pattern;
-      ThreadWaitComplete(task);
+      TaskWaitComplete(task);
       rc = true;
     }
   }

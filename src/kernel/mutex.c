@@ -193,7 +193,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
       QueueAddTail(&task->mutex_queue, &mutex->mutex_que);
       /* Ceiling protocol */
       if (task->priority > mutex->ceil_priority)
-        ThreadChangePriority(task, mutex->ceil_priority);
+        TaskChangePriority(task, mutex->ceil_priority);
     }
     else {
       /* the mutex is already locked */
@@ -222,7 +222,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
       //-- Base priority inheritance protocol
       //-- if run_task curr priority higher holder's curr priority
       if (task->priority < mutex->holder->priority)
-        ThreadSetPriority(mutex->holder, task->priority);
+        MutexSetPriority(mutex->holder, task->priority);
 
       TaskWaitEnter(task, &mutex->wait_que, WAIT_REASON_MUTEX_I, timeout);
     }
@@ -250,6 +250,7 @@ osError_t MutexRelease(osMutex_t *mutex)
   return TERR_NO_ERR;
 }
 
+static
 osTask_t* MutexGetOwner(osMutex_t *mutex)
 {
   if (mutex->id != ID_MUTEX)
@@ -261,6 +262,48 @@ osTask_t* MutexGetOwner(osMutex_t *mutex)
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
+
+void MutexSetPriority(osTask_t *task, uint32_t priority)
+{
+  osMutex_t *mutex;
+
+  //-- transitive priority changing
+
+  // if we have a task A that is blocked by the task B and we changed priority
+  // of task A,priority of task B also have to be changed. I.e, if we have
+  // the task A that is waiting for the mutex M1 and we changed priority
+  // of this task, a task B that holds a mutex M1 now, also needs priority's
+  // changing.  Then, if a task B now is waiting for the mutex M2, the same
+  // procedure have to be applied to the task C that hold a mutex M2 now
+  // and so on.
+
+  //-- This function in ver 2.6 is more "lightweight".
+  //-- The code is derived from Vyacheslav Ovsiyenko version
+
+  for (;;) {
+    if (task->priority <= priority)
+      return;
+
+    if (task->state == TSK_STATE_RUNNABLE) {
+      TaskChangePriority(task, priority);
+      return;
+    }
+
+    if (task->state & TSK_STATE_WAIT) {
+      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
+        task->priority = priority;
+
+        mutex = GetMutexByWaitQueque(task->pwait_queue);
+        task = mutex->holder;
+
+        continue;
+      }
+    }
+
+    task->priority = priority;
+    return;
+  }
+}
 
 uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
 {
@@ -313,7 +356,7 @@ void MutexUnLock(osMutex_t *mutex)
 
   //-- Restore original priority
   if (pr != task->priority)
-    ThreadChangePriority(task, pr);
+    TaskChangePriority(task, pr);
 
   //-- Check for the task(s) that want to lock the mutex
   if (isQueueEmpty(&mutex->wait_que)) {
@@ -331,7 +374,7 @@ void MutexUnLock(osMutex_t *mutex)
   if ((mutex->attr & osMutexPrioCeiling) && (task->priority > mutex->ceil_priority))
     task->priority = mutex->ceil_priority;
 
-  ThreadWaitComplete(task);
+  TaskWaitComplete(task);
   QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
 }
 

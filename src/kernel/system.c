@@ -92,7 +92,7 @@ void IdleTaskCreate(void)
   attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
   attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];
   attr.priority = NUM_PRIORITY-1;
-  attr.option = (TN_TASK_IDLE | TN_TASK_START_ON_CREATION);
+  attr.option = osTaskStarOnCreating;
 
   TaskCreate(&idle_task, &attr);
 }
