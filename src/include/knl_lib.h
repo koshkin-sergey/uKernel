@@ -158,4 +158,6 @@ void MutexSetPriority(osTask_t *task, uint32_t priority);
 uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority);
 void MutexUnLock(osMutex_t *mutex);
 
+void calibrate_delay(void);
+
 #endif /* _KNL_LIB_H_ */

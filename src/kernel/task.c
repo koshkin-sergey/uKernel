@@ -169,7 +169,7 @@ void TaskToRunnable(osTask_t *task)
 static
 void TaskToNonRunnable(osTask_t *task)
 {
-  int32_t priority = task->priority;
+  uint32_t priority = task->priority;
   CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
 
   /* Remove the current task from any queue (now - from ready queue) */
@@ -396,7 +396,7 @@ void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
 
   TaskSetDormantState(task);
 
-  if ((attr->option & osTaskStarOnCreating) != 0)
+  if (attr->option & osTaskStarOnCreating)
     TaskActivate(task);
 }
 

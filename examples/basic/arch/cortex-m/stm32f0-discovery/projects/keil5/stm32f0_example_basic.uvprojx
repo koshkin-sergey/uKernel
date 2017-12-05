@@ -390,11 +390,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\delay.c</FilePath>
             </File>
             <File>
-              <FileName>dqueue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\dqueue.c</FilePath>
-            </File>
-            <File>
               <FileName>event.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\event.c</FilePath>
@@ -403,11 +398,6 @@
               <FileName>mem.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>message_buf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\message_buf.c</FilePath>
             </File>
             <File>
               <FileName>mutex.c</FileName>
@@ -439,6 +429,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
             </File>
+            <File>
+              <FileName>data_que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\data_que.c</FilePath>
+            </File>
+            <File>
+              <FileName>message_que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\message_que.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -450,14 +450,14 @@
               <FilePath>..\..\src\init\system_stm32f0xx.c</FilePath>
             </File>
             <File>
-              <FileName>tn_stm32f0_example_basic.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\src\tn_stm32f0_example_basic.c</FilePath>
-            </File>
-            <File>
               <FileName>startup_stm32f051.s</FileName>
               <FileType>2</FileType>
               <FilePath>..\..\src\init\startup_stm32f051.s</FilePath>
+            </File>
+            <File>
+              <FileName>stm32f0_example_basic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\stm32f0_example_basic.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -847,11 +847,6 @@
               <FilePath>..\..\..\..\..\..\..\src\kernel\delay.c</FilePath>
             </File>
             <File>
-              <FileName>dqueue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\dqueue.c</FilePath>
-            </File>
-            <File>
               <FileName>event.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\event.c</FilePath>
@@ -860,11 +855,6 @@
               <FileName>mem.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>message_buf.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\..\..\src\kernel\message_buf.c</FilePath>
             </File>
             <File>
               <FileName>mutex.c</FileName>
@@ -896,6 +886,16 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\src\kernel\timer.c</FilePath>
             </File>
+            <File>
+              <FileName>data_que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\data_que.c</FilePath>
+            </File>
+            <File>
+              <FileName>message_que.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\src\kernel\message_que.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -907,14 +907,14 @@
               <FilePath>..\..\src\init\system_stm32f0xx.c</FilePath>
             </File>
             <File>
-              <FileName>tn_stm32f0_example_basic.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\src\tn_stm32f0_example_basic.c</FilePath>
-            </File>
-            <File>
               <FileName>startup_stm32f051.s</FileName>
               <FileType>2</FileType>
               <FilePath>..\..\src\init\startup_stm32f051.s</FilePath>
+            </File>
+            <File>
+              <FileName>stm32f0_example_basic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\src\stm32f0_example_basic.c</FilePath>
             </File>
           </Files>
         </Group>

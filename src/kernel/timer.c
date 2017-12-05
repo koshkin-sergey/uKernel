@@ -34,8 +34,6 @@
  *  external declarations
  ******************************************************************************/
 
-extern void calibrate_delay(void);
-
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
@@ -391,8 +389,12 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    if (!isQueueEmpty(&timer_queue))
-      TaskToRunnable(&timer_task);
+    if (!isQueueEmpty(&timer_queue)) {
+      TMEB *timer = GetTimerByQueue(timer_queue.next);
+
+      if (time_before_eq(timer->time, knlInfo.jiffies))
+        TaskToRunnable(&timer_task);
+    }
   }
 }
 
