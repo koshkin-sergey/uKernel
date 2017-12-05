@@ -663,7 +663,7 @@ osError_t osTaskCreate(osTask_t *task,
 {
   if (priority == 0U || priority >= (NUM_PRIORITY-1))
     return TERR_WRONG_PARAM;
-  if ((stack_size < TN_MIN_STACK_SIZE) || (func == NULL) || (task == NULL)
+  if ((stack_size < osStackSizeMin) || (func == NULL) || (task == NULL)
     || (stack_start == NULL) || (task->id != 0) )
     return TERR_WRONG_PARAM;
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())

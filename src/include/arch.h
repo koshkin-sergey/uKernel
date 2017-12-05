@@ -30,9 +30,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define TIMER_STACK_SIZE           64
-#define IDLE_STACK_SIZE            48
-#define TN_MIN_STACK_SIZE             40      //--  +20 for exit func when ver GCC > 4
+#define TIMER_STACK_SIZE              (48U)
+#define IDLE_STACK_SIZE               (48U)
 
 #define TN_ALIG                       sizeof(void*)
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))

@@ -536,6 +536,9 @@
 #define USE_EVENTS            1
 
 /* - Constants ---------------------------------------------------------------*/
+
+#define osStackSizeMin                (48U)
+
 #define osTaskStarOnCreating            1
 
 #define TN_EVENT_ATTR_SINGLE            1

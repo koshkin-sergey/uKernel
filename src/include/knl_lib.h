@@ -65,6 +65,7 @@ typedef struct {
   kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
   CDLL_QUEUE ready_list[NUM_PRIORITY];    ///< all ready to run(RUNNABLE) tasks
+  CDLL_QUEUE timer_queue;
 #if defined(ROUND_ROBIN_ENABLE)
   uint16_t tslice_ticks[NUM_PRIORITY];    ///< For round-robin only
 #endif

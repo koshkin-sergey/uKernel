@@ -24,8 +24,8 @@
 
 #define HZ    1000
 
-#define TASK_A_STK_SIZE   64
-#define TASK_B_STK_SIZE   64
+#define TASK_A_STK_SIZE   osStackSizeMin
+#define TASK_B_STK_SIZE   osStackSizeMin
 
 #define TASK_A_PRIORITY   1
 #define TASK_B_PRIORITY   2
