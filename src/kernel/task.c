@@ -99,7 +99,7 @@ __svc_indirect(0)
 osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
 static
-void TaskWaitExit(osTask_t *task, osError_t ret_val);
+void TaskWaitExit(osTask_t *task, uint32_t ret_val);
 static
 void TaskWaitExit_Handler(osTask_t *task);
 static
@@ -214,7 +214,7 @@ void TaskWaitEnter(osTask_t *task, CDLL_QUEUE * wait_que, wait_reason_t wait_rea
  * @return
  */
 static
-void TaskWaitExit(osTask_t *task, osError_t ret_val)
+void TaskWaitExit(osTask_t *task, uint32_t ret_val)
 {
 #ifdef USE_MUTEXES
 
@@ -230,7 +230,7 @@ void TaskWaitExit(osTask_t *task, osError_t ret_val)
   QueueRemoveEntry(&task->task_queue);
 
   uint32_t *reg = TaskRegPtr(task);
-  *reg = (uint32_t)ret_val;
+  *reg = ret_val;
 
   if (!(task->state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);
@@ -269,24 +269,20 @@ static
 void TaskWaitExit_Handler(osTask_t *task)
 {
   BEGIN_CRITICAL_SECTION
-  TaskWaitExit(task, TERR_TIMEOUT);
+  TaskWaitExit(task, (uint32_t)TERR_TIMEOUT);
   END_CRITICAL_SECTION
 }
 
-void TaskWaitComplete(osTask_t *task)
+void TaskWaitComplete(osTask_t *task, uint32_t ret_val)
 {
   TimerDelete(&task->wait_timer);
-  TaskWaitExit(task, TERR_NO_ERR);
+  TaskWaitExit(task, ret_val);
 }
 
 void TaskWaitDelete(CDLL_QUEUE *wait_que)
 {
-  osTask_t *task;
-
   while (!isQueueEmpty(wait_que)) {
-    task = GetTaskByQueue(QueueRemoveHead(wait_que));
-    TimerDelete(&task->wait_timer);
-    TaskWaitExit(task, TERR_DLT);
+    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
   }
 }
 
@@ -580,7 +576,7 @@ osError_t TaskWakeup(osTask_t *task)
   if (!(task->state & TSK_STATE_WAIT) || (task->wait_reason != WAIT_REASON_SLEEP))
     return TERR_WSTATE;
 
-  TaskWaitComplete(task);
+  TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
 
   return TERR_NO_ERR;
 }
@@ -597,7 +593,7 @@ osError_t TaskReleaseWait(osTask_t *task)
   if (!(task->state & TSK_STATE_WAIT))
     return TERR_WCONTEXT;
 
-  TaskWaitComplete(task);
+  TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
 
   return TERR_NO_ERR;
 }

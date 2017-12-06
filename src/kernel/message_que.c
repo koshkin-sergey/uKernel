@@ -202,7 +202,7 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t
     /* There are task(s) in the data queue's wait_receive list */
     task = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
     memcpy(task->wait_info.rmque.msg, msg, mq->msg_size);
-    TaskWaitComplete(task);
+    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }
@@ -246,7 +246,7 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
       mbf_fifo_write(mq, task->wait_info.smque.msg, task->wait_info.smque.msg_pri);
     else
       memcpy(msg, task->wait_info.smque.msg, mq->msg_size);
-    TaskWaitComplete(task);
+    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }

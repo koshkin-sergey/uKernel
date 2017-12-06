@@ -92,7 +92,7 @@ extern knlInfo_t knlInfo;
 
 /* Thread */
 void TaskSetReady(osTask_t *thread);
-void TaskWaitComplete(osTask_t *task);
+void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
 void TaskWaitEnter(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
                            osTime_t timeout);
 void TaskChangePriority(osTask_t *task, uint32_t new_priority);

@@ -374,7 +374,7 @@ void MutexUnLock(osMutex_t *mutex)
   if ((mutex->attr & osMutexPrioCeiling) && (task->priority > mutex->ceil_priority))
     task->priority = mutex->ceil_priority;
 
-  TaskWaitComplete(task);
+  TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
   QueueAddTail(&(task->mutex_queue), &(mutex->mutex_que));
 }
 

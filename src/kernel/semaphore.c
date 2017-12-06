@@ -155,7 +155,7 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
   BEGIN_CRITICAL_SECTION
 
   if (!isQueueEmpty(&sem->wait_queue)) {
-    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)));
+    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }

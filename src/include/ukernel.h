@@ -533,7 +533,6 @@
 
 /* - The system configuration (change it for your particular project) --------*/
 #define USE_MUTEXES           1
-#define USE_EVENTS            1
 
 /* - Constants ---------------------------------------------------------------*/
 
@@ -542,11 +541,15 @@
 #define osTaskStarOnCreating            1
 
 #define TN_EVENT_ATTR_SINGLE            1
-#define TN_EVENT_ATTR_MULTI             2
 #define TN_EVENT_ATTR_CLR               4
 
 #define TN_EVENT_WCOND_OR               8
 #define TN_EVENT_WCOND_AND           0x10
+
+#define osFlagsWaitAny        0x00000000U ///< Wait for any flag (default).
+#define osFlagsWaitAll        0x00000001U ///< Wait for all flags.
+#define osFlagsNoClear        0x00000002U ///< Do not clear flags which have been specified to wait for.
+
 
 #define osMutexPrioCeiling            (1UL<<0)
 #define osMutexRecursive              (1UL<<1)
@@ -571,7 +574,7 @@ typedef enum {
   ID_INVALID        = 0x00000000,
   ID_TASK           = 0x47ABCF69,
   ID_SEMAPHORE      = 0x6FA173EB,
-  ID_EVENT          = 0x5E224F25,
+  ID_EVENT_FLAGS    = 0x5E224F25,
   ID_DATAQUEUE      = 0x0C8A6C89,
   ID_FSMEMORYPOOL   = 0x26B7CE8B,
   ID_MUTEX          = 0x17129E45,
@@ -692,9 +695,8 @@ typedef struct {
 } WINFO_SMQUE;
 
 typedef struct {
-  unsigned int pattern;   // Event wait pattern
-  int mode;               // Event wait mode:  _AND or _OR
-  unsigned int *flags_pattern;
+  uint32_t flags;
+  uint32_t options;
 } WINFO_EVENT;
 
 /*
@@ -740,13 +742,12 @@ typedef struct osSemaphore_s {
   id_t id;                    ///< ID for verification(is it a semaphore or another object?)
 } osSemaphore_t;
 
-/* - Eventflag ---------------------------------------------------------------*/
+/* - Event Flags -------------------------------------------------------------*/
 typedef struct _TN_EVENT {
+  id_t id;                    ///< ID for verification(is it a event or another object?)
   CDLL_QUEUE wait_queue;
-  int attr;                   //-- Eventflag attribute
-  unsigned int pattern;       //-- Initial value of the eventflag bit pattern
-  id_t id;                    //-- ID for verification(is it a event or another object?)
-} TN_EVENT;
+  uint32_t pattern;           ///< Initial value of the eventflag bit pattern
+} osEventFlags_t;
 
 /* - Data queue --------------------------------------------------------------*/
 typedef struct _TN_DQUE {
@@ -992,7 +993,7 @@ osError_t osTaskSleep(osTime_t timeout);
 
 /**
  * @fn          osError_t osTaskWakeup(osTask_t *task)
- * @brief       Wakes up the task specified by the task from sleep mode
+ * @brief       Wakes up the task specified by the task from sleep options
  * @param[out]  task  Pointer to the task TCB to be wake up
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
@@ -1293,97 +1294,61 @@ uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq);
 osError_t osMessageQueueReset(osMessageQueue_t *mq);
 
 
-/* - tn_event.c --------------------------------------------------------------*/
+/* - Event Flags -------------------------------------------------------------*/
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_create
- * Описание : Создает флаг события.
- * Параметры: evf - Указатель на инициализируемую структуру TN_EVENT
- *            attr  - Атрибуты создаваемого флага.
- *                    Возможно сочетание следующих определений:
- *                    TN_EVENT_ATTR_CLR - Выполнять автоматическую очистку флага
- *                                        после его обработки. Возможно
- *                                        применение только совместно с атрибутом
- *                                        TN_EVENT_ATTR_SINGLE.
- *                    TN_EVENT_ATTR_SINGLE  - Использование флага только в одной
- *                                            задаче. Исрользование в нескольких
- *                                            задачах не допускается.
- *                    TN_EVENT_ATTR_MULTI - Использование флага возможно в
- *                                          нескольких задачах.
- *                    Атрибуты TN_EVENT_ATTR_SINGLE и TN_EVENT_ATTR_MULTI
- *                    взаимно исключающие. Не допускается использовать их
- *                    одновременно, но также не допускается вообще не указывать
- *                    ни один из этих атрибутов.
- *            pattern - Начальное битовое поле по которому идет определение
- *                      установки флага. Обычно должно быть равно 0.
- * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
- *            случае TERR_WRONG_PARAM
- *----------------------------------------------------------------------------*/
-extern osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern);
+/**
+ * @fn          osError_t osEventFlagsNew(osEventFlags_t *evf)
+ * @brief       Creates a new event flags object
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @return      TERR_NO_ERR       The event flags object has been created
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osEventFlagsNew(osEventFlags_t *evf);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_delete
- * Описание : Удаляет флаг события.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_event_delete(TN_EVENT *evf);
+/**
+ * @fn          osError_t osEventFlagsDelete(osEventFlags_t *evf)
+ * @brief       Deletes the event flags object
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @return      TERR_NO_ERR       The event flags object has been deleted
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osEventFlagsDelete(osEventFlags_t *evf);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_wait
- * Описание : Ожидает установки флага события в течении заданного интервала
- *            времени.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            wait_pattern  - Ожидаемая комбинация битов. Не может быть равно 0.
- *            wait_mode - Режим ожидания.
- *                        Возможно одно из определений:
- *                          TN_EVENT_WCOND_OR - Ожидается установка любого бита
- *                                              из ожидаемых.
- *                          TN_EVENT_WCOND_AND  - Ожидается установка всех битов
- *                                                из ожидаемых.
- *            p_flags_pattern - Указатель на переменную, в которую будет записано
- *                              значение комбинации битов по окончании ожидания.
- *            timeout - Время ожидания установки флагов событий.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *              TERR_ILUSE  - флаг был создан с атрибутом TN_EVENT_ATTR_SINGLE,
- *                            а его пытается использовать более одной задачи.
- *              TERR_TIMEOUT  - Время ожидания истекло.
- *----------------------------------------------------------------------------*/
-extern osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern,
-                         int wait_mode, unsigned int *p_flags_pattern,
-                         unsigned long timeout);
+/**
+ * @fn          uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+ * @brief       Sets the event flags
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags Specifies the flags that shall be set
+ * @return      The event flags after setting or an error code if highest bit is set
+ *              (refer to osError_t)
+ */
+uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_set
- * Описание : Устанавливает флаги событий.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            pattern - Комбинация битов. 1 в разряде соответствует
- *                      устанавливаемому флагу. Не может быть равен 0.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_event_set(TN_EVENT *evf, unsigned int pattern);
+/**
+ * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+ * @brief       Suspends the execution of the currently RUNNING task until any
+ *              or all event flags in the event object are set. When these event
+ *              flags are already set, the function returns instantly.
+ * @param[out]  evf       Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags     Specifies the flags to wait for
+ * @param[in]   options   Specifies flags options (osFlagsXxxx)
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out
+ * @return      Event flags before clearing or error code if highest bit set
+ */
+uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout);
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_clear
- * Описание : Очищает флаг события.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            pattern - Комбинация битов. 1 в разряде соответствует
- *                      очищаемому флагу. Не может быть равен 0.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-extern osError_t tn_event_clear(TN_EVENT *evf, unsigned int pattern);
+/**
+ * @fn          uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+ * @brief       Clears the event flags in an event flags object
+ * @param[out]  evf     Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags   Specifies the flags that shall be cleared
+ * @return      Event flags before clearing or error code if highest bit set
+ */
+uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags);
+
 
 /* - tn_mem.c ----------------------------------------------------------------*/
 osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,

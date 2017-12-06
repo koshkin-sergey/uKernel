@@ -61,8 +61,6 @@
 
 #include "knl_lib.h"
 
-#ifdef  USE_EVENTS
-
 /*******************************************************************************
  *  external declarations
  ******************************************************************************/
@@ -87,254 +85,281 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
+__svc_indirect(0)
+osError_t svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
+__svc_indirect(0)
+osError_t svcEventFlagsDelete(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
+__svc_indirect(0)
+uint32_t svcEventFlagsSet(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
+__svc_indirect(0)
+uint32_t svcEventFlagsWait(uint32_t (*)(osEventFlags_t*, uint32_t, uint32_t, osTime_t), osEventFlags_t*, uint32_t, uint32_t, osTime_t);
+__svc_indirect(0)
+uint32_t svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
+
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : scan_event_waitqueue
- * Описание : Проверяет очередь ожидания.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- * Результат: Возвращает true если в очереди ожидания была найдена ожидающая задача
- *            и она была успешно разбужена, в противном случае возвращает false.
- *----------------------------------------------------------------------------*/
-static bool scan_event_waitqueue(TN_EVENT *evf)
+static
+uint32_t FlagsSet(osEventFlags_t *evf, uint32_t flags)
 {
-  CDLL_QUEUE * que;
-  osTask_t * task;
-  int fCond;
-  bool rc = false;
+  uint32_t event_flags;
+
+  BEGIN_CRITICAL_SECTION
+
+  evf->pattern |= flags;
+  event_flags = evf->pattern;
+
+  END_CRITICAL_SECTION
+
+  return event_flags;
+}
+
+static
+uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
+{
+  uint32_t pattern;
+
+  if ((options & osFlagsNoClear) == 0U) {
+
+    BEGIN_CRITICAL_SECTION
+
+    pattern = evf->pattern;
+
+    if ((((options & osFlagsWaitAll) != 0U) && ((pattern & flags) != flags)) ||
+        (((options & osFlagsWaitAll) == 0U) && ((pattern & flags) == 0U)))
+    {
+      pattern = 0U;
+    }
+    else {
+      evf->pattern &= ~flags;
+    }
+
+    END_CRITICAL_SECTION
+  }
+  else {
+    pattern = evf->pattern;
+
+    if ((((options & osFlagsWaitAll) != 0U) && ((pattern & flags) != flags)) ||
+        (((options & osFlagsWaitAll) == 0U) && ((pattern & flags) == 0U)))
+    {
+      pattern = 0U;
+    }
+  }
+
+  return pattern;
+}
+
+static
+osError_t EventFlagsNew(osEventFlags_t *evf)
+{
+  if (evf->id == ID_EVENT_FLAGS)
+    return TERR_NO_ERR;
+
+  QueueReset(&evf->wait_queue);
+
+  evf->pattern = 0U;
+  evf->id = ID_EVENT_FLAGS;
+
+  return TERR_NO_ERR;
+}
+
+static
+osError_t EventFlagsDelete(osEventFlags_t *evf)
+{
+  if (evf->id != ID_EVENT_FLAGS)
+    return TERR_NOEXS;
+
+  TaskWaitDelete(&evf->wait_queue);
+
+  evf->id = ID_INVALID;
+
+  return TERR_NO_ERR;
+}
+
+static
+uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+{
+  uint32_t event_flags, pattern;
+  CDLL_QUEUE *que;
+  osTask_t *task;
+
+  if (evf->id != ID_EVENT_FLAGS)
+    return (uint32_t)TERR_NOEXS;
+
+  /* Set Event Flags */
+  event_flags = FlagsSet(evf, flags);
 
   que = evf->wait_queue.next;
-  /*  checking ALL of the tasks waiting on the event.
-      for the event with attr TN_EVENT_ATTR_SINGLE the only one task
-      may be in the queue */
   while (que != &evf->wait_queue) {
     task = GetTaskByQueue(que);
     que = que->next;
 
-    if (task->wait_info.event.mode & TN_EVENT_WCOND_OR)
-      fCond = ((evf->pattern & task->wait_info.event.pattern) != 0);
-    else
-      fCond = ((evf->pattern & task->wait_info.event.pattern) == task->wait_info.event.pattern);
+    pattern = FlagsCheck(evf, task->wait_info.event.flags, task->wait_info.event.options);
 
-    if (fCond) {
-      *task->wait_info.event.flags_pattern = evf->pattern;
-      TaskWaitComplete(task);
-      rc = true;
+    if (pattern) {
+      if (!(task->wait_info.event.options & osFlagsNoClear)) {
+        event_flags = pattern & ~task->wait_info.event.flags;
+      }
+      else {
+        event_flags = pattern;
+      }
+      TaskWaitComplete(task, pattern);
     }
   }
 
-  return rc;
+  return event_flags;
+}
+
+static
+uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+{
+  uint32_t pattern;
+
+  if (evf->id != ID_EVENT_FLAGS)
+    return (uint32_t)TERR_NOEXS;
+
+  pattern = FlagsCheck(evf, flags, options);
+
+  if (pattern)
+    return pattern;
+
+  if (timeout) {
+    osTask_t *task = TaskGetCurrent();
+    task->wait_info.event.options = options;
+    task->wait_info.event.flags = flags;
+    TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
+  }
+
+  return (uint32_t)TERR_TIMEOUT;
+}
+
+static
+uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+{
+  uint32_t pattern;
+
+  if (evf->id != ID_EVENT_FLAGS)
+    return (uint32_t)TERR_NOEXS;
+
+  BEGIN_DISABLE_INTERRUPT
+
+  pattern = evf->pattern;
+  evf->pattern &= ~flags;
+
+  END_DISABLE_INTERRUPT
+
+  return pattern;
 }
 
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_create
- * Описание : Создает флаг события.
- * Параметры: evf - Указатель на инициализируемую структуру TN_EVENT
- *            attr  - Атрибуты создаваемого флага.
- *                    Возможно сочетание следующих определений:
- *                    TN_EVENT_ATTR_CLR - Выполнять автоматическую очистку флага
- *                                        после его обработки. Возможно
- *                                        применение только совместно с атрибутом
- *                                        TN_EVENT_ATTR_SINGLE.
- *                    TN_EVENT_ATTR_SINGLE  - Использование флага только в одной
- *                                            задаче. Исрользование в нескольких
- *                                            задачах не допускается.
- *                    TN_EVENT_ATTR_MULTI - Использование флага возможно в
- *                                          нескольких задачах.
- *                    Атрибуты TN_EVENT_ATTR_SINGLE и TN_EVENT_ATTR_MULTI
- *                    взаимно исключающие. Не допускается использовать их
- *                    одновременно, но также не допускается вообще не указывать
- *                    ни один из этих атрибутов.
- *            pattern - Начальное битовое поле по которому идет определение
- *                      установки флага. Обычно должно быть равно 0.
- * Результат: Возвращает TERR_NO_ERR если выполнено без ошибок, в противном
- *            случае TERR_WRONG_PARAM
- *----------------------------------------------------------------------------*/
-osError_t tn_event_create(TN_EVENT *evf, int attr, unsigned int pattern)
+/**
+ * @fn          osError_t osEventFlagsNew(osEventFlags_t *evf)
+ * @brief       Creates a new event flags object
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @return      TERR_NO_ERR       The event flags object has been created
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osEventFlagsNew(osEventFlags_t *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (evf->id == ID_EVENT
-    || (((attr & TN_EVENT_ATTR_SINGLE) == 0)
-      && ((attr & TN_EVENT_ATTR_MULTI) == 0)))
-    return TERR_WRONG_PARAM;
-  if ((attr & TN_EVENT_ATTR_CLR) && ((attr & TN_EVENT_ATTR_SINGLE) == 0))
-    return TERR_WRONG_PARAM;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  QueueReset(&evf->wait_queue);
-  evf->pattern = pattern;
-  evf->attr = attr;
-
-  evf->id = ID_EVENT;
-
-  return TERR_NO_ERR;
+  return svcEventFlagsNew(EventFlagsNew, evf);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_delete
- * Описание : Удаляет флаг события.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-osError_t tn_event_delete(TN_EVENT *evf)
+/**
+ * @fn          osError_t osEventFlagsDelete(osEventFlags_t *evf)
+ * @brief       Deletes the event flags object
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @return      TERR_NO_ERR       The event flags object has been deleted
+ *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
+ *              TERR_NOEXS        Object is not a Message Queue or non-existent
+ *              TERR_ISR          Cannot be called from interrupt service routines
+ */
+osError_t osEventFlagsDelete(osEventFlags_t *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (evf->id != ID_EVENT)
-    return TERR_NOEXS;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+    return TERR_ISR;
 
-  BEGIN_CRITICAL_SECTION
-
-  TaskWaitDelete(&evf->wait_queue);
-
-  evf->id = ID_INVALID; // Event not exists now
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  return svcEventFlagsDelete(EventFlagsDelete, evf);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_wait
- * Описание : Ожидает установки флага события в течении заданного интервала
- *            времени.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            wait_pattern  - Ожидаемая комбинация битов. Не может быть равно 0.
- *            wait_mode - Режим ожидания.
- *                        Возможно одно из определений:
- *                          TN_EVENT_WCOND_OR - Ожидается установка любого бита
- *                                              из ожидаемых.
- *                          TN_EVENT_WCOND_AND  - Ожидается установка всех битов
- *                                                из ожидаемых.
- *            p_flags_pattern - Указатель на переменную, в которую будет записано
- *                              значение комбинации битов по окончании ожидания.
- *            timeout - Время ожидания установки флагов событий.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *              TERR_ILUSE  - флаг был создан с атрибутом TN_EVENT_ATTR_SINGLE,
- *                            а его пытается использовать более одной задачи.
- *              TERR_TIMEOUT  - Время ожидания истекло.
- *----------------------------------------------------------------------------*/
-osError_t tn_event_wait(TN_EVENT *evf, unsigned int wait_pattern, int wait_mode,
-                  unsigned int *p_flags_pattern, unsigned long timeout)
+/**
+ * @fn          uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+ * @brief       Sets the event flags
+ * @param[out]  evf   Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags Specifies the flags that shall be set
+ * @return      The event flags after setting or an error code if highest bit is set
+ *              (refer to osError_t)
+ */
+uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 {
-  osError_t rc;
-  int fCond;
+  if (evf == NULL || flags == 0U)
+    return (uint32_t)TERR_WRONG_PARAM;
 
-  if (evf == NULL || wait_pattern == 0 || p_flags_pattern == NULL)
-    return TERR_WRONG_PARAM;
-  if (evf->id != ID_EVENT)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
-  //-- If event attr is TN_EVENT_ATTR_SINGLE and another task already
-  //-- in event wait queue - return ERROR without checking release condition
-  if ((evf->attr & TN_EVENT_ATTR_SINGLE) && !isQueueEmpty(&evf->wait_queue)) {
-    rc = TERR_ILUSE;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    return EventFlagsSet(evf, flags);
   }
   else {
-    //-- Check release condition
-    if (wait_mode & TN_EVENT_WCOND_OR) //-- any setted bit is enough for release condition
-      fCond = ((evf->pattern & wait_pattern) != 0);
-    else
-      //-- TN_EVENT_WCOND_AND is default mode
-      fCond = ((evf->pattern & wait_pattern) == wait_pattern);
-
-    if (fCond) {
-      *p_flags_pattern = evf->pattern;
-      if (evf->attr & TN_EVENT_ATTR_CLR)
-        evf->pattern &= ~wait_pattern;
-      rc = TERR_NO_ERR;
-    }
-    else {
-      if (timeout == 0U) {
-        rc = TERR_TIMEOUT;
-      }
-      else {
-        osTask_t *task = TaskGetCurrent();
-        task->wait_info.event.mode = wait_mode;
-        task->wait_info.event.pattern = wait_pattern;
-        task->wait_info.event.flags_pattern = p_flags_pattern;
-        TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
-      }
-    }
+    return svcEventFlagsSet(EventFlagsSet, evf, flags);
   }
-
-  END_CRITICAL_SECTION
-
-  return rc;
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_set
- * Описание : Устанавливает флаги событий.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            pattern - Комбинация битов. 1 в разряде соответствует
- *                      устанавливаемому флагу. Не может быть равен 0.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-osError_t tn_event_set(TN_EVENT *evf, unsigned int pattern)
+/**
+ * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+ * @brief       Suspends the execution of the currently RUNNING task until any
+ *              or all event flags in the event object are set. When these event
+ *              flags are already set, the function returns instantly.
+ * @param[out]  evf       Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags     Specifies the flags to wait for
+ * @param[in]   options   Specifies flags options (osFlagsXxxx)
+ * @param[in]   timeout   Timeout Value or 0 in case of no time-out
+ * @return      Event flags before clearing or error code if highest bit set
+ */
+uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
 {
-  if (evf == NULL || pattern == 0)
-    return TERR_WRONG_PARAM;
-  if (evf->id != ID_EVENT)
-    return TERR_NOEXS;
+  if (evf == NULL || flags == 0)
+    return (uint32_t)TERR_WRONG_PARAM;
 
-  BEGIN_CRITICAL_SECTION
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    if (timeout != 0U)
+      return (uint32_t)TERR_WRONG_PARAM;
 
-  evf->pattern |= pattern;
-
-  if (scan_event_waitqueue(evf)) { //-- There are task(s) that waiting state is complete
-    if (evf->attr & TN_EVENT_ATTR_CLR)
-      evf->pattern &= ~pattern;
+    return EventFlagsWait(evf, flags, options, timeout);
   }
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
+  else {
+    return svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
+  }
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : tn_event_clear
- * Описание : Очищает флаг события.
- * Параметры: evf - Указатель на существующую структуру TN_EVENT.
- *            pattern - Комбинация битов. 1 в разряде соответствует
- *                      очищаемому флагу. Не может быть равен 0.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_NOEXS  - флаг события не существует;
- *----------------------------------------------------------------------------*/
-osError_t tn_event_clear(TN_EVENT *evf, unsigned int pattern)
+/**
+ * @fn          uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+ * @brief       Clears the event flags in an event flags object
+ * @param[out]  evf     Pointer to osEventFlags_t structure of the event
+ * @param[in]   flags   Specifies the flags that shall be cleared
+ * @return      Event flags before clearing or error code if highest bit set
+ */
+uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
 {
-  if (evf == NULL || pattern == 0)
-    return TERR_WRONG_PARAM;
-  if (evf->id != ID_EVENT)
-    return TERR_NOEXS;
+  if (evf == NULL || flags == 0)
+    return (uint32_t)TERR_WRONG_PARAM;
 
-  BEGIN_DISABLE_INTERRUPT
-
-  evf->pattern &= ~pattern;
-
-  END_DISABLE_INTERRUPT
-  return TERR_NO_ERR;
+  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+    return EventFlagsClear(evf, flags);
+  }
+  else {
+    return svcEventFlagsClear(EventFlagsClear, evf, flags);
+  }
 }
-
-#endif   //#ifdef  USE_EVENTS
 
 /* ----------------------------- End of file ---------------------------------*/
+

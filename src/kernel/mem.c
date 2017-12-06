@@ -259,7 +259,7 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
     que = QueueRemoveHead(&fmp->wait_queue);
     task = GetTaskByQueue(que);
     task->wait_info.fmem.data_elem = p_data;
-    TaskWaitComplete(task);
+    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
   }
   else
     fm_put(fmp,p_data);
