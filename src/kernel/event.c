@@ -190,6 +190,8 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
   /* Set Event Flags */
   event_flags = FlagsSet(evf, flags);
 
+  BEGIN_CRITICAL_SECTION
+
   que = evf->wait_queue.next;
   while (que != &evf->wait_queue) {
     task = GetTaskByQueue(que);
@@ -208,6 +210,8 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
     }
   }
 
+  END_CRITICAL_SECTION
+
   return event_flags;
 }
 
@@ -224,12 +228,16 @@ uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, o
   if (pattern)
     return pattern;
 
+  BEGIN_CRITICAL_SECTION
+
   if (timeout) {
     osTask_t *task = TaskGetCurrent();
     task->wait_info.event.options = options;
     task->wait_info.event.flags = flags;
     TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
   }
+
+  END_CRITICAL_SECTION
 
   return (uint32_t)TERR_TIMEOUT;
 }

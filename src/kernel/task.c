@@ -112,7 +112,14 @@ osError_t TaskActivate(osTask_t *task);
 __STATIC_FORCEINLINE
 uint32_t* TaskRegPtr(osTask_t *task)
 {
-  return (uint32_t *)(task->stk + STACK_OFFSET_R0());
+  uint32_t *addr;
+  
+  if (task != TaskGetCurrent())
+    addr = (uint32_t *)(task->stk + STACK_OFFSET_R0());
+  else
+    addr = (uint32_t *)__get_PSP();
+  
+  return addr;
 }
 
 /**
@@ -327,9 +334,6 @@ osTask_t* TaskGetNext(void)
 
 void TaskSetNext(osTask_t *task)
 {
-  if (task == TaskGetNext() || task == TaskGetCurrent())
-    return;
-
   knlInfo.run.next = task;
   archSwitchContextRequest();
 }

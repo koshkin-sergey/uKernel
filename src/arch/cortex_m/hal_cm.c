@@ -68,18 +68,18 @@ static
 void SystemIsrInit(void)
 {
 #if !defined(__TARGET_ARCH_6S_M)
-  uint32_t sh, prigroup;
+//  uint32_t sh, prigroup;
 #endif
   NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
 #if defined(__TARGET_ARCH_6S_M)
-  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+//  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
 #else
-  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
-  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
-  if (prigroup >= sh) {
-    sh = prigroup + 1U;
-  }
-  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+//  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+//  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
+//  if (prigroup >= sh) {
+//    sh = prigroup + 1U;
+//  }
+//  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
 #endif
 }
 

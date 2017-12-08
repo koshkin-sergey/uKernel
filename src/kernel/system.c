@@ -99,7 +99,7 @@ TMEB* GetTimer(void)
  * @brief Idle task function.
  * @param par
  */
-__WEAK void IdleTaskFunc(void *par)
+__WEAK void osIdleTaskFunc(void *par)
 {
   for (;;) {
     ;
@@ -137,7 +137,7 @@ void IdleTaskCreate(void)
 {
   task_create_attr_t attr;
 
-  attr.func_addr = (void *)IdleTaskFunc;
+  attr.func_addr = (void *)osIdleTaskFunc;
   attr.func_param = NULL;
   attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
   attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];

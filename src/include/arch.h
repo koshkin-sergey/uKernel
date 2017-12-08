@@ -70,8 +70,8 @@
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
 
-  #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
-  #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
+  #define BEGIN_CRITICAL_SECTION  //BEGIN_DISABLE_INTERRUPT
+  #define END_CRITICAL_SECTION    //END_DISABLE_INTERRUPT
 
   __STATIC_FORCEINLINE
   void archSwitchContextRequest(void)
