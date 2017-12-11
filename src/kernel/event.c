@@ -85,15 +85,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__svc_indirect(0)
+__SVC(0)
 osError_t svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-__svc_indirect(0)
+__SVC(0)
 osError_t svcEventFlagsDelete(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-__svc_indirect(0)
+__SVC(0)
 uint32_t svcEventFlagsSet(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
-__svc_indirect(0)
+__SVC(0)
 uint32_t svcEventFlagsWait(uint32_t (*)(osEventFlags_t*, uint32_t, uint32_t, osTime_t), osEventFlags_t*, uint32_t, uint32_t, osTime_t);
-__svc_indirect(0)
+__SVC(0)
 uint32_t svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
 
 /*******************************************************************************

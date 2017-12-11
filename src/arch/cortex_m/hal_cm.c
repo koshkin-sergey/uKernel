@@ -293,39 +293,54 @@ void SVC_Handler(void)
 
 #if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
+  MOV     R0,LR
+  LSRS    R0,R0,#3                ; Determine return stack from EXC_RETURN bit 2
+  BCC     SVC_MSP                 ; Branch if return stack is MSP
   MRS     R0,PSP                  ; Get PSP
+
+SVC_Number
   LDR     R1,[R0,#24]             ; Read Saved PC from Stack
   SUBS    R1,R1,#2                ; Point to SVC Instruction
   LDRB    R1,[R1]                 ; Load SVC Number
   CMP     R1,#0
   BNE     SVC_Exit                ; User SVC Number > 0
 
-  MOV     LR,R4
+  PUSH    {R0,LR}                 ; Save SP and EXC_RETURN
   LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
-  MOV     R12,R4
-  MOV     R4,LR
-  BLX     R12                     ; Call SVC Function 
-  MRS     R2,PSP                  ; Read PSP
+  BLX     R7                      ; Call service function
+  POP     {R2,R3}                 ; Restore SP and EXC_RETURN
   STMIA   R2!,{R0-R1}             ; Store return values
+  MOV     LR,R3                   ; Set EXC_RETURN
+
+SVC_Exit
+  BX      LR                      ; Exit from handler
+
+SVC_MSP
+  MRS     R0,MSP                  ; Get MSP
+  B       SVC_Number
 
 #elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  MRS     R0,PSP                  ; Read PSP
+  TST     LR,#0x04                ; Determine return stack from EXC_RETURN bit 2
+  ITE     EQ
+  MRSEQ   R0,MSP                  ; Get MSP if return stack is MSP
+  MRSNE   R0,PSP                  ; Get PSP if return stack is PSP
+
   LDR     R1,[R0,#24]             ; Read Saved PC from Stack
   LDRB    R1,[R1,#-2]             ; Load SVC Number
   CBNZ    R1,SVC_Exit
 
+  PUSH    {R0,LR}                 ; Save SP and EXC_RETURN
   LDM     R0,{R0-R3,R12}          ; Read R0-R3,R12 from stack
   BLX     R12                     ; Call SVC Function
-  MRS     R12,PSP                 ; Read PSP
+  POP     {R12,LR}                ; Restore SP and EXC_RETURN
   STM     R12,{R0-R1}             ; Store return values
 
-#endif
-
 SVC_Exit
-  LDR     R0,=0xFFFFFFFD          ; Set EXC_RETURN value
-  BX      R0                      ; RETI to Thread Mode, use PSP
+  BX      LR                      ; Exit from handler
+
+#endif
 
   ALIGN
 }

@@ -67,6 +67,8 @@
   #define STACK_OFFSET_R0()       (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
+  #define __SVC(num)              __svc_indirect_r7(num)
+
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
 
@@ -99,6 +101,8 @@
   #define STACK_OFFSET_R0()       (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
+  #define __SVC(num)              __svc_indirect(num)
+
   #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(knlInfo.max_syscall_interrupt_priority);
   #define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
 
