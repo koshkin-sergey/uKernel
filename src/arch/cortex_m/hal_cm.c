@@ -306,7 +306,7 @@ SVC_Number
   BNE     SVC_Exit                ; User SVC Number > 0
 
   PUSH    {R0,LR}                 ; Save SP and EXC_RETURN
-  LDMIA   R0,{R0-R3,R4}           ; Read R0-R3,R12 from stack
+  LDMIA   R0,{R0-R3}              ; Read R0-R3 from stack
   BLX     R7                      ; Call service function
   POP     {R2,R3}                 ; Restore SP and EXC_RETURN
   STMIA   R2!,{R0-R1}             ; Store return values

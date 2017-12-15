@@ -636,11 +636,6 @@ typedef uint32_t osTime_t;
 
 typedef void (*CBACK)(void *);
 
-/* - Single-linked list - for internal using ---------------------------------*/
-typedef struct list_s {
-  struct list_s *next;
-} list_t;
-
 /* - Circular double-linked list queue - for internal using ------------------*/
 typedef struct queue_s {
   struct queue_s *next;

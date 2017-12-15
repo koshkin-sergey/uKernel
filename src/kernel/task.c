@@ -109,17 +109,13 @@ osError_t TaskActivate(osTask_t *task);
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-__STATIC_FORCEINLINE
+static
 uint32_t* TaskRegPtr(osTask_t *task)
 {
-  uint32_t *addr;
-  
   if (task != TaskGetCurrent())
-    addr = (uint32_t *)(task->stk + STACK_OFFSET_R0());
-  else
-    addr = (uint32_t *)__get_PSP();
+    return (uint32_t *)(task->stk + STACK_OFFSET_R0());
   
-  return addr;
+  return (uint32_t *)__get_PSP();
 }
 
 /**
