@@ -177,7 +177,7 @@ static
 void TaskToNonRunnable(osTask_t *task)
 {
   uint32_t priority = task->priority;
-  CDLL_QUEUE *que = &(knlInfo.ready_list[priority]);
+  queue_t *que = &(knlInfo.ready_list[priority]);
 
   /* Remove the current task from any queue (now - from ready queue) */
   QueueRemoveEntry(&task->task_queue);
@@ -197,7 +197,7 @@ void TaskToNonRunnable(osTask_t *task)
   }
 }
 
-void TaskWaitEnter(osTask_t *task, CDLL_QUEUE * wait_que, wait_reason_t wait_reason, osTime_t timeout)
+void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason, osTime_t timeout)
 {
   TaskToNonRunnable(task);
 
@@ -225,7 +225,7 @@ void TaskWaitExit(osTask_t *task, uint32_t ret_val)
 {
 #ifdef USE_MUTEXES
 
-  CDLL_QUEUE *que = NULL;
+  queue_t *que = NULL;
 
   if (task->wait_reason & (WAIT_REASON_MUTEX_I | WAIT_REASON_MUTEX_C)) {
     que = task->pwait_queue;
@@ -286,7 +286,7 @@ void TaskWaitComplete(osTask_t *task, uint32_t ret_val)
   TaskWaitExit(task, ret_val);
 }
 
-void TaskWaitDelete(CDLL_QUEUE *wait_que)
+void TaskWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
     TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
@@ -460,7 +460,7 @@ osError_t TaskTerminate(osTask_t *task)
 
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
-  CDLL_QUEUE *que;
+  queue_t *que;
   osMutex_t *mutex;
 
   while (!isQueueEmpty(&task->mutex_queue)) {
@@ -489,7 +489,7 @@ void TaskExit(task_exit_attr_t attr)
 
   /* Unlock all mutexes, locked by the task */
 #ifdef USE_MUTEXES
-  CDLL_QUEUE *que;
+  queue_t *que;
   osMutex_t *mutex;
 
   while (!isQueueEmpty(&task->mutex_queue)) {

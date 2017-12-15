@@ -93,23 +93,23 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-__FORCEINLINE void QueueReset(CDLL_QUEUE *que)
+__FORCEINLINE void QueueReset(queue_t *que)
 {
   que->prev = que->next = que;
 }
 
-__FORCEINLINE bool isQueueEmpty(CDLL_QUEUE *que)
+__FORCEINLINE bool isQueueEmpty(queue_t *que)
 {
   return ((que->next == que) ? true : false);
 }
 
 /**
- * @fn          void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @fn          void QueueAddHead(queue_t *que, queue_t *entry)
  * @brief       Inserts an entry at the head of the queue.
  * @param[out]  que     Pointer to the queue
  * @param[out]  entry   Pointer to an entry
  */
-void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+void QueueAddHead(queue_t *que, queue_t *entry)
 {
   entry->next = que->next;
   entry->prev = que;
@@ -118,12 +118,12 @@ void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
 }
 
 /**
- * @fn          void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @fn          void QueueAddTail(queue_t *que, queue_t *entry)
  * @brief       Inserts an entry at the tail of the queue.
  * @param[out]  que     Pointer to the queue
  * @param[out]  entry   Pointer to an entry
  */
-void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+void QueueAddTail(queue_t *que, queue_t *entry)
 {
   entry->next = que;
   entry->prev = que->prev;
@@ -132,14 +132,14 @@ void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
 }
 
 /**
- * @fn          CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
+ * @fn          queue_t* QueueRemoveHead(queue_t *que)
  * @brief       Remove and return an entry at the head of the queue.
  * @param[out]  que   Pointer to the queue
  * @return      Returns a pointer to an entry at the head of the queue
  */
-CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
+queue_t* QueueRemoveHead(queue_t *que)
 {
-  CDLL_QUEUE *entry = que->next;
+  queue_t *entry = que->next;
 
   entry->next->prev = que;
   que->next = entry->next;
@@ -148,14 +148,14 @@ CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
 }
 
 /**
- * @fn          CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
+ * @fn          queue_t* QueueRemoveTail(queue_t *que)
  * @brief       Remove and return an entry at the tail of the queue.
  * @param[out]  que   Pointer to the queue
  * @return      Returns a pointer to an entry at the tail of the queue
  */
-CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
+queue_t* QueueRemoveTail(queue_t *que)
 {
-  CDLL_QUEUE *entry = que->prev;
+  queue_t *entry = que->prev;
 
   entry->prev->next = que;
   que->prev = entry->prev;
@@ -164,11 +164,11 @@ CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
 }
 
 /**
- * @fn          void QueueRemoveEntry(CDLL_QUEUE *entry)
+ * @fn          void QueueRemoveEntry(queue_t *entry)
  * @brief       Removes an entry from the queue.
  * @param[out]  entry   Pointer to an entry of the queue
  */
-void QueueRemoveEntry(CDLL_QUEUE *entry)
+void QueueRemoveEntry(queue_t *entry)
 {
   if (!isQueueEmpty(entry)) {
     entry->prev->next = entry->next;

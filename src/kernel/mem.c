@@ -245,7 +245,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 //----------------------------------------------------------------------------
 osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 {
-  CDLL_QUEUE * que;
+  queue_t * que;
   osTask_t * task;
 
   if (fmp == NULL || p_data == NULL)

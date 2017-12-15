@@ -102,11 +102,11 @@ void CyclicHandler(TN_CYCLIC *cyc)
   cyc->handler(cyc->exinf);
 }
 
-void TimerInsert(TMEB *event, osTime_t time, CBACK callback, void *arg)
+void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg)
 {
-  CDLL_QUEUE *que;
-  TMEB *timer;
-  CDLL_QUEUE *timer_queue = &knlInfo.timer_queue;
+  queue_t *que;
+  timer_t *timer;
+  queue_t *timer_queue = &knlInfo.timer_queue;
 
   event->callback = callback;
   event->arg  = arg;
@@ -121,7 +121,7 @@ void TimerInsert(TMEB *event, osTime_t time, CBACK callback, void *arg)
   QueueAddTail(que, &event->queue);
 }
 
-__FORCEINLINE void TimerDelete(TMEB *event)
+__FORCEINLINE void TimerDelete(timer_t *event)
 {
   QueueRemoveEntry(&event->queue);
 }

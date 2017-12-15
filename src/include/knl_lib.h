@@ -39,7 +39,7 @@
 #define GetTaskByQueue(que)         container_of(que, osTask_t, task_queue)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
-#define GetTimerByQueue(que)        container_of(que, TMEB, queue)
+#define GetTimerByQueue(que)        container_of(que, timer_t, queue)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -64,8 +64,8 @@ typedef struct {
   uint32_t max_syscall_interrupt_priority;
   kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
-  CDLL_QUEUE ready_list[NUM_PRIORITY];    ///< all ready to run(RUNNABLE) tasks
-  CDLL_QUEUE timer_queue;
+  queue_t ready_list[NUM_PRIORITY];       ///< all ready to run(RUNNABLE) tasks
+  queue_t timer_queue;
 #if defined(ROUND_ROBIN_ENABLE)
   uint16_t tslice_ticks[NUM_PRIORITY];    ///< For round-robin only
 #endif
@@ -93,10 +93,10 @@ extern knlInfo_t knlInfo;
 /* Thread */
 void TaskSetReady(osTask_t *thread);
 void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
-void TaskWaitEnter(osTask_t *task, CDLL_QUEUE *wait_que, wait_reason_t wait_reason,
+void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason,
                            osTime_t timeout);
 void TaskChangePriority(osTask_t *task, uint32_t new_priority);
-void TaskWaitDelete(CDLL_QUEUE *que);
+void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
 void TaskToRunnable(osTask_t *task);
@@ -107,51 +107,51 @@ void TaskSetNext(osTask_t *task);
 
 /* Timer */
 void TimerTaskCreate(void *par);
-void TimerInsert(TMEB *event, osTime_t time, CBACK callback, void *arg);
-void TimerDelete(TMEB *event);
+void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
+void TimerDelete(timer_t *event);
 
 /* Queue */
-void QueueReset(CDLL_QUEUE *que);
-bool isQueueEmpty(CDLL_QUEUE *que);
+void QueueReset(queue_t *que);
+bool isQueueEmpty(queue_t *que);
 
 /**
- * @fn          void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @fn          void QueueAddHead(queue_t *que, queue_t *entry)
  * @brief       Inserts an entry at the head of the queue.
  * @param[out]  que     Pointer to the queue
  * @param[out]  entry   Pointer to an entry
  */
-void QueueAddHead(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+void QueueAddHead(queue_t *que, queue_t *entry);
 
 /**
- * @fn          void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry)
+ * @fn          void QueueAddTail(queue_t *que, queue_t *entry)
  * @brief       Inserts an entry at the tail of the queue.
  * @param[out]  que     Pointer to the queue
  * @param[out]  entry   Pointer to an entry
  */
-void QueueAddTail(CDLL_QUEUE *que, CDLL_QUEUE *entry);
+void QueueAddTail(queue_t *que, queue_t *entry);
 
 /**
- * @fn          void QueueRemoveEntry(CDLL_QUEUE *entry)
+ * @fn          void QueueRemoveEntry(queue_t *entry)
  * @brief       Removes an entry from the queue.
  * @param[out]  entry   Pointer to an entry of the queue
  */
-void QueueRemoveEntry(CDLL_QUEUE *entry);
+void QueueRemoveEntry(queue_t *entry);
 
 /**
- * @fn          CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que)
+ * @fn          queue_t* QueueRemoveHead(queue_t *que)
  * @brief       Remove and return an entry at the head of the queue.
  * @param[out]  que   Pointer to the queue
  * @return      Returns a pointer to an entry at the head of the queue
  */
-CDLL_QUEUE* QueueRemoveHead(CDLL_QUEUE *que);
+queue_t* QueueRemoveHead(queue_t *que);
 
 /**
- * @fn          CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que)
+ * @fn          queue_t* QueueRemoveTail(queue_t *que)
  * @brief       Remove and return an entry at the tail of the queue.
  * @param[out]  que   Pointer to the queue
  * @return      Returns a pointer to an entry at the tail of the queue
  */
-CDLL_QUEUE* QueueRemoveTail(CDLL_QUEUE *que);
+queue_t* QueueRemoveTail(queue_t *que);
 
 /* - Mutex Management --------------------------------------------------------*/
 

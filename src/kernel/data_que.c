@@ -177,7 +177,7 @@ static osError_t do_queue_send(TN_DQUE *dque, void *data_ptr, unsigned long time
                          bool send_to_first)
 {
   osError_t rc = TERR_NO_ERR;
-  CDLL_QUEUE *que;
+  queue_t *que;
   osTask_t *task;
 
   if (dque == NULL)
@@ -341,7 +341,7 @@ osError_t tn_queue_send_first(TN_DQUE *dque, void *data_ptr, unsigned long timeo
 osError_t tn_queue_receive(TN_DQUE *dque, void **data_ptr, unsigned long timeout)
 {
   osError_t rc; //-- return code
-  CDLL_QUEUE *que;
+  queue_t *que;
   osTask_t *task;
 
   if (dque == NULL || data_ptr == NULL)

@@ -636,24 +636,29 @@ typedef uint32_t osTime_t;
 
 typedef void (*CBACK)(void *);
 
+/* - Single-linked list - for internal using ---------------------------------*/
+typedef struct list_s {
+  struct list_s *next;
+} list_t;
+
 /* - Circular double-linked list queue - for internal using ------------------*/
-typedef struct _CDLL_QUEUE {
-  struct _CDLL_QUEUE *next;
-  struct _CDLL_QUEUE *prev;
-} CDLL_QUEUE;
+typedef struct queue_s {
+  struct queue_s *next;
+  struct queue_s *prev;
+} queue_t;
 
 typedef struct timer_event_block {
-  CDLL_QUEUE queue; /**< Timer event queue */
+  queue_t queue;    /**< Timer event queue */
   uint32_t time;    /**< Event time */
   CBACK callback;   /**< Callback function */
   void *arg;        /**< Argument to be sent to callback function */
-} TMEB;
+} timer_t;
 
 /* - Message Queue -----------------------------------------------------------*/
 typedef struct osMessageQueue_s {
   id_t id;                // Message buffer ID
-  CDLL_QUEUE send_queue;  // Message buffer send wait queue
-  CDLL_QUEUE recv_queue;  // Message buffer receive wait queue
+  queue_t send_queue;     // Message buffer send wait queue
+  queue_t recv_queue;     // Message buffer receive wait queue
   uint8_t *buf;           // Message buffer address
   uint32_t msg_size;      // Message size in bytes
   uint32_t num_entries;   // Capacity of data_fifo(num entries)
@@ -714,10 +719,10 @@ typedef union {
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct osTask_s {
   uint32_t stk;               ///< Address of task's top of stack
-  CDLL_QUEUE task_queue;      ///< Queue is used to include task in ready/wait lists
-  CDLL_QUEUE *pwait_queue;    ///< Ptr to object's(semaphor,event,etc.) wait list
+  queue_t task_queue;         ///< Queue is used to include task in ready/wait lists
+  queue_t *pwait_queue;       ///< Ptr to object's(semaphor,event,etc.) wait list
 #ifdef USE_MUTEXES
-  CDLL_QUEUE mutex_queue;     ///< List of all mutexes that tack locked
+  queue_t mutex_queue;        ///< List of all mutexes that tack locked
 #endif
   uint32_t *stk_start;        ///< Base address of task's stack space
   uint32_t stk_size;          ///< Task's stack size (in sizeof(void*),not bytes)
@@ -729,14 +734,14 @@ typedef struct osTask_s {
   task_state_t state;         ///< Task state
   wait_reason_t wait_reason;  ///< Reason for waiting
   WINFO wait_info;            ///< Wait information
-  TMEB wait_timer;            ///< Wait timer
+  timer_t wait_timer;            ///< Wait timer
   int tslice_count;           ///< Time slice counter
   osTime_t time;              ///< Time work task
 } osTask_t;
 
 /* - Semaphore ---------------------------------------------------------------*/
 typedef struct osSemaphore_s {
-  CDLL_QUEUE wait_queue;
+  queue_t wait_queue;
   uint32_t count;
   uint32_t max_count;
   id_t id;                    ///< ID for verification(is it a semaphore or another object?)
@@ -745,14 +750,14 @@ typedef struct osSemaphore_s {
 /* - Event Flags -------------------------------------------------------------*/
 typedef struct _TN_EVENT {
   id_t id;                    ///< ID for verification(is it a event or another object?)
-  CDLL_QUEUE wait_queue;
+  queue_t wait_queue;
   uint32_t pattern;           ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
 
 /* - Data queue --------------------------------------------------------------*/
 typedef struct _TN_DQUE {
-  CDLL_QUEUE wait_send_list;
-  CDLL_QUEUE wait_receive_list;
+  queue_t wait_send_list;
+  queue_t wait_receive_list;
   void **data_fifo;        //-- Array of void* to store data queue entries
   int num_entries;        //-- Capacity of data_fifo(num entries)
   int cnt;                // Кол-во данных в очереди
@@ -763,7 +768,7 @@ typedef struct _TN_DQUE {
 
 /* - Fixed-sized blocks memory pool ------------------------------------------*/
 typedef struct _TN_FMP {
-  CDLL_QUEUE wait_queue;
+  queue_t wait_queue;
   unsigned int block_size;   //-- Actual block size (in bytes)
   int num_blocks;   //-- Capacity (Fixed-sized blocks actual max qty)
   void *start_addr;  //-- Memory pool actual start address
@@ -787,8 +792,8 @@ typedef struct osMutexAttr_s {
 
 typedef struct osMutex_s {
   id_t id;                ///< ID for verification(is it a mutex or another object?)
-  CDLL_QUEUE wait_que;    ///< List of tasks that wait a mutex
-  CDLL_QUEUE mutex_que;   ///< To include in task's locked mutexes list (if any)
+  queue_t wait_que;       ///< List of tasks that wait a mutex
+  queue_t mutex_que;      ///< To include in task's locked mutexes list (if any)
   uint32_t attr;          ///< Mutex creation attr - CEILING or INHERIT
   osTask_t *holder;       ///< Current mutex owner(task that locked mutex)
   uint32_t ceil_priority; ///< When mutex created with CEILING attr
@@ -808,7 +813,7 @@ typedef struct _TN_ALARM {
   void *exinf;              /**< Extended information */
   CBACK handler;            /**< Alarm handler address */
   timer_state_t state;      /**< Timer state */
-  TMEB timer;               /**< Timer event block */
+  timer_t timer;               /**< Timer event block */
   id_t id;                  /**< ID for verification */
 } TN_ALARM;
 
@@ -833,7 +838,7 @@ typedef struct _TN_CYCLIC {
   timer_state_t state;      /**< Timer state */
   cyclic_attr_t attr;       /**< Cyclic handler attributes */
   uint32_t time;            /**< Cyclic time */
-  TMEB timer;               /**< Timer event block */
+  timer_t timer;               /**< Timer event block */
   id_t id;                  /**< ID for verification */
 } TN_CYCLIC;
 

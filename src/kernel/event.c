@@ -181,7 +181,7 @@ static
 uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 {
   uint32_t event_flags, pattern;
-  CDLL_QUEUE *que;
+  queue_t *que;
   osTask_t *task;
 
   if (evf->id != ID_EVENT_FLAGS)

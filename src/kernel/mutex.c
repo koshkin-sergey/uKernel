@@ -308,7 +308,7 @@ void MutexSetPriority(osTask_t *task, uint32_t priority)
 uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
 {
   uint32_t priority;
-  CDLL_QUEUE *curr_que;
+  queue_t *curr_que;
   osTask_t *task;
 
   priority = ref_priority;
@@ -326,7 +326,7 @@ uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
 
 void MutexUnLock(osMutex_t *mutex)
 {
-  CDLL_QUEUE *curr_que;
+  queue_t *curr_que;
   osMutex_t *tmp_mutex;
   osTask_t *task = TaskGetCurrent();
   uint32_t pr;

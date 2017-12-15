@@ -75,10 +75,10 @@ __WEAK void osSysTickInit(uint32_t hz)
 }
 
 static
-TMEB* GetTimer(void)
+timer_t* GetTimer(void)
 {
-  TMEB *timer = NULL;
-  CDLL_QUEUE *timer_queue = &knlInfo.timer_queue;
+  timer_t *timer = NULL;
+  queue_t *timer_queue = &knlInfo.timer_queue;
 
   BEGIN_CRITICAL_SECTION
 
@@ -108,7 +108,7 @@ __WEAK void osIdleTaskFunc(void *par)
 
 __NO_RETURN static void TimerTaskFunc(void *par)
 {
-  TMEB *timer;
+  timer_t *timer;
 
   if (((TN_OPTIONS *)par)->app_init)
     ((TN_OPTIONS *)par)->app_init();
@@ -168,13 +168,13 @@ void osTimerHandle(void)
 {
   knlInfo.jiffies += knlInfo.os_period;
   if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
-    CDLL_QUEUE *timer_queue = &knlInfo.timer_queue;
+    queue_t *timer_queue = &knlInfo.timer_queue;
 
     TaskGetCurrent()->time += knlInfo.os_period;
 
 #if defined(ROUND_ROBIN_ENABLE)
-    volatile CDLL_QUEUE *curr_que;   //-- Need volatile here only to solve
-    volatile CDLL_QUEUE *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
+    volatile queue_t *curr_que;   //-- Need volatile here only to solve
+    volatile queue_t *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
     volatile int        priority;
     osTask_t *task = TaskGetCurrent();
     uint16_t *tslice_ticks = knlInfo.tslice_ticks;
@@ -189,19 +189,19 @@ void osTimerHandle(void)
 
         pri_queue = &(knlInfo.ready_list[priority]);
         //-- If ready queue is not empty and qty  of queue's tasks > 1
-        if (!(isQueueEmpty((CDLL_QUEUE *)pri_queue)) &&
+        if (!(isQueueEmpty((queue_t *)pri_queue)) &&
             pri_queue->next->next != pri_queue) {
           //-- Remove task from tail and add it to the head of
           //-- ready queue for current priority
           curr_que = queue_remove_tail(&(knlInfo.ready_list[priority]));
-          queue_add_head(&(knlInfo.ready_list[priority]),(CDLL_QUEUE *)curr_que);
+          queue_add_head(&(knlInfo.ready_list[priority]),(queue_t *)curr_que);
         }
       }
     }
 #endif  // ROUND_ROBIN_ENABLE
 
     if (!isQueueEmpty(timer_queue)) {
-      TMEB *timer = GetTimerByQueue(timer_queue->next);
+      timer_t *timer = GetTimerByQueue(timer_queue->next);
 
       if (time_before_eq(timer->time, knlInfo.jiffies))
         TaskToRunnable(&timer_task);
