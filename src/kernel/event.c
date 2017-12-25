@@ -101,29 +101,11 @@ uint32_t svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlag
  ******************************************************************************/
 
 static
-uint32_t FlagsSet(osEventFlags_t *evf, uint32_t flags)
-{
-  uint32_t event_flags;
-
-  BEGIN_CRITICAL_SECTION
-
-  evf->pattern |= flags;
-  event_flags = evf->pattern;
-
-  END_CRITICAL_SECTION
-
-  return event_flags;
-}
-
-static
 uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
 {
   uint32_t pattern;
 
   if ((options & osFlagsNoClear) == 0U) {
-
-    BEGIN_CRITICAL_SECTION
-
     pattern = evf->pattern;
 
     if ((((options & osFlagsWaitAll) != 0U) && ((pattern & flags) != flags)) ||
@@ -134,8 +116,6 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
     else {
       evf->pattern &= ~flags;
     }
-
-    END_CRITICAL_SECTION
   }
   else {
     pattern = evf->pattern;
@@ -187,10 +167,10 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
   if (evf->id != ID_EVENT_FLAGS)
     return (uint32_t)TERR_NOEXS;
 
-  /* Set Event Flags */
-  event_flags = FlagsSet(evf, flags);
-
   BEGIN_CRITICAL_SECTION
+
+  /* Set Event Flags */
+  evf->pattern |= flags;
 
   que = evf->wait_queue.next;
   while (que != &evf->wait_queue) {
@@ -223,12 +203,14 @@ uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, o
   if (evf->id != ID_EVENT_FLAGS)
     return (uint32_t)TERR_NOEXS;
 
+  BEGIN_CRITICAL_SECTION
+
   pattern = FlagsCheck(evf, flags, options);
 
-  if (pattern)
+  if (pattern) {
+    END_CRITICAL_SECTION
     return pattern;
-
-  BEGIN_CRITICAL_SECTION
+  }
 
   if (timeout) {
     osTask_t *task = TaskGetCurrent();
