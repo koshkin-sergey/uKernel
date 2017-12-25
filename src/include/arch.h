@@ -56,11 +56,6 @@
 
   #include "core_cm.h"
 
-  /* Interrupt Control State Register Address */
-  #define ICSR                    (*((volatile uint32_t *)0xE000ED04))
-  /* pendSV bit in the Interrupt Control State Register */
-  #define PENDSVSET               (0x10000000)
-
   #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
   #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
   #define IS_IRQ_MASKED()         (__get_PRIMASK() != 0U)
@@ -69,17 +64,12 @@
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect_r7(num)
 
-  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
-  #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
+  #define BEGIN_DISABLE_INTERRUPT uint32_t primask = __get_PRIMASK(); \
+                                  __disable_irq();
+  #define END_DISABLE_INTERRUPT   __set_PRIMASK(primask);
 
-  #define BEGIN_CRITICAL_SECTION  //BEGIN_DISABLE_INTERRUPT
-  #define END_CRITICAL_SECTION    //END_DISABLE_INTERRUPT
-
-  __STATIC_FORCEINLINE
-  void archSwitchContextRequest(void)
-  {
-    ICSR = PENDSVSET;
-  }
+  #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
+  #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
 
 #endif
 
@@ -87,11 +77,6 @@
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
   #include "core_cm.h"
-
-  /* Interrupt Control State Register Address */
-  #define ICSR                    (*((volatile uint32_t *)0xE000ED04))
-  /* pendSV bit in the Interrupt Control State Register */
-  #define PENDSVSET               (0x10000000)
 
   #define USE_ASM_FFS
 
@@ -103,17 +88,12 @@
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect(num)
 
-  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_set_basepri(knlInfo.max_syscall_interrupt_priority);
-  #define END_DISABLE_INTERRUPT   tn_cpu_restore_basepri(tn_save_status_reg);
+  #define BEGIN_DISABLE_INTERRUPT uint32_t basepri = __get_BASEPRI(); \
+                                  __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+  #define END_DISABLE_INTERRUPT   __set_BASEPRI(basepri);
 
   #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
   #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
-
-  __STATIC_FORCEINLINE
-  void archSwitchContextRequest(void)
-  {
-    ICSR = PENDSVSET;
-  }
 
 #endif
 
@@ -140,7 +120,9 @@
  ******************************************************************************/
 
 void archKernelStart(void);
-void StackInit(osTask_t *task);
+void archStackInit(osTask_t *task);
+void archSwitchContextRequest(void);
+uint32_t* archTaskRegPtr(osTask_t *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 
@@ -155,19 +137,10 @@ void StackInit(osTask_t *task);
 
 #endif
 
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-
-  extern uint32_t tn_cpu_save_sr(void);
-  extern void tn_cpu_restore_sr(uint32_t sr);
-
-#endif
-
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  extern int32_t ffs_asm(uint32_t val);
-  extern uint32_t tn_cpu_set_basepri(uint32_t);
-  extern void tn_cpu_restore_basepri(uint32_t);
+  int32_t ffs_asm(uint32_t val);
 
 #endif
 

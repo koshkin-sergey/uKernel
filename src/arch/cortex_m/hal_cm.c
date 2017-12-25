@@ -39,6 +39,12 @@
 #define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
 /* System Handler Priority Register 3 Address */
 #define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
+/* Interrupt Control State Register Address */
+#define ICSR            (*((volatile uint32_t *)0xE000ED04))
+/* PendSV bit in the Interrupt Control State Register */
+#define PENDSVSET       (0x10000000)
+/* PendSV exception number */
+#define PENDSV_EXC_NBR  (14)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -68,18 +74,18 @@ static
 void SystemIsrInit(void)
 {
 #if !defined(__TARGET_ARCH_6S_M)
-//  uint32_t sh, prigroup;
+  uint32_t sh, prigroup;
 #endif
   NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
 #if defined(__TARGET_ARCH_6S_M)
-//  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
 #else
-//  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
-//  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
-//  if (prigroup >= sh) {
-//    sh = prigroup + 1U;
-//  }
-//  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
+  if (prigroup >= sh) {
+    sh = prigroup + 1U;
+  }
+  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
 #endif
 }
 
@@ -91,61 +97,18 @@ void archKernelStart(void)
 {
   SystemIsrInit();
   __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
-  archSwitchContextRequest();
+  ICSR = PENDSVSET;
   __enable_irq();
 }
 
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-
-/**
- * @fn      uint32_t tn_cpu_save_sr(void)
- * @brief
- */
-__asm
-uint32_t tn_cpu_save_sr(void)
+void archSwitchContextRequest(void)
 {
-  mrs    r0, PRIMASK
-  cpsid  I
-  bx     lr
+  if (__get_IPSR() > PENDSV_EXC_NBR)
+    ICSR = PENDSVSET;
 }
 
-/**
- * @fn      void tn_cpu_restore_sr(uint32_t sr)
- * @brief
- */
-__asm
-void tn_cpu_restore_sr(uint32_t sr)
-{
-  msr    PRIMASK, r0
-  bx     lr
-}
-
-#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
+#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-
-/**
- * @fn      uint32_t tn_cpu_set_basepri(uint32_t basepri)
- * @brief
- */
-__asm
-uint32_t tn_cpu_set_basepri(uint32_t basepri)
-{
-  mrs    r1, BASEPRI
-  msr    BASEPRI, r0
-  mov    r0, r1
-  bx     lr
-}
-
-/**
- * @fn      void tn_cpu_restore_basepri(uint32_t basepri)
- * @brief
- */
-__asm
-void tn_cpu_restore_basepri(uint32_t basepri)
-{
-  msr    BASEPRI, r0
-  bx     lr
-}
 
 /**
  * @fn      int32_t ffs_asm(uint32_t val)
@@ -174,12 +137,12 @@ void TaskExit(void)
 }
 
 /**
- * @fn    uint32_t* StackInit(const osTask_t *task)
+ * @fn    uint32_t* archStackInit(const osTask_t *task)
  * @brief
  * @param[in] task
  * @return
  */
-void StackInit(osTask_t *task)
+void archStackInit(osTask_t *task)
 {
   uint32_t *stk = task->stk_start;              //-- Load stack pointer
   stk++;
@@ -205,81 +168,26 @@ void StackInit(osTask_t *task)
 }
 
 /**
+ *
+ * @param task
+ * @return
+ */
+uint32_t* archTaskRegPtr(osTask_t *task)
+{
+  if (task != TaskGetCurrent())
+    return (uint32_t *)(task->stk + STACK_OFFSET_R0());
+
+  return (uint32_t *)__get_PSP();
+}
+
+/**
  * @fn      void PendSV_Handler(void)
  * @brief
  */
 __asm
 void PendSV_Handler(void)
 {
-  PRESERVE8
-
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-;  cpsid  I                          ; Disable core int
-
-  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
-  ldm    r3!, {r1,r2}
-  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
-  beq    exit_context_switch
-
-  subs   r3, #8
-  mrs    r0, psp                    ; in PSP - process(task) stack pointer
-
-  subs   r0, #32                    ; allocate space for r4-r11
-  str    r0, [r1]                   ; save own SP in TCB
-  stmia  r0!, {r4-r7}
-  mov    r4, r8
-  mov    r5, r9
-  mov    r6, r10
-  mov    r7, r11
-  stmia  r0!, {r4-r7}
-
-  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ; in r0 - new task SP
-
-  adds   r0, #16
-  ldmia  r0!, {r4-r7}
-  mov    r8, r4
-  mov    r9, r5
-  mov    r10, r6
-  mov    r11, r7
-  msr    psp, r0
-  subs   r0, #32
-  ldmia  r0!, {r4-r7}
-
-exit_context_switch
-
-;  cpsie  I                          ; enable core int
-
-#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-
-;  ldr    r0, =__cpp(&knlInfo.max_syscall_interrupt_priority)
-;  msr    BASEPRI, r0                ; Start critical section
-
-  ldr    r3, =__cpp(&knlInfo.run)   ; in R3 - =run_task
-  ldm    r3, {r1,r2}
-  cmp    r1, r2                     ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
-  beq    exit_context_switch
-
-  mrs    r0, psp                    ; in PSP - process(task) stack pointer
-  stmdb  r0!, {r4-r11}
-  str    r0, [r1]                   ; save own SP in TCB
-  str    r2, [r3]                   ; in r3 - =tn_curr_run_task
-  ldr    r0, [r2]                   ; in r0 - new task SP
-  ldmia  r0!, {r4-r11}
-  msr    psp, r0
-
-exit_context_switch
-
-;  mov    r0, #0
-;  msr    BASEPRI, r0                ; End critical section
-
-#endif
-
-  ldr    r0, =0xFFFFFFFD
-  bx     r0
-
-  ALIGN
+  B       SVC_Context
 }
 
 /**
@@ -312,6 +220,43 @@ SVC_Number
   STMIA   R2!,{R0-R1}             ; Store return values
   MOV     LR,R3                   ; Set EXC_RETURN
 
+SVC_Context
+  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
+  LDM     R3!, {R1,R2}
+  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  BEQ     SVC_Exit
+
+  CMP     R1,#0
+  BEQ     SVC_Switch
+
+  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
+  SUBS    R0,#32                  ; allocate space for r4-r11
+  STR     R0,[R1]                 ; save own SP in TCB
+  STMIA   R0!,{R4-R7}
+  MOV     R4,R8
+  MOV     R5,R9
+  MOV     R6,R10
+  MOV     R7,R11
+  STMIA   R0!,{R4-R7}
+
+SVC_Switch
+  SUBS    R3,#8
+  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
+
+  LDR     R0,[R2]                 ; in r0 - new task SP
+  ADDS    R0,#16
+  LDMIA   R0!,{R4-R7}
+  MOV     R8,R4
+  MOV     R9,R5
+  MOV     R10,R6
+  MOV     R11,R7
+  MSR     PSP,R0
+  SUBS    R0,#32
+  LDMIA   R0!,{R4-R7}
+
+  LDR     R0,=0xFFFFFFFD
+  BX      R0
+
 SVC_Exit
   BX      LR                      ; Exit from handler
 
@@ -336,6 +281,29 @@ SVC_MSP
   BLX     R12                     ; Call SVC Function
   POP     {R12,LR}                ; Restore SP and EXC_RETURN
   STM     R12,{R0-R1}             ; Store return values
+
+SVC_Context
+  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
+  LDM     R3,{R1,R2}
+  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  IT      EQ
+  BXEQ    LR                      ; Exit when threads are the same
+
+  CBZ     R1,SVC_Switch
+
+  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
+  STMDB   R0!,{R4-R11}
+  STR     R0,[R1]                 ; save own SP in TCB
+
+SVC_Switch
+  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
+
+  LDR     R0,[R2]                 ; in r0 - new task SP
+  LDMIA   R0!,{R4-R11}
+  MSR     PSP,R0
+
+  LDR     R0,=0xFFFFFFFD
+  BX      R0
 
 SVC_Exit
   BX      LR                      ; Exit from handler

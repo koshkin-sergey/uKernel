@@ -109,15 +109,6 @@ osError_t TaskActivate(osTask_t *task);
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static
-uint32_t* TaskRegPtr(osTask_t *task)
-{
-  if (task != TaskGetCurrent())
-    return (uint32_t *)(task->stk + STACK_OFFSET_R0());
-  
-  return (uint32_t *)__get_PSP();
-}
-
 /**
  * @brief
  * @param
@@ -232,7 +223,7 @@ void TaskWaitExit(osTask_t *task, uint32_t ret_val)
   task->pwait_queue = NULL;
   QueueRemoveEntry(&task->task_queue);
 
-  uint32_t *reg = TaskRegPtr(task);
+  uint32_t *reg = archTaskRegPtr(task);
   *reg = ret_val;
 
   if (!(task->state & TSK_STATE_SUSPEND)) {
@@ -272,7 +263,9 @@ static
 void TaskWaitExit_Handler(osTask_t *task)
 {
   BEGIN_CRITICAL_SECTION
+
   TaskWaitExit(task, (uint32_t)TERR_TIMEOUT);
+
   END_CRITICAL_SECTION
 }
 
@@ -328,6 +321,7 @@ osTask_t* TaskGetNext(void)
   return knlInfo.run.next;
 }
 
+__FORCEINLINE
 void TaskSetNext(osTask_t *task)
 {
   knlInfo.run.next = task;
@@ -426,7 +420,7 @@ osError_t TaskActivate(osTask_t *task)
   if (task->state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
 
-  StackInit(task);
+  archStackInit(task);
   TaskToRunnable(task);
 
   return TERR_NO_ERR;
@@ -561,7 +555,11 @@ osError_t TaskResume(osTask_t *task)
 static
 void TaskSleep(osTime_t timeout)
 {
+  BEGIN_CRITICAL_SECTION
+
   TaskWaitEnter(TaskGetCurrent(), NULL, WAIT_REASON_SLEEP, timeout);
+
+  END_CRITICAL_SECTION
 }
 
 /**
