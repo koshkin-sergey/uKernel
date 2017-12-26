@@ -168,19 +168,6 @@ void archStackInit(osTask_t *task)
 }
 
 /**
- *
- * @param task
- * @return
- */
-uint32_t* archTaskRegPtr(osTask_t *task)
-{
-  if (task != TaskGetCurrent())
-    return (uint32_t *)(task->stk + STACK_OFFSET_R0());
-
-  return (uint32_t *)__get_PSP();
-}
-
-/**
  * @fn      void PendSV_Handler(void)
  * @brief
  */

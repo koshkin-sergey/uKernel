@@ -201,7 +201,7 @@ osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
   TaskWaitEnter(TaskGetCurrent(), &sem->wait_queue, WAIT_REASON_SEM, timeout);
 
   END_CRITICAL_SECTION
-  return TERR_TIMEOUT;
+  return TERR_WAIT;
 }
 
 static
@@ -302,7 +302,12 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
     return SemaphoreAcquire(sem, timeout);
   }
   else {
-    return svcSemaphoreAcquire(SemaphoreAcquire, sem, timeout);
+    osError_t ret_val = svcSemaphoreAcquire(SemaphoreAcquire, sem, timeout);
+
+    if (ret_val == TERR_WAIT)
+      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+
+    return ret_val;
   }
 }
 

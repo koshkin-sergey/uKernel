@@ -221,10 +221,8 @@ void TaskWaitExit(osTask_t *task, uint32_t ret_val)
 #endif
 
   task->pwait_queue = NULL;
+  task->wait_info.ret_val = ret_val;
   QueueRemoveEntry(&task->task_queue);
-
-  uint32_t *reg = archTaskRegPtr(task);
-  *reg = ret_val;
 
   if (!(task->state & TSK_STATE_SUSPEND)) {
     TaskToRunnable(task);

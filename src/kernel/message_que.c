@@ -224,7 +224,7 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t
   TaskWaitEnter(task, &mq->send_queue, WAIT_REASON_MQUE_WSEND, timeout);
 
   END_CRITICAL_SECTION
-  return TERR_TIMEOUT;
+  return TERR_WAIT;
 }
 
 static
@@ -259,6 +259,7 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
       task = TaskGetCurrent();
       task->wait_info.rmque.msg = msg;
       TaskWaitEnter(task, &mq->recv_queue, WAIT_REASON_MQUE_WRECEIVE, timeout);
+      rc = TERR_WAIT;
     }
   }
 
@@ -392,7 +393,12 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
     return MessageQueuePut(mq, msg, msg_pri, timeout);
   }
   else {
-    return svcMessageQueuePut(MessageQueuePut, mq, msg, msg_pri, timeout);
+    osError_t ret_val = svcMessageQueuePut(MessageQueuePut, mq, msg, msg_pri, timeout);
+
+    if (ret_val == TERR_WAIT)
+      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+
+    return ret_val;
   }
 }
 
@@ -419,7 +425,12 @@ osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
     return MessageQueueGet(mq, msg, timeout);
   }
   else {
-    return svcMessageQueueGet(MessageQueueGet, mq, msg, timeout);
+    osError_t ret_val = svcMessageQueueGet(MessageQueueGet, mq, msg, timeout);
+
+    if (ret_val == TERR_WAIT)
+      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+
+    return ret_val;
   }
 }
 

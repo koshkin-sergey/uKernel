@@ -217,6 +217,8 @@ uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, o
     task->wait_info.event.options = options;
     task->wait_info.event.flags = flags;
     TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
+    END_CRITICAL_SECTION
+    return (uint32_t)TERR_WAIT;
   }
 
   END_CRITICAL_SECTION
@@ -327,7 +329,12 @@ uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options,
     return EventFlagsWait(evf, flags, options, timeout);
   }
   else {
-    return svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
+    uint32_t ret_val = svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
+
+    if (ret_val == (uint32_t)TERR_WAIT)
+      return TaskGetCurrent()->wait_info.ret_val;
+
+    return ret_val;
   }
 }
 

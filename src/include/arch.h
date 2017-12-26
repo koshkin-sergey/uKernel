@@ -122,7 +122,6 @@
 void archKernelStart(void);
 void archStackInit(osTask_t *task);
 void archSwitchContextRequest(void);
-uint32_t* archTaskRegPtr(osTask_t *task);
 
 #if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
 

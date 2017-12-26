@@ -64,6 +64,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+#pragma anon_unions
+
 /*
  * ARM Compiler 4/5
  */
@@ -599,6 +601,7 @@ typedef enum {
   TERR_NOEXS        = -9,         ///< Non-valid or Non-existent object
   TERR_DLT          = -10,        ///< Waiting object deleted
   TERR_ISR          = -11,
+  TERR_WAIT         = -12,
   osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osError_t;
 
@@ -702,14 +705,17 @@ typedef struct {
 /*
  * Definition of wait information in task control block
  */
-typedef union {
-  WINFO_RDQUE rdque;
-  WINFO_SDQUE sdque;
-  WINFO_RMQUE rmque;
-  WINFO_SMQUE smque;
-  WINFO_FMEM fmem;
-  WINFO_EVENT event;
-} WINFO;
+typedef struct winfo_s {
+  union {
+    WINFO_RDQUE rdque;
+    WINFO_SDQUE sdque;
+    WINFO_RMQUE rmque;
+    WINFO_SMQUE smque;
+    WINFO_FMEM fmem;
+    WINFO_EVENT event;
+  };
+  uint32_t ret_val;
+} wait_info;
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct osTask_s {
@@ -728,8 +734,8 @@ typedef struct osTask_s {
   id_t id;                    ///< ID for verification(is it a task or another object?)
   task_state_t state;         ///< Task state
   wait_reason_t wait_reason;  ///< Reason for waiting
-  WINFO wait_info;            ///< Wait information
-  timer_t wait_timer;            ///< Wait timer
+  wait_info wait_info;        ///< Wait information
+  timer_t wait_timer;         ///< Wait timer
   int tslice_count;           ///< Time slice counter
   osTime_t time;              ///< Time work task
 } osTask_t;

@@ -202,6 +202,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
 
       /* Task -> to the mutex wait queue */
       TaskWaitEnter(task, &mutex->wait_que, WAIT_REASON_MUTEX_C, timeout);
+      return TERR_WAIT;
     }
   }
   else {
@@ -225,6 +226,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
         MutexSetPriority(mutex->holder, task->priority);
 
       TaskWaitEnter(task, &mutex->wait_que, WAIT_REASON_MUTEX_I, timeout);
+      return TERR_WAIT;
     }
   }
 
@@ -435,7 +437,12 @@ osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
   if (IS_IRQ_MODE() || IS_IRQ_MASKED())
     return TERR_ISR;
 
-  return svcMutexAcquire(MutexAcquire, mutex, timeout);
+  osError_t ret_val = svcMutexAcquire(MutexAcquire, mutex, timeout);
+
+  if (ret_val == TERR_WAIT)
+    return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+
+  return ret_val;
 }
 
 /**
