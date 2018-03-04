@@ -344,7 +344,7 @@ osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uin
 {
   if (mq == NULL || msz == 0U)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMessageQueueNew(MessageQueueNew, mq, buf, bufsz, msz);
@@ -363,7 +363,7 @@ osError_t osMessageQueueDelete(osMessageQueue_t *mq)
 {
   if (mq == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMessageQueueDelete(MessageQueueDelete, mq);
@@ -386,7 +386,7 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
   if (mq == NULL)
     return TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     if (timeout != 0U)
       return TERR_WRONG_PARAM;
 
@@ -418,7 +418,7 @@ osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
   if (mq == NULL || msg == NULL)
     return TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     if (timeout != 0U)
       return TERR_WRONG_PARAM;
 
@@ -445,7 +445,7 @@ uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq)
   if (mq == NULL)
     return 0U;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return MessageQueueGetMsgSize(mq);
   }
   else {
@@ -464,7 +464,7 @@ uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq)
   if (mq == NULL)
     return 0U;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return MessageQueueGetCapacity(mq);
   }
   else {
@@ -483,7 +483,7 @@ uint32_t osMessageQueueGetCount(osMessageQueue_t *mq)
   if (mq == NULL)
     return 0U;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return MessageQueueGetCount(mq);
   }
   else {
@@ -502,7 +502,7 @@ uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq)
   if (mq == NULL)
     return 0U;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return MessageQueueGetSpace(mq);
   }
   else {
@@ -523,7 +523,7 @@ osError_t osMessageQueueReset(osMessageQueue_t *mq)
 {
   if (mq == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMessageQueueReset(MessageQueueReset, mq);

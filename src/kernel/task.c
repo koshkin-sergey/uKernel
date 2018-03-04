@@ -384,7 +384,7 @@ void TaskCreate(osTask_t *task, const task_create_attr_t *attr)
 
   TaskSetDormantState(task);
 
-  if (attr->option & osTaskStarOnCreating)
+  if (attr->option & osTaskStartOnCreating)
     TaskActivate(task);
 }
 
@@ -623,7 +623,7 @@ osTime_t osTaskGetTime(osTask_t *task)
     return 0;
   if (task->id != ID_TASK)
     return 0;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return 0;
 
   return svcTaskGetTime(TaskGetTime, task);
@@ -640,7 +640,7 @@ osTime_t osTaskGetTime(osTask_t *task)
  * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
  * @param[in]   option        Creation option. Option values:
  *                              0                           After creation task has a DORMANT state
- *                              osTaskStarOnCreating   After creation task is switched to the runnable state (READY/RUNNING)
+ *                              osTaskStartOnCreating   After creation task is switched to the runnable state (READY/RUNNING)
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
@@ -658,7 +658,7 @@ osError_t osTaskCreate(osTask_t *task,
   if ((stack_size < osStackSizeMin) || (func == NULL) || (task == NULL)
     || (stack_start == NULL) || (task->id != 0) )
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   task_create_attr_t task_create_attr;
@@ -691,7 +691,7 @@ osError_t osTaskDelete(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskDelete, task);
@@ -713,7 +713,7 @@ osError_t osTaskActivate(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskActivate, task);
@@ -735,7 +735,7 @@ osError_t osTaskTerminate(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskTerminate, task);
@@ -750,7 +750,7 @@ osError_t osTaskTerminate(osTask_t *task)
  */
 void osTaskExit(task_exit_attr_t attr)
 {
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return;
 
   svcTaskExit(TaskExit, attr);
@@ -773,7 +773,7 @@ osError_t osTaskSuspend(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskSuspend, task);
@@ -795,7 +795,7 @@ osError_t osTaskResume(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskResume, task);
@@ -814,7 +814,7 @@ osError_t osTaskSleep(osTime_t timeout)
 {
   if (timeout == 0)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcTaskSleep(TaskSleep, timeout);
@@ -838,7 +838,7 @@ osError_t osTaskWakeup(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskWakeup, task);
@@ -860,7 +860,7 @@ osError_t osTaskReleaseWait(osTask_t *task)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTask(TaskReleaseWait, task);
@@ -874,7 +874,7 @@ osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority)
     return TERR_NOEXS;
   if (new_priority > (NUM_PRIORITY - 2))
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcTaskSetPriority(TaskSetPriority, task, new_priority);

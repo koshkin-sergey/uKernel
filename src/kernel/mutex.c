@@ -394,7 +394,7 @@ osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMutexNew(MutexNew, mutex, attr);
@@ -412,7 +412,7 @@ osError_t osMutexDelete(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMutexDelete(MutexDelete, mutex);
@@ -434,7 +434,7 @@ osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   osError_t ret_val = svcMutexAcquire(MutexAcquire, mutex, timeout);
@@ -458,7 +458,7 @@ osError_t osMutexRelease(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcMutexRelease(MutexRelease, mutex);
@@ -475,7 +475,7 @@ osTask_t* osMutexGetOwner(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return NULL;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return NULL;
 
   return svcMutexGetOwner(MutexGetOwner, mutex);

@@ -233,7 +233,7 @@ osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t ma
     return TERR_WRONG_PARAM;
   if (sem->id == ID_SEMAPHORE)
     return TERR_NO_ERR;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcSemaphoreNew(SemaphoreNew, sem, initial_count, max_count);
@@ -254,7 +254,7 @@ osError_t osSemaphoreDelete(osSemaphore_t *sem)
 {
   if (sem == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcSemaphoreDelete(SemaphoreDelete, sem);
@@ -274,7 +274,7 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem)
   if (sem == NULL)
     return TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return SemaphoreRelease(sem);
   else
     return svcSemaphoreRelease(SemaphoreRelease, sem);
@@ -295,7 +295,7 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     if (timeout != 0U)
       return TERR_WRONG_PARAM;
 
@@ -322,7 +322,7 @@ uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
   if (sem == NULL)
     return 0U;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return SemaphoreGetCount(sem);
   }
   else {

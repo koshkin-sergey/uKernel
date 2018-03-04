@@ -142,7 +142,7 @@ void IdleTaskCreate(void)
   attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
   attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];
   attr.priority = NUM_PRIORITY-1;
-  attr.option = osTaskStarOnCreating;
+  attr.option = osTaskStartOnCreating;
 
   TaskCreate(&idle_task, &attr);
 }
@@ -159,7 +159,7 @@ void TimerTaskCreate(void *par)
   attr.stk_size = sizeof(timer_task_stack)/sizeof(*timer_task_stack);
   attr.stk_start = (uint32_t *)&timer_task_stack[attr.stk_size-1];
   attr.priority = 0;
-  attr.option = osTaskStarOnCreating;
+  attr.option = osTaskStartOnCreating;
 
   TaskCreate(&timer_task, &attr);
 }

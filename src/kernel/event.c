@@ -260,7 +260,7 @@ osError_t osEventFlagsNew(osEventFlags_t *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcEventFlagsNew(EventFlagsNew, evf);
@@ -279,7 +279,7 @@ osError_t osEventFlagsDelete(osEventFlags_t *evf)
 {
   if (evf == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   return svcEventFlagsDelete(EventFlagsDelete, evf);
@@ -298,7 +298,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
   if (evf == NULL || flags == 0U)
     return (uint32_t)TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return EventFlagsSet(evf, flags);
   }
   else {
@@ -322,7 +322,7 @@ uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options,
   if (evf == NULL || flags == 0)
     return (uint32_t)TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     if (timeout != 0U)
       return (uint32_t)TERR_WRONG_PARAM;
 
@@ -350,7 +350,7 @@ uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
   if (evf == NULL || flags == 0)
     return (uint32_t)TERR_WRONG_PARAM;
 
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED()) {
+  if (IsIrqMode() || IsIrqMasked()) {
     return EventFlagsClear(evf, flags);
   }
   else {

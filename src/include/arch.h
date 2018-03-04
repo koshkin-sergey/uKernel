@@ -56,9 +56,16 @@
 
   #include "core_cm.h"
 
-  #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
-  #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
-  #define IS_IRQ_MASKED()         (__get_PRIMASK() != 0U)
+__STATIC_INLINE bool IsIrqMode(void)
+{
+  return (__get_IPSR() != 0U);
+}
+
+__STATIC_INLINE bool IsIrqMasked(void)
+{
+  return (__get_PRIMASK() != 0U);
+}
+
   #define STACK_OFFSET_R0()       (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
@@ -80,9 +87,16 @@
 
   #define USE_ASM_FFS
 
-  #define IS_PRIVILEGED()         ((__get_CONTROL() & 1U) == 0U)
-  #define IS_IRQ_MODE()           (__get_IPSR() != 0U)
-  #define IS_IRQ_MASKED()         ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U))
+__STATIC_INLINE bool IsIrqMode(void)
+{
+  return (__get_IPSR() != 0U);
+}
+
+__STATIC_INLINE bool IsIrqMasked(void)
+{
+  return ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U));
+}
+
   #define STACK_OFFSET_R0()       (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/

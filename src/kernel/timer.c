@@ -291,7 +291,7 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
     return TERR_WRONG_PARAM;
   if (alarm->id == ID_ALARM || handler == NULL)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
@@ -313,7 +313,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
     return TERR_WRONG_PARAM;
   if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcAlarm(AlarmDelete, alarm);
@@ -336,7 +336,7 @@ osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
     return TERR_WRONG_PARAM;
   if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcAlarmStart(AlarmStart, alarm, timeout);
@@ -358,7 +358,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
     return TERR_WRONG_PARAM;
   if (alarm->id != ID_ALARM)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcAlarm(AlarmStop, alarm);
@@ -382,7 +382,7 @@ osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *pa
     return TERR_WRONG_PARAM;
   if (cyc->id == ID_CYCLIC)
     return TERR_WRONG_PARAM;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcCyclicCreate(CyclicCreate, cyc, handler, param, exinf);
@@ -404,7 +404,7 @@ osError_t osCyclicDelete(TN_CYCLIC *cyc)
     return TERR_WRONG_PARAM;
   if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcCyclic(CyclicDelete, cyc);
@@ -426,7 +426,7 @@ osError_t osCyclicStart(TN_CYCLIC *cyc)
     return TERR_WRONG_PARAM;
   if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcCyclic(CyclicStart, cyc);
@@ -448,7 +448,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc)
     return TERR_WRONG_PARAM;
   if (cyc->id != ID_CYCLIC)
     return TERR_NOEXS;
-  if (IS_IRQ_MODE() || IS_IRQ_MASKED())
+  if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
   svcCyclic(CyclicStop, cyc);
