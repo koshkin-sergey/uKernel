@@ -101,6 +101,17 @@ uint32_t svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlag
  ******************************************************************************/
 
 static
+uint32_t FlagsSet(osEventFlags_t *evf, uint32_t flags)
+{
+  uint32_t event_flags;
+
+  evf->pattern |= flags;
+  event_flags = evf->pattern;
+
+  return event_flags;
+}
+
+static
 uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
 {
   uint32_t pattern;
@@ -170,7 +181,7 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
   BEGIN_CRITICAL_SECTION
 
   /* Set Event Flags */
-  evf->pattern |= flags;
+  event_flags = FlagsSet(evf, flags);
 
   que = evf->wait_queue.next;
   while (que != &evf->wait_queue) {
