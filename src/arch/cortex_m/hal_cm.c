@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -103,8 +103,7 @@ void archKernelStart(void)
 
 void archSwitchContextRequest(void)
 {
-  if (__get_IPSR() > PENDSV_EXC_NBR)
-    ICSR = PENDSVSET;
+  ICSR = PENDSVSET;
 }
 
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
@@ -174,7 +173,84 @@ void archStackInit(osTask_t *task)
 __asm
 void PendSV_Handler(void)
 {
-  B       SVC_Context
+  PRESERVE8
+
+#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+
+  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
+  LDM     R3!, {R1,R2}
+  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  BEQ     Context_Exit
+
+  CMP     R1,#0
+  BEQ     Context_Switch
+
+  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
+  SUBS    R0,#32                  ; allocate space for r4-r11
+  STR     R0,[R1]                 ; save own SP in TCB
+  STMIA   R0!,{R4-R7}
+  MOV     R4,R8
+  MOV     R5,R9
+  MOV     R6,R10
+  MOV     R7,R11
+  STMIA   R0!,{R4-R7}
+
+Context_Switch
+  SUBS    R3,#8
+  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
+
+  LDR     R0,[R2]                 ; in r0 - new task SP
+  ADDS    R0,#16
+  LDMIA   R0!,{R4-R7}
+  MOV     R8,R4
+  MOV     R9,R5
+  MOV     R10,R6
+  MOV     R11,R7
+  MSR     PSP,R0
+  SUBS    R0,#32
+  LDMIA   R0!,{R4-R7}
+
+  LDR     R0,=0xFFFFFFFD
+  BX      R0
+
+Context_Exit
+  BX      LR                      ; Exit from handler
+
+
+#elif ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
+       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+
+;  LDR     R0,=__cpp(&knlInfo.max_syscall_interrupt_priority)
+;  MSR     BASEPRI,R0              ; Start critical section
+
+  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
+  LDM     R3,{R1,R2}
+  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
+  BEQ     Context_Exit            ; Exit when threads are the same
+
+  CBZ     R1,Context_Switch
+
+  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
+  STMDB   R0!,{R4-R11}
+  STR     R0,[R1]                 ; save own SP in TCB
+
+Context_Switch
+  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
+
+  LDR     R0,[R2]                 ; in r0 - new task SP
+  LDMIA   R0!,{R4-R11}
+  MSR     PSP,R0
+
+Context_Exit
+;  MOV     R0,#0
+;  MSR     BASEPRI,R0              ; End critical section
+
+  MVN     LR,#~0xFFFFFFFD         ; Set EXC_RETURN value
+  BX      LR                      ; Exit from handler
+
+#endif
+
+  ALIGN
 }
 
 /**
@@ -207,43 +283,6 @@ SVC_Number
   STMIA   R2!,{R0-R1}             ; Store return values
   MOV     LR,R3                   ; Set EXC_RETURN
 
-SVC_Context
-  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
-  LDM     R3!, {R1,R2}
-  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
-  BEQ     SVC_Exit
-
-  CMP     R1,#0
-  BEQ     SVC_Switch
-
-  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
-  SUBS    R0,#32                  ; allocate space for r4-r11
-  STR     R0,[R1]                 ; save own SP in TCB
-  STMIA   R0!,{R4-R7}
-  MOV     R4,R8
-  MOV     R5,R9
-  MOV     R6,R10
-  MOV     R7,R11
-  STMIA   R0!,{R4-R7}
-
-SVC_Switch
-  SUBS    R3,#8
-  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
-
-  LDR     R0,[R2]                 ; in r0 - new task SP
-  ADDS    R0,#16
-  LDMIA   R0!,{R4-R7}
-  MOV     R8,R4
-  MOV     R9,R5
-  MOV     R10,R6
-  MOV     R11,R7
-  MSR     PSP,R0
-  SUBS    R0,#32
-  LDMIA   R0!,{R4-R7}
-
-  LDR     R0,=0xFFFFFFFD
-  BX      R0
-
 SVC_Exit
   BX      LR                      ; Exit from handler
 
@@ -268,29 +307,6 @@ SVC_MSP
   BLX     R12                     ; Call SVC Function
   POP     {R12,LR}                ; Restore SP and EXC_RETURN
   STM     R12,{R0-R1}             ; Store return values
-
-SVC_Context
-  LDR     R3,=__cpp(&knlInfo.run) ; in R3 - =run_task
-  LDM     R3,{R1,R2}
-  CMP     R1,R2                   ; in R1 - tn_curr_run_task, in R2 - tn_next_task_to_run
-  IT      EQ
-  BXEQ    LR                      ; Exit when threads are the same
-
-  CBZ     R1,SVC_Switch
-
-  MRS     R0,PSP                  ; in PSP - process(task) stack pointer
-  STMDB   R0!,{R4-R11}
-  STR     R0,[R1]                 ; save own SP in TCB
-
-SVC_Switch
-  STR     R2,[R3]                 ; in r3 - =tn_curr_run_task
-
-  LDR     R0,[R2]                 ; in r0 - new task SP
-  LDMIA   R0!,{R4-R11}
-  MSR     PSP,R0
-
-  LDR     R0,=0xFFFFFFFD
-  BX      R0
 
 SVC_Exit
   BX      LR                      ; Exit from handler

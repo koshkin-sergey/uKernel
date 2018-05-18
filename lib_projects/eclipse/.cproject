@@ -5,26 +5,22 @@
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889" moduleId="org.eclipse.cdt.core.settings" name="Default">
 				<externalSettings/>
 				<extensions>
-					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
-					<extension id="com.arm.eclipse.builder.armcc.error" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="com.arm.eclipse.builder.armcc.error" point="org.eclipse.cdt.core.ErrorParser"/>
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 				<configuration artifactName="${ProjName}" buildProperties="" description="" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
 					<folderInfo id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.1317020889.1238827311" name="/" resourcePath="">
-						<toolChain id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.737550205" name="ARM Compiler 5" superClass="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5">
-							<targetPlatform binaryParser="org.eclipse.cdt.core.ELF" id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.737550205.1073771451" name=""/>
-							<builder id="com.arm.toolchain.baremetal.builder.1983081744" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.arm.toolchain.baremetal.builder"/>
-							<tool id="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.343707335" name="ARM C Compiler 5" superClass="com.arm.tool.c.compiler.base.var.arm_compiler_5-5">
-								<inputType id="com.arm.tool.c.compiler.input.315841341" superClass="com.arm.tool.c.compiler.input"/>
-								<inputType id="com.arm.tool.cpp.compiler.input.1812004349" superClass="com.arm.tool.cpp.compiler.input"/>
-							</tool>
-							<tool id="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.922372379" name="ARM C++ Compiler 5" superClass="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.assembler.base.var.arm_compiler_5-5.1897791728" name="ARM Assembler 5" superClass="com.arm.tool.assembler.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.c.linker.base.var.arm_compiler_5-5.1697877375" name="ARM Linker 5" superClass="com.arm.tool.c.linker.base.var.arm_compiler_5-5"/>
-							<tool id="com.arm.tool.librarian.base.var.arm_compiler_5-5.703000298" name="ARM Librarian 5" superClass="com.arm.tool.librarian.base.var.arm_compiler_5-5"/>
+						<toolChain id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.6.6.1234315544" name="ARM Compiler 5.06u6" superClass="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.6.6">
+							<targetPlatform id="com.arm.toolchain.baremetal.base.var.arm_compiler_5-5.6.6.1234315544.1102562563" name=""/>
+							<builder id="com.arm.toolchain.baremetal.builder.1537826615" managedBuildOn="false" name="Gnu Make Builder.Default" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.arm.toolchain.baremetal.builder"/>
+							<tool id="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.6.6.1372296851" name="ARM C Compiler 5.6.6" superClass="com.arm.tool.c.compiler.base.var.arm_compiler_5-5.6.6"/>
+							<tool id="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.6.6.778553337" name="ARM C++ Compiler 5.6.6" superClass="com.arm.tool.cpp.compiler.base.var.arm_compiler_5-5.6.6"/>
+							<tool id="com.arm.tool.assembler.base.var.arm_compiler_5-5.6.6.2023721621" name="ARM Assembler 5.6.6" superClass="com.arm.tool.assembler.base.var.arm_compiler_5-5.6.6"/>
+							<tool id="com.arm.tool.c.linker.base.var.arm_compiler_5-5.6.6.1160478312" name="ARM Linker 5.6.6" superClass="com.arm.tool.c.linker.base.var.arm_compiler_5-5.6.6"/>
+							<tool id="com.arm.tool.librarian.base.var.arm_compiler_5-5.6.6.1835446517" name="ARM Librarian 5.6.6" superClass="com.arm.tool.librarian.base.var.arm_compiler_5-5.6.6"/>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>

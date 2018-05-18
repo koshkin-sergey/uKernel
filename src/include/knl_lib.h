@@ -100,9 +100,9 @@ void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
 void TaskToRunnable(osTask_t *task);
-osTask_t* TaskGetCurrent(void);
-void TaskSetCurrent(osTask_t *task);
-osTask_t* TaskGetNext(void);
+__FORCEINLINE osTask_t* TaskGetCurrent(void);
+__FORCEINLINE void TaskSetCurrent(osTask_t *task);
+__FORCEINLINE osTask_t* TaskGetNext(void);
 void TaskSetNext(osTask_t *task);
 
 /* Timer */

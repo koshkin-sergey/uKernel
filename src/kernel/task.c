@@ -319,11 +319,12 @@ osTask_t* TaskGetNext(void)
   return knlInfo.run.next;
 }
 
-__FORCEINLINE
 void TaskSetNext(osTask_t *task)
 {
-  knlInfo.run.next = task;
-  archSwitchContextRequest();
+  if (task != knlInfo.run.next) {
+    knlInfo.run.next = task;
+    archSwitchContextRequest();
+  }
 }
 
 /**
