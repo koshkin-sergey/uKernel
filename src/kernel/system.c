@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -166,10 +166,10 @@ void TimerTaskCreate(void *par)
 
 void osTimerHandle(void)
 {
+  BEGIN_CRITICAL_SECTION
+
   knlInfo.jiffies += knlInfo.os_period;
   if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
-    queue_t *timer_queue = &knlInfo.timer_queue;
-
     TaskGetCurrent()->time += knlInfo.os_period;
 
 #if defined(ROUND_ROBIN_ENABLE)
@@ -200,13 +200,10 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    if (!isQueueEmpty(timer_queue)) {
-      timer_t *timer = GetTimerByQueue(timer_queue->next);
-
-      if (time_before_eq(timer->time, knlInfo.jiffies))
-        TaskToRunnable(&timer_task);
-    }
+    TaskWaitExit(&timer_task, TERR_NO_ERR);
   }
+
+  END_CRITICAL_SECTION
 }
 
 /*******************************************************************************

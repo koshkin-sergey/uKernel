@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -93,13 +93,12 @@ extern knlInfo_t knlInfo;
 /* Thread */
 void TaskSetReady(osTask_t *thread);
 void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
-void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason,
-                           osTime_t timeout);
+void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason, osTime_t timeout);
+void TaskWaitExit(osTask_t *task, uint32_t ret_val);
 void TaskChangePriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
-void TaskToRunnable(osTask_t *task);
 __FORCEINLINE osTask_t* TaskGetCurrent(void);
 __FORCEINLINE void TaskSetCurrent(osTask_t *task);
 __FORCEINLINE osTask_t* TaskGetNext(void);

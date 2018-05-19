@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -99,10 +99,6 @@ __SVC(0)
 osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
 static
-void TaskWaitExit(osTask_t *task, uint32_t ret_val);
-static
-void TaskWaitExit_Handler(osTask_t *task);
-static
 osError_t TaskActivate(osTask_t *task);
 
 /*******************************************************************************
@@ -141,10 +137,10 @@ void TaskDispatch(void)
  * @param
  * @return
  */
+static
 void TaskToRunnable(osTask_t *task)
 {
   task->state = TSK_STATE_RUNNABLE;
-  task->pwait_queue = NULL;
 
   /* Add the task to the end of 'ready queue' for the current priority */
   TaskSetReady(task);
@@ -164,7 +160,7 @@ static
 void TaskToNonRunnable(osTask_t *task)
 {
   uint32_t priority = task->priority;
-  queue_t *que = &(knlInfo.ready_list[priority]);
+  queue_t *que = &knlInfo.ready_list[priority];
 
   /* Remove the current task from any queue (now - from ready queue) */
   QueueRemoveEntry(&task->task_queue);
@@ -184,78 +180,10 @@ void TaskToNonRunnable(osTask_t *task)
   }
 }
 
-void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason, osTime_t timeout)
-{
-  TaskToNonRunnable(task);
-
-  task->state = TSK_STATE_WAIT;
-  task->wait_reason = wait_reason;
-
-  /* Add to the wait queue - FIFO */
-  if (wait_que != NULL) {
-    QueueAddTail(wait_que, &(task->task_queue));
-    task->pwait_queue = wait_que;
-  }
-
-  /* Add to the timers queue */
-  if (timeout != TIME_WAIT_INFINITE)
-    TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)TaskWaitExit_Handler, task);
-}
-
 /**
+ * @fn          void TaskWaitExit_Handler(osTask_t *task)
  * @brief
- * @param
- * @return
- */
-static
-void TaskWaitExit(osTask_t *task, uint32_t ret_val)
-{
-#ifdef USE_MUTEXES
-
-  queue_t *que = NULL;
-
-  if (task->wait_reason & (WAIT_REASON_MUTEX_I | WAIT_REASON_MUTEX_C)) {
-    que = task->pwait_queue;
-  }
-
-#endif
-
-  task->pwait_queue = NULL;
-  task->wait_info.ret_val = ret_val;
-  QueueRemoveEntry(&task->task_queue);
-
-  if (!(task->state & TSK_STATE_SUSPEND)) {
-    TaskToRunnable(task);
-  }
-  else {
-    //-- remove WAIT state
-    task->state = TSK_STATE_SUSPEND;
-  }
-
-#ifdef USE_MUTEXES
-
-  if (que && !isQueueEmpty(que)) {
-    osMutex_t *mutex = GetMutexByWaitQueque(que);
-    osTask_t *holder = mutex->holder;
-
-    if (holder != NULL) {
-      /* If task was blocked by another task and its priority was changed */
-      /* Recalculate current priority */
-      if (holder->priority != holder->base_priority && holder->priority == task->priority) {
-        MutexSetPriority(holder, MutexGetMaxPriority(mutex, holder->base_priority));
-      }
-    }
-  }
-
-#endif
-
-  task->wait_reason = WAIT_REASON_NO;
-}
-
-/**
- * @brief
- * @param
- * @return
+ * @param[out]  task
  */
 static
 void TaskWaitExit_Handler(osTask_t *task)
@@ -267,23 +195,10 @@ void TaskWaitExit_Handler(osTask_t *task)
   END_CRITICAL_SECTION
 }
 
-void TaskWaitComplete(osTask_t *task, uint32_t ret_val)
-{
-  TimerDelete(&task->wait_timer);
-  TaskWaitExit(task, ret_val);
-}
-
-void TaskWaitDelete(queue_t *wait_que)
-{
-  while (!isQueueEmpty(wait_que)) {
-    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
-  }
-}
-
 /**
+ * @fn          void TaskSetDormantState(osTask_t* task)
  * @brief
- * @param
- * @return
+ * @param task
  */
 static
 void TaskSetDormantState(osTask_t* task)
@@ -300,6 +215,95 @@ void TaskSetDormantState(osTask_t* task)
   task->wait_reason = WAIT_REASON_NO;
   task->tslice_count = 0;
 }
+
+/**
+ * @fn    void TaskSetReady(osTask_t *thread)
+ * @brief Adds task to the end of ready queue for current priority
+ * @param thread
+ */
+static
+void TaskSetReady(osTask_t *thread)
+{
+  knlInfo_t *info = &knlInfo;
+  uint32_t priority = thread->priority;
+
+  QueueAddTail(&info->ready_list[priority], &thread->task_queue);
+  info->ready_to_run_bmp |= (1U << priority);
+}
+
+/**
+ * @fn          void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason, osTime_t timeout)
+ * @brief
+ * @param task
+ * @param wait_que
+ * @param wait_reason
+ * @param timeout
+ */
+void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason, osTime_t timeout)
+{
+  TaskToNonRunnable(task);
+
+  task->state = TSK_STATE_WAIT;
+  task->wait_reason = wait_reason;
+
+  /* Add to the wait queue - FIFO */
+  if (wait_que != NULL) {
+    QueueAddTail(wait_que, &task->task_queue);
+    task->pwait_queue = wait_que;
+  }
+
+  /* Add to the timers queue */
+  if (timeout != TIME_WAIT_INFINITE)
+    TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)TaskWaitExit_Handler, task);
+}
+
+/**
+ * @brief
+ * @param
+ * @return
+ */
+void TaskWaitExit(osTask_t *task, uint32_t ret_val)
+{
+  task->wait_info.ret_val = ret_val;
+
+  task->pwait_queue = NULL;
+  QueueRemoveEntry(&task->task_queue);
+
+  if ((task->state & TSK_STATE_SUSPEND) == 0U) {
+    TaskToRunnable(task);
+  }
+  else {
+    //-- remove WAIT state
+    task->state = TSK_STATE_SUSPEND;
+  }
+
+  task->wait_reason = WAIT_REASON_NO;
+}
+
+/**
+ * @fn          void TaskWaitComplete(osTask_t *task, uint32_t ret_val)
+ * @brief
+ * @param task
+ * @param ret_val
+ */
+void TaskWaitComplete(osTask_t *task, uint32_t ret_val)
+{
+  TimerDelete(&task->wait_timer);
+  TaskWaitExit(task, ret_val);
+}
+
+/**
+ * @fn          void TaskWaitDelete(queue_t *wait_que)
+ * @brief
+ * @param wait_que
+ */
+void TaskWaitDelete(queue_t *wait_que)
+{
+  while (!isQueueEmpty(wait_que)) {
+    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
+  }
+}
+
 
 __FORCEINLINE
 osTask_t* TaskGetCurrent(void)
@@ -328,19 +332,11 @@ void TaskSetNext(osTask_t *task)
 }
 
 /**
- * @fn    void TaskSetReady(osTask_t *thread)
- * @brief Adds task to the end of ready queue for current priority
- * @param thread
+ * @fn          void TaskChangePriority(osTask_t *task, uint32_t new_priority)
+ * @brief
+ * @param task
+ * @param new_priority
  */
-void TaskSetReady(osTask_t *thread)
-{
-  knlInfo_t *info = &knlInfo;
-  int32_t priority = thread->priority;
-
-  QueueAddTail(&info->ready_list[priority], &thread->task_queue);
-  info->ready_to_run_bmp |= (1 << priority);
-}
-
 void TaskChangePriority(osTask_t *task, uint32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
@@ -534,15 +530,17 @@ osError_t TaskSuspend(osTask_t *task)
 static
 osError_t TaskResume(osTask_t *task)
 {
-  if (!(task->state & TSK_STATE_SUSPEND))
+  if ((task->state & TSK_STATE_SUSPEND) == 0U)
     return TERR_WSTATE;
 
-  if (!(task->state & TSK_STATE_WAIT))
+  if ((task->state & TSK_STATE_WAIT) == 0U) {
     /* The task is not in the WAIT-SUSPEND state */
     TaskToRunnable(task);
-  else
+  }
+  else {
     /* Just remove TSK_STATE_SUSPEND from the task state */
     task->state &= ~TSK_STATE_SUSPEND;
+  }
 
   return TERR_NO_ERR;
 }
@@ -570,7 +568,7 @@ void TaskSleep(osTime_t timeout)
 static
 osError_t TaskWakeup(osTask_t *task)
 {
-  if (!(task->state & TSK_STATE_WAIT) || (task->wait_reason != WAIT_REASON_SLEEP))
+  if ((task->state & TSK_STATE_WAIT) == 0U || task->wait_reason != WAIT_REASON_SLEEP)
     return TERR_WSTATE;
 
   TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
