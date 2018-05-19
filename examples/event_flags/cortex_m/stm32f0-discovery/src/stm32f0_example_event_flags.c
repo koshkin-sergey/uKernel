@@ -102,7 +102,7 @@ void app_init(void)
     &(task_A_stack[TASK_A_STK_SIZE-1]),
     TASK_A_STK_SIZE,           // Размер стека (в int, не в байтах)
     NULL,                      // Параметры функции задачи
-    osTaskStarOnCreating  // Параметр создания задачи
+    osTaskStartOnCreating  // Параметр создания задачи
   );
 
   osTaskCreate(
@@ -112,7 +112,7 @@ void app_init(void)
     &(task_B_stack[TASK_B_STK_SIZE-1]),
     TASK_B_STK_SIZE,           // Размер стека (в int, не в байтах)
     NULL,                      // Параметры функции задачи
-    osTaskStarOnCreating  // Параметр создания задачи
+    osTaskStartOnCreating  // Параметр создания задачи
   );
 }
 
