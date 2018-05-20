@@ -187,14 +187,14 @@ void osTimerHandle(void)
       if (task->tslice_count > tslice_ticks[priority]) {
         task->tslice_count = 0;
 
-        pri_queue = &(knlInfo.ready_list[priority]);
+        pri_queue = &knlInfo.ready_list[priority];
         //-- If ready queue is not empty and qty  of queue's tasks > 1
         if (!(isQueueEmpty((queue_t *)pri_queue)) &&
             pri_queue->next->next != pri_queue) {
           //-- Remove task from tail and add it to the head of
           //-- ready queue for current priority
-          curr_que = queue_remove_tail(&(knlInfo.ready_list[priority]));
-          queue_add_head(&(knlInfo.ready_list[priority]),(queue_t *)curr_que);
+          curr_que = queue_remove_tail(&knlInfo.ready_list[priority]);
+          queue_add_head(&knlInfo.ready_list[priority],(queue_t *)curr_que);
         }
       }
     }

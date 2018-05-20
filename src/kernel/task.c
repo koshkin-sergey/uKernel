@@ -203,10 +203,10 @@ void TaskWaitExit_Handler(osTask_t *task)
 static
 void TaskSetDormantState(osTask_t* task)
 {
-  QueueReset(&(task->task_queue));
-  QueueReset(&(task->wait_timer.queue));
+  QueueReset(&task->task_queue);
+  QueueReset(&task->wait_timer.queue);
 #ifdef USE_MUTEXES
-  QueueReset(&(task->mutex_queue));
+  QueueReset(&task->mutex_queue);
 #endif
 
   task->pwait_queue = NULL;
