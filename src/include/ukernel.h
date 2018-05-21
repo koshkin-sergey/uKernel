@@ -552,9 +552,10 @@
 #define osFlagsWaitAll        0x00000001U ///< Wait for all flags.
 #define osFlagsNoClear        0x00000002U ///< Do not clear flags which have been specified to wait for.
 
-
-#define osMutexPrioCeiling            (1UL<<0)
-#define osMutexRecursive              (1UL<<1)
+/* Mutex attributes */
+#define osMutexPrioInherit            (1UL<<0)  ///< Priority inherit protocol.
+#define osMutexRecursive              (1UL<<1)  ///< Recursive mutex.
+#define osMutexRobust                 (1UL<<2)  ///< Robust mutex.
 
 #define TIME_WAIT_INFINITE             (0xFFFFFFFF)
 
@@ -573,17 +574,17 @@
  ******************************************************************************/
 
 typedef enum {
-  ID_INVALID        = 0x00000000,
-  ID_TASK           = 0x47ABCF69,
-  ID_SEMAPHORE      = 0x6FA173EB,
-  ID_EVENT_FLAGS    = 0x5E224F25,
-  ID_DATAQUEUE      = 0x0C8A6C89,
-  ID_FSMEMORYPOOL   = 0x26B7CE8B,
-  ID_MUTEX          = 0x17129E45,
-  ID_RENDEZVOUS     = 0x74289EBD,
-  ID_ALARM          = 0x7A5762BC,
-  ID_CYCLIC         = 0x2B8F746B,
-  ID_MESSAGE_QUEUE  = 0x1C9A6C89,
+  ID_INVALID        = 0x00000000,//!< ID_INVALID
+  ID_TASK           = 0x47ABCF69,//!< ID_TASK
+  ID_SEMAPHORE      = 0x6FA173EB,//!< ID_SEMAPHORE
+  ID_EVENT_FLAGS    = 0x5E224F25,//!< ID_EVENT_FLAGS
+  ID_DATAQUEUE      = 0x0C8A6C89,//!< ID_DATAQUEUE
+  ID_FSMEMORYPOOL   = 0x26B7CE8B,//!< ID_FSMEMORYPOOL
+  ID_MUTEX          = 0x17129E45,//!< ID_MUTEX
+  ID_RENDEZVOUS     = 0x74289EBD,//!< ID_RENDEZVOUS
+  ID_ALARM          = 0x7A5762BC,//!< ID_ALARM
+  ID_CYCLIC         = 0x2B8F746B,//!< ID_CYCLIC
+  ID_MESSAGE_QUEUE  = 0x1C9A6C89,//!< ID_MESSAGE_QUEUE
 } id_t;
 
 /// Error code values returned by uKernel functions.
@@ -627,7 +628,7 @@ typedef enum {
   WAIT_REASON_EVENT         = 0x0004,
   WAIT_REASON_DQUE_WSEND    = 0x0008,
   WAIT_REASON_DQUE_WRECEIVE = 0x0010,
-  WAIT_REASON_MUTEX_C       = 0x0020,
+  WAIT_REASON_MUTEX         = 0x0020,
   WAIT_REASON_MUTEX_I       = 0x0040,
   WAIT_REASON_MQUE_WSEND    = 0x0080,
   WAIT_REASON_MQUE_WRECEIVE = 0x0100,
@@ -778,27 +779,22 @@ typedef struct _TN_FMP {
   id_t id;          //-- ID for verification(is it a fixed-sized blocks memory pool or another object?)
 } TN_FMP;
 
+
 /* - Mutex -------------------------------------------------------------------*/
 
+/* Attributes structure for mutex */
 typedef struct osMutexAttr_s {
-  uint32_t attr_bits;     /**< Creation attribute bits. The following predefined
-                               bit masks can be assigned to set options for a mutex object:
-                                 osMutexPrioCeiling − Mutex uses the priority ceiling protocol;
-                                                      Default mutex uses the priority inheritance protocol;
-                                 osMutexRecursive - Mutex is recursive. */
-  uint32_t ceil_priority; /**< Valid only when the osMutexPrioCeiling bit is set.
-                               The ceil_priority parameter should be set to
-                               the maximum priority of the task(s) that may lock the mutex. */
+  uint32_t attr_bits;     ///< attribute bits
 } osMutexAttr_t;
 
+/* Mutex Control Block */
 typedef struct osMutex_s {
   id_t id;                ///< ID for verification(is it a mutex or another object?)
   queue_t wait_que;       ///< List of tasks that wait a mutex
   queue_t mutex_que;      ///< To include in task's locked mutexes list (if any)
-  uint32_t attr;          ///< Mutex creation attr - CEILING or INHERIT
+  uint32_t attr;          ///< Mutex creation attributes
   osTask_t *holder;       ///< Current mutex owner(task that locked mutex)
-  uint32_t ceil_priority; ///< When mutex created with CEILING attr
-  int cnt;                ///< Reserved
+  uint32_t cnt;           ///< Lock counter
 } osMutex_t;
 
 
