@@ -101,6 +101,7 @@ __STATIC_INLINE bool IsIrqMasked(void)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect(num)
+  #define SVC_CALL                __SVC(0)
 
   #define BEGIN_DISABLE_INTERRUPT uint32_t basepri = __get_BASEPRI(); \
                                   __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
@@ -119,6 +120,10 @@ __STATIC_INLINE bool IsIrqMasked(void)
 #ifndef BEGIN_DISABLE_INTERRUPT
   #define BEGIN_DISABLE_INTERRUPT
   #define END_DISABLE_INTERRUPT
+#endif
+
+#ifndef SVC_CALL
+  #define SVC_CALL
 #endif
 
 /*******************************************************************************

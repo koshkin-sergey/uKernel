@@ -533,9 +533,6 @@
 
 #define osStack_t     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
 
-/* - The system configuration (change it for your particular project) --------*/
-#define USE_MUTEXES           1
-
 /* - Constants ---------------------------------------------------------------*/
 
 #define osStackSizeMin                (48U)
@@ -647,10 +644,10 @@ typedef struct queue_s {
 } queue_t;
 
 typedef struct timer_event_block {
-  queue_t queue;    /**< Timer event queue */
-  uint32_t time;    /**< Event time */
-  CBACK callback;   /**< Callback function */
-  void *arg;        /**< Argument to be sent to callback function */
+  queue_t timer_que;      /**< Timer event queue */
+  uint32_t time;          /**< Event time */
+  CBACK callback;         /**< Callback function */
+  void *arg;              /**< Argument to be sent to callback function */
 } timer_t;
 
 /* - Message Queue -----------------------------------------------------------*/
@@ -721,11 +718,9 @@ typedef struct winfo_s {
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct osTask_s {
   uint32_t stk;               ///< Address of task's top of stack
-  queue_t task_queue;         ///< Queue is used to include task in ready/wait lists
-  queue_t *pwait_queue;       ///< Ptr to object's(semaphor,event,etc.) wait list
-#ifdef USE_MUTEXES
-  queue_t mutex_queue;        ///< List of all mutexes that tack locked
-#endif
+  queue_t task_que;           ///< Queue is used to include task in ready/wait lists
+  queue_t *pwait_que;         ///< Ptr to object's(semaphor,event,etc.) wait list
+  queue_t mutex_que;          ///< List of all mutexes that tack locked
   uint32_t *stk_start;        ///< Base address of task's stack space
   uint32_t stk_size;          ///< Task's stack size (in sizeof(void*),not bytes)
   const void *func_addr;      ///< filled on creation

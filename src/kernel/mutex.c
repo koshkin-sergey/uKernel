@@ -61,8 +61,6 @@
 
 #include "knl_lib.h"
 
-#ifdef USE_MUTEXES
-
 /*******************************************************************************
  *  external declarations
  ******************************************************************************/
@@ -87,15 +85,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC(0)
+SVC_CALL
 osError_t svcMutexNew(osError_t (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
-__SVC(0)
+SVC_CALL
 osError_t svcMutexDelete(osError_t (*)(osMutex_t*), osMutex_t*);
-__SVC(0)
+SVC_CALL
 osError_t svcMutexAcquire(osError_t (*)(osMutex_t*, osTime_t), osMutex_t*, osTime_t);
-__SVC(0)
+SVC_CALL
 osError_t svcMutexRelease(osError_t (*)(osMutex_t*), osMutex_t*);
-__SVC(0)
+SVC_CALL
 osTask_t* svcMutexGetOwner(osTask_t* (*)(osMutex_t*), osMutex_t*);
 
 /*******************************************************************************
@@ -125,7 +123,7 @@ void MutexSetPriority(osTask_t *task, uint32_t priority)
       return;
 
     if (task->state == TSK_STATE_RUNNABLE) {
-      TaskChangePriority(task, priority);
+      TaskChangeRunningPriority(task, priority);
       return;
     }
 
@@ -133,7 +131,7 @@ void MutexSetPriority(osTask_t *task, uint32_t priority)
       if (task->wait_reason == WAIT_REASON_MUTEX_I) {
         task->priority = priority;
 
-        mutex = GetMutexByWaitQueque(task->pwait_queue);
+        mutex = GetMutexByWaitQueque(task->pwait_que);
         task = mutex->holder;
 
         continue;
@@ -165,50 +163,79 @@ uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
   return priority;
 }
 
+static
 void MutexUnLock(osMutex_t *mutex)
 {
-  queue_t *curr_que;
-  osMutex_t *tmp_mutex;
-  osTask_t *task = TaskGetCurrent();
+  queue_t *que;
   uint32_t priority;
+  osTask_t *task;
 
-  //-- Delete curr mutex from task's locked mutexes queue
-
+  task = mutex->holder;
+  /* Remove Mutex from Task owner list */
   QueueRemoveEntry(&mutex->mutex_que);
-  priority = task->base_priority;
+  /* Restore owner Task priority */
+  if ((mutex->attr & osMutexPrioInherit) != 0U) {
+    priority = task->base_priority;
 
-  //---- No more mutexes, locked by the our task
-  if (!isQueueEmpty(&task->mutex_queue)) {
-    curr_que = task->mutex_queue.next;
-    while (curr_que != &task->mutex_queue) {
-      tmp_mutex = GetMutexByMutexQueque(curr_que);
+    if (!isQueueEmpty(&task->mutex_que)) {
+      que = task->mutex_que.next;
+      while (que != &task->mutex_que) {
+        priority = MutexGetMaxPriority(GetMutexByMutexQueque(que), priority);
+        que = que->next;
+      }
+    }
 
-      priority = MutexGetMaxPriority(tmp_mutex, priority);
-
-      curr_que = curr_que->next;
+    //-- Restore original priority
+    if (priority != task->priority) {
+      if (task->state == TSK_STATE_RUNNABLE) {
+        TaskChangeRunningPriority(task, priority);
+      }
+      else {
+        task->priority = priority;
+      }
     }
   }
-
-  //-- Restore original priority
-  if (priority != task->priority)
-    TaskChangePriority(task, priority);
 
   //-- Check for the task(s) that want to lock the mutex
   if (isQueueEmpty(&mutex->wait_que)) {
     mutex->holder = NULL;
-    return;
+    mutex->cnt = 0U;
   }
+  else {
+    //--- Now lock the mutex by the first task in the mutex queue
+    que = QueueRemoveHead(&mutex->wait_que);
+    mutex->holder = GetTaskByQueue(que);
+    QueueAddTail(&mutex->holder->mutex_que, &mutex->mutex_que);
+    mutex->cnt = 1U;
 
-  //--- Now lock the mutex by the first task in the mutex queue
-  curr_que = QueueRemoveHead(&mutex->wait_que);
-  task = GetTaskByQueue(curr_que);
-  mutex->holder = task;
-  if (mutex->attr & osMutexRecursive)
-    mutex->cnt++;
-
-  TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
-  QueueAddTail(&task->mutex_queue, &mutex->mutex_que);
+    TaskWaitComplete(mutex->holder, (uint32_t)TERR_NO_ERR);
+  }
 }
+
+/*******************************************************************************
+ *  Library functions
+ ******************************************************************************/
+
+/**
+ * @fn          void MutexOwnerRelease(queue_t *que)
+ * @brief       Release Mutexes when owner Task terminates.
+ * @param[in]   que   Queue of mutexes
+ */
+void MutexOwnerRelease(queue_t *que)
+{
+  osMutex_t *mutex;
+
+  while (isQueueEmpty(que) == false) {
+    mutex = GetMutexByMutexQueque(QueueRemoveHead(que));
+    if ((mutex->attr & osMutexRobust) != 0U) {
+      MutexUnLock(mutex);
+    }
+  }
+}
+
+/*******************************************************************************
+ *  Service Calls
+ ******************************************************************************/
 
 static
 osError_t MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
@@ -241,14 +268,10 @@ osError_t MutexDelete(osMutex_t *mutex)
 
   /* Check if Mutex is locked */
   if (mutex->cnt != 0U) {
-    /* Remove Mutex from Task owner list */
-    QueueReset(&mutex->mutex_que);
-    /* Restore owner Task priority */
-    if ((mutex->attr & osMutexPrioInherit) != 0U) {
-      /* TODO Restore owner Task priority */
-    }
-    /* Unblock waiting threads */
+    /* Unblock waiting tasks */
     TaskWaitDelete(&mutex->wait_que);
+    /* Unlock Mutex */
+    MutexUnLock(mutex);
   }
 
   /* Mutex not exists now */
@@ -271,7 +294,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
   if (mutex->cnt == 0U) {
     /* Acquire Mutex */
     mutex->holder = task;
-    QueueAddTail(&task->mutex_queue, &mutex->mutex_que);
+    QueueAddTail(&task->mutex_que, &mutex->mutex_que);
     mutex->cnt = 1U;
     rc = TERR_NO_ERR;
   }
@@ -330,8 +353,9 @@ osError_t MutexRelease(osMutex_t *mutex)
 
   mutex->cnt--;
 
-  if (mutex->cnt == 0)
+  if (mutex->cnt == 0) {
     MutexUnLock(mutex);
+  }
 
   return TERR_NO_ERR;
 }
@@ -340,6 +364,9 @@ static
 osTask_t* MutexGetOwner(osMutex_t *mutex)
 {
   if (mutex->id != ID_MUTEX)
+    return NULL;
+
+  if (mutex->cnt == 0U)
     return NULL;
 
   return mutex->holder;
@@ -449,7 +476,5 @@ osTask_t* osMutexGetOwner(osMutex_t *mutex)
 
   return svcMutexGetOwner(MutexGetOwner, mutex);
 }
-
-#endif //-- USE_MUTEXES
 
 /*------------------------------ End of file ---------------------------------*/

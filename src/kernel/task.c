@@ -85,17 +85,17 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC(0)
+SVC_CALL
 osError_t svcTask(osError_t (*)(osTask_t*), osTask_t*);
-__SVC(0)
+SVC_CALL
 void svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
-__SVC(0)
+SVC_CALL
 void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
-__SVC(0)
+SVC_CALL
 void svcTaskSleep(void (*)(osTime_t), osTime_t);
-__SVC(0)
+SVC_CALL
 osError_t svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint32_t);
-__SVC(0)
+SVC_CALL
 osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
 static
@@ -163,7 +163,7 @@ void TaskToNonRunnable(osTask_t *task)
   queue_t *que = &knlInfo.ready_list[priority];
 
   /* Remove the current task from any queue (now - from ready queue) */
-  QueueRemoveEntry(&task->task_queue);
+  QueueRemoveEntry(&task->task_que);
 
   if (isQueueEmpty(que)) {
     /* No ready tasks for the curr priority */
@@ -203,13 +203,11 @@ void TaskWaitExit_Handler(osTask_t *task)
 static
 void TaskSetDormantState(osTask_t* task)
 {
-  QueueReset(&task->task_queue);
-  QueueReset(&task->wait_timer.queue);
-#ifdef USE_MUTEXES
-  QueueReset(&task->mutex_queue);
-#endif
+  QueueReset(&task->task_que);
+  QueueReset(&task->wait_timer.timer_que);
+  QueueReset(&task->mutex_que);
 
-  task->pwait_queue = NULL;
+  task->pwait_que = NULL;
   task->priority = task->base_priority;
   task->state = TSK_STATE_DORMANT;
   task->wait_reason = WAIT_REASON_NO;
@@ -227,7 +225,7 @@ void TaskSetReady(osTask_t *thread)
   knlInfo_t *info = &knlInfo;
   uint32_t priority = thread->priority;
 
-  QueueAddTail(&info->ready_list[priority], &thread->task_queue);
+  QueueAddTail(&info->ready_list[priority], &thread->task_que);
   info->ready_to_run_bmp |= (1U << priority);
 }
 
@@ -248,8 +246,8 @@ void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason
 
   /* Add to the wait queue - FIFO */
   if (wait_que != NULL) {
-    QueueAddTail(wait_que, &task->task_queue);
-    task->pwait_queue = wait_que;
+    QueueAddTail(wait_que, &task->task_que);
+    task->pwait_que = wait_que;
   }
 
   /* Add to the timers queue */
@@ -266,8 +264,8 @@ void TaskWaitExit(osTask_t *task, uint32_t ret_val)
 {
   task->wait_info.ret_val = ret_val;
 
-  task->pwait_queue = NULL;
-  QueueRemoveEntry(&task->task_queue);
+  task->pwait_que = NULL;
+  QueueRemoveEntry(&task->task_que);
 
   if ((task->state & TSK_STATE_SUSPEND) == 0U) {
     TaskToRunnable(task);
@@ -337,13 +335,13 @@ void TaskSetNext(osTask_t *task)
  * @param task
  * @param new_priority
  */
-void TaskChangePriority(osTask_t *task, uint32_t new_priority)
+void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority)
 {
   knlInfo_t *info = &knlInfo;
   uint32_t old_priority = task->priority;
 
   //-- remove curr task from any (wait/ready) queue
-  QueueRemoveEntry(&task->task_queue);
+  QueueRemoveEntry(&task->task_que);
 
   //-- If there are no ready tasks for the old priority
   //-- clear ready bit for old priority
@@ -439,21 +437,12 @@ osError_t TaskTerminate(osTask_t *task)
   }
   else if (task->state & TSK_STATE_WAIT) {
     /* Free all queues, involved in the 'waiting' */
-    QueueRemoveEntry(&task->task_queue);
+    QueueRemoveEntry(&task->task_que);
     TimerDelete(&task->wait_timer);
   }
 
-  /* Unlock all mutexes, locked by the task */
-#ifdef USE_MUTEXES
-  queue_t *que;
-  osMutex_t *mutex;
-
-  while (!isQueueEmpty(&task->mutex_queue)) {
-    que = QueueRemoveHead(&task->mutex_queue);
-    mutex = GetMutexByMutexQueque(que);
-    MutexUnLock(mutex);
-  }
-#endif
+  /* Release owned Mutexes */
+  MutexOwnerRelease(&task->mutex_que);
 
   TaskSetDormantState(task);
 
@@ -472,17 +461,8 @@ void TaskExit(task_exit_attr_t attr)
 {
   osTask_t *task = TaskGetCurrent();
 
-  /* Unlock all mutexes, locked by the task */
-#ifdef USE_MUTEXES
-  queue_t *que;
-  osMutex_t *mutex;
-
-  while (!isQueueEmpty(&task->mutex_queue)) {
-    que = QueueRemoveHead(&task->mutex_queue);
-    mutex = GetMutexByMutexQueque(que);
-    MutexUnLock(mutex);
-  }
-#endif
+  /* Release owned Mutexes */
+  MutexOwnerRelease(&task->mutex_que);
 
   TaskToNonRunnable(task);
   TaskSetDormantState(task);
@@ -603,7 +583,7 @@ osError_t TaskSetPriority(osTask_t *task, uint32_t new_priority)
     return TERR_WCONTEXT;
 
   if (task->state == TSK_STATE_RUNNABLE)
-    TaskChangePriority(task, new_priority);
+    TaskChangeRunningPriority(task, new_priority);
   else
     task->priority = new_priority;
 

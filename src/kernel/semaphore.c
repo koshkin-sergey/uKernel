@@ -85,15 +85,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC(0)
+SVC_CALL
 void svcSemaphoreNew(void (*)(osSemaphore_t*, uint32_t, uint32_t), osSemaphore_t*, uint32_t, uint32_t);
-__SVC(0)
+SVC_CALL
 osError_t svcSemaphoreDelete(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
-__SVC(0)
+SVC_CALL
 osError_t svcSemaphoreRelease(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
-__SVC(0)
+SVC_CALL
 osError_t svcSemaphoreAcquire(osError_t (*)(osSemaphore_t*, osTime_t), osSemaphore_t*, osTime_t);
-__SVC(0)
+SVC_CALL
 uint32_t svcSemaphoreGetCount(uint32_t (*)(osSemaphore_t*), osSemaphore_t*);
 
 /*******************************************************************************

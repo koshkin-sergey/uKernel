@@ -31,15 +31,15 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define BITS_IN_INT                (32UL)
-#define NUM_PRIORITY               BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
+#define BITS_IN_INT                 (32UL)
+#define NUM_PRIORITY                BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define GetTaskByQueue(que)         container_of(que, osTask_t, task_queue)
+#define GetTaskByQueue(que)         container_of(que, osTask_t, task_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
-#define GetTimerByQueue(que)        container_of(que, timer_t, queue)
+#define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -95,7 +95,7 @@ void TaskSetReady(osTask_t *thread);
 void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
 void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason, osTime_t timeout);
 void TaskWaitExit(osTask_t *task, uint32_t ret_val);
-void TaskChangePriority(osTask_t *task, uint32_t new_priority);
+void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
@@ -154,7 +154,12 @@ queue_t* QueueRemoveTail(queue_t *que);
 
 /* - Mutex Management --------------------------------------------------------*/
 
-void MutexUnLock(osMutex_t *mutex);
+/**
+ * @fn          void MutexOwnerRelease(queue_t *que)
+ * @brief       Release Mutexes when owner Task terminates.
+ * @param[in]   que   Queue of mutexes
+ */
+void MutexOwnerRelease(queue_t *que);
 
 void calibrate_delay(void);
 

@@ -54,15 +54,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC(0)
+SVC_CALL
 void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
-__SVC(0)
+SVC_CALL
 void svcAlarm(void (*)(TN_ALARM*), TN_ALARM*);
-__SVC(0)
+SVC_CALL
 void svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
-__SVC(0)
+SVC_CALL
 void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-__SVC(0)
+SVC_CALL
 void svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
 
 static
@@ -118,12 +118,12 @@ void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg)
       break;
   }
 
-  QueueAddTail(que, &event->queue);
+  QueueAddTail(que, &event->timer_que);
 }
 
 __FORCEINLINE void TimerDelete(timer_t *event)
 {
-  QueueRemoveEntry(&event->queue);
+  QueueRemoveEntry(&event->timer_que);
 }
 
 /**
