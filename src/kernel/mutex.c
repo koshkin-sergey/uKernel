@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -101,10 +101,8 @@ osTask_t* svcMutexGetOwner(osTask_t* (*)(osMutex_t*), osMutex_t*);
  ******************************************************************************/
 
 static
-void MutexSetPriority(osTask_t *task, uint32_t priority)
+void SetPriority(osTask_t *task, uint32_t priority)
 {
-  osMutex_t *mutex;
-
   //-- transitive priority changing
 
   // if we have a task A that is blocked by the task B and we changed priority
@@ -130,10 +128,7 @@ void MutexSetPriority(osTask_t *task, uint32_t priority)
     if (task->state & TSK_STATE_WAIT) {
       if (task->wait_reason == WAIT_REASON_MUTEX_I) {
         task->priority = priority;
-
-        mutex = GetMutexByWaitQueque(task->pwait_que);
-        task = mutex->holder;
-
+        task = GetMutexByWaitQueque(task->pwait_que)->holder;
         continue;
       }
     }
@@ -144,7 +139,7 @@ void MutexSetPriority(osTask_t *task, uint32_t priority)
 }
 
 static
-uint32_t MutexGetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
+uint32_t GetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
 {
   uint32_t priority;
   queue_t *curr_que;
@@ -180,7 +175,7 @@ void MutexUnLock(osMutex_t *mutex)
     if (!isQueueEmpty(&task->mutex_que)) {
       que = task->mutex_que.next;
       while (que != &task->mutex_que) {
-        priority = MutexGetMaxPriority(GetMutexByMutexQueque(que), priority);
+        priority = GetMaxPriority(GetMutexByMutexQueque(que), priority);
         que = que->next;
       }
     }
@@ -322,7 +317,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
           /* Raise priority of owner Task if lower than priority of running Task */
           if (task->priority < mutex->holder->priority) {
             /* TODO Сделать корректное обновление приоритета задачи */
-            MutexSetPriority(mutex->holder, task->priority);
+            SetPriority(mutex->holder, task->priority);
           }
         }
         /* Suspend current Thread */

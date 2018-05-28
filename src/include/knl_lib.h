@@ -97,9 +97,9 @@ void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
-__FORCEINLINE osTask_t* TaskGetCurrent(void);
-__FORCEINLINE void TaskSetCurrent(osTask_t *task);
-__FORCEINLINE osTask_t* TaskGetNext(void);
+osTask_t* TaskGetCurrent(void);
+void TaskSetCurrent(osTask_t *task);
+osTask_t* TaskGetNext(void);
 void TaskSetNext(osTask_t *task);
 
 /* Timer */
@@ -107,8 +107,8 @@ void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
 void TimerDelete(timer_t *event);
 
 /* Queue */
-__FORCEINLINE void QueueReset(queue_t *que);
-__FORCEINLINE bool isQueueEmpty(queue_t *que);
+void QueueReset(queue_t *que);
+bool isQueueEmpty(queue_t *que);
 
 /**
  * @fn          void QueueAddHead(queue_t *que, queue_t *entry)

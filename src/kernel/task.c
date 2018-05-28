@@ -303,20 +303,16 @@ void TaskWaitDelete(queue_t *wait_que)
   }
 }
 
-
-__FORCEINLINE
 osTask_t* TaskGetCurrent(void)
 {
   return knlInfo.run.curr;
 }
 
-__FORCEINLINE
 void TaskSetCurrent(osTask_t *task)
 {
   knlInfo.run.curr = task;
 }
 
-__FORCEINLINE
 osTask_t* TaskGetNext(void)
 {
   return knlInfo.run.next;

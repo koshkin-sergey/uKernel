@@ -139,7 +139,7 @@ __STATIC_INLINE bool IsIrqMasked(void)
  *  exported function prototypes
  ******************************************************************************/
 
-void archKernelStart(void);
+__NO_RETURN void archKernelStart(void);
 void archStackInit(osTask_t *task);
 void archSwitchContextRequest(void);
 

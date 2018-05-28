@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2011-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -93,12 +93,12 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-__FORCEINLINE void QueueReset(queue_t *que)
+void QueueReset(queue_t *que)
 {
   que->prev = que->next = que;
 }
 
-__FORCEINLINE bool isQueueEmpty(queue_t *que)
+bool isQueueEmpty(queue_t *que)
 {
   return ((que->next == que) ? true : false);
 }

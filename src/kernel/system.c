@@ -99,14 +99,16 @@ timer_t* GetTimer(void)
  * @brief Idle task function.
  * @param par
  */
-__WEAK void osIdleTaskFunc(void *par)
+__WEAK __NO_RETURN
+void osIdleTaskFunc(void *par)
 {
   for (;;) {
     ;
   }
 }
 
-__NO_RETURN static void TimerTaskFunc(void *par)
+__NO_RETURN
+static void TimerTaskFunc(void *par)
 {
   timer_t *timer;
 
@@ -243,8 +245,6 @@ void osKernelStart(TN_OPTIONS *opt)
 
   //-- Run OS - first context switch
   archKernelStart();
-
-  for(;;);
 }
 
 #if defined(ROUND_ROBIN_ENABLE)

@@ -93,12 +93,16 @@ void SystemIsrInit(void)
  * @fn      void archKernelStart(void)
  * @brief
  */
+__NO_RETURN
 void archKernelStart(void)
 {
   SystemIsrInit();
   __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
-  ICSR = PENDSVSET;
+  archSwitchContextRequest();
+
   __enable_irq();
+
+  for(;;);
 }
 
 void archSwitchContextRequest(void)
