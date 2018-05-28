@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -70,6 +70,7 @@ __STATIC_INLINE bool IsIrqMasked(void)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect_r7(num)
+  #define SVC_CALL                __SVC(0)
 
   #define BEGIN_DISABLE_INTERRUPT uint32_t primask = __get_PRIMASK(); \
                                   __disable_irq();

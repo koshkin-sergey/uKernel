@@ -91,10 +91,8 @@ extern knlInfo_t knlInfo;
  ******************************************************************************/
 
 /* Thread */
-void TaskSetReady(osTask_t *thread);
-void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
 void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason, osTime_t timeout);
-void TaskWaitExit(osTask_t *task, uint32_t ret_val);
+void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
 void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(queue_t *que);
 
@@ -105,13 +103,12 @@ __FORCEINLINE osTask_t* TaskGetNext(void);
 void TaskSetNext(osTask_t *task);
 
 /* Timer */
-void TimerTaskCreate(void *par);
 void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
 void TimerDelete(timer_t *event);
 
 /* Queue */
-void QueueReset(queue_t *que);
-bool isQueueEmpty(queue_t *que);
+__FORCEINLINE void QueueReset(queue_t *que);
+__FORCEINLINE bool isQueueEmpty(queue_t *que);
 
 /**
  * @fn          void QueueAddHead(queue_t *que, queue_t *entry)

@@ -200,7 +200,7 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    TaskWaitExit(&timer_task, TERR_NO_ERR);
+    TaskWaitComplete(&timer_task, TERR_NO_ERR);
   }
 
   END_CRITICAL_SECTION
@@ -215,6 +215,7 @@ void osTimerHandle(void)
  *        called from main().
  * @param opt - Pointer to struct TN_OPTIONS.
  */
+__NO_RETURN
 void osKernelStart(TN_OPTIONS *opt)
 {
   __disable_irq();

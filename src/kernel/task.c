@@ -133,6 +133,21 @@ void TaskDispatch(void)
 }
 
 /**
+ * @fn    void TaskSetReady(osTask_t *thread)
+ * @brief Adds task to the end of ready queue for current priority
+ * @param thread
+ */
+static
+void TaskSetReady(osTask_t *thread)
+{
+  knlInfo_t *info = &knlInfo;
+  uint32_t priority = thread->priority;
+
+  QueueAddTail(&info->ready_list[priority], &thread->task_que);
+  info->ready_to_run_bmp |= (1U << priority);
+}
+
+/**
  * @brief
  * @param
  * @return
@@ -181,6 +196,30 @@ void TaskToNonRunnable(osTask_t *task)
 }
 
 /**
+ * @fn          void TaskWaitExit(osTask_t *task, uint32_t ret_val)
+ * @param[out]  task
+ * @param[in]   ret_val
+ */
+static
+void TaskWaitExit(osTask_t *task, uint32_t ret_val)
+{
+  task->wait_info.ret_val = ret_val;
+
+  task->pwait_que = NULL;
+  QueueRemoveEntry(&task->task_que);
+
+  if ((task->state & TSK_STATE_SUSPEND) == 0U) {
+    TaskToRunnable(task);
+  }
+  else {
+    //-- remove WAIT state
+    task->state = TSK_STATE_SUSPEND;
+  }
+
+  task->wait_reason = WAIT_REASON_NO;
+}
+
+/**
  * @fn          void TaskWaitExit_Handler(osTask_t *task)
  * @brief
  * @param[out]  task
@@ -215,21 +254,6 @@ void TaskSetDormantState(osTask_t* task)
 }
 
 /**
- * @fn    void TaskSetReady(osTask_t *thread)
- * @brief Adds task to the end of ready queue for current priority
- * @param thread
- */
-static
-void TaskSetReady(osTask_t *thread)
-{
-  knlInfo_t *info = &knlInfo;
-  uint32_t priority = thread->priority;
-
-  QueueAddTail(&info->ready_list[priority], &thread->task_que);
-  info->ready_to_run_bmp |= (1U << priority);
-}
-
-/**
  * @fn          void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason, osTime_t timeout)
  * @brief
  * @param task
@@ -253,29 +277,6 @@ void TaskWaitEnter(osTask_t *task, queue_t * wait_que, wait_reason_t wait_reason
   /* Add to the timers queue */
   if (timeout != TIME_WAIT_INFINITE)
     TimerInsert(&task->wait_timer, knlInfo.jiffies + timeout, (CBACK)TaskWaitExit_Handler, task);
-}
-
-/**
- * @brief
- * @param
- * @return
- */
-void TaskWaitExit(osTask_t *task, uint32_t ret_val)
-{
-  task->wait_info.ret_val = ret_val;
-
-  task->pwait_que = NULL;
-  QueueRemoveEntry(&task->task_que);
-
-  if ((task->state & TSK_STATE_SUSPEND) == 0U) {
-    TaskToRunnable(task);
-  }
-  else {
-    //-- remove WAIT state
-    task->state = TSK_STATE_SUSPEND;
-  }
-
-  task->wait_reason = WAIT_REASON_NO;
 }
 
 /**
