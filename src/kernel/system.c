@@ -84,7 +84,7 @@ timer_t* GetTimer(void)
 
   if (!isQueueEmpty(timer_queue)) {
     timer = GetTimerByQueue(timer_queue->next);
-    if (time_after(timer->time, knlInfo.jiffies))
+    if (time_after_eq(timer->time, knlInfo.jiffies))
       timer = NULL;
     else
       TimerDelete(timer);

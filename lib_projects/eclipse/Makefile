@@ -46,9 +46,8 @@ ifndef OBJ_FOLDER
 OBJ_FOLDER = ./obj/$(ARCH)/$(COMPILER)
 endif
 
-TOOLS_FOLDER = ../../tools
-MKDIR = $(TOOLS_FOLDER)/mkdir
-RM = $(TOOLS_FOLDER)/rm
+MKDIR = mkdir
+RM = rm
 
 #---------------------------------------------------------------------------
 # Cortex-M series
@@ -132,7 +131,7 @@ all: $(OBJ_FOLDER) $(BIN_FOLDER) $(BINARY)
 # Other Targets
 clean:
 	@echo Cleaning...
-	@$(RM) -drf $(BIN_FOLDER) $(OBJ_FOLDER)
+	@$(RM) -rf $(BIN_FOLDER) $(OBJ_FOLDER)
 	@echo Done
 
 .PHONY: all clean

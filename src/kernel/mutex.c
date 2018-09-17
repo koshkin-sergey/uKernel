@@ -316,7 +316,6 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
           wait_reason = WAIT_REASON_MUTEX_I;
           /* Raise priority of owner Task if lower than priority of running Task */
           if (task->priority < mutex->holder->priority) {
-            /* TODO Сделать корректное обновление приоритета задачи */
             SetPriority(mutex->holder, task->priority);
           }
         }

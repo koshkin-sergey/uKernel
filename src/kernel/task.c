@@ -573,6 +573,7 @@ osError_t TaskReleaseWait(osTask_t *task)
 static
 osError_t TaskSetPriority(osTask_t *task, uint32_t new_priority)
 {
+  /* TODO При установке нового значения приоритета не меняется поле base_priority. Исправить */
   if (new_priority == 0)
     new_priority = task->base_priority;
 
