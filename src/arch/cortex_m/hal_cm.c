@@ -31,21 +31,6 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-/* PendSV priority is minimal (0xFF) */
-#define PENDSV_PRIORITY (0x00FF0000)
-
-#define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
-/* System Handler Priority Register 2 Address */
-#define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
-/* System Handler Priority Register 3 Address */
-#define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
-/* Interrupt Control State Register Address */
-#define ICSR            (*((volatile uint32_t *)0xE000ED04))
-/* PendSV bit in the Interrupt Control State Register */
-#define PENDSVSET       (0x10000000)
-/* PendSV exception number */
-#define PENDSV_EXC_NBR  (14)
-
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -70,46 +55,6 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-static
-void SystemIsrInit(void)
-{
-#if !defined(__TARGET_ARCH_6S_M)
-  uint32_t sh, prigroup;
-#endif
-  NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
-#if defined(__TARGET_ARCH_6S_M)
-  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
-#else
-  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
-  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
-  if (prigroup >= sh) {
-    sh = prigroup + 1U;
-  }
-  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
-#endif
-}
-
-/**
- * @fn      void archKernelStart(void)
- * @brief
- */
-__NO_RETURN
-void archKernelStart(void)
-{
-  SystemIsrInit();
-  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
-  archSwitchContextRequest();
-
-  __enable_irq();
-
-  for(;;);
-}
-
-void archSwitchContextRequest(void)
-{
-  ICSR = PENDSVSET;
-}
-
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
        (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
@@ -129,46 +74,6 @@ int32_t ffs_asm(uint32_t val)
 }
 
 #endif
-
-/**
- * @fn    void ThreadExit(void)
- */
-static
-void TaskExit(void)
-{
-  osTaskExit(TASK_EXIT);
-}
-
-/**
- * @fn    uint32_t* archStackInit(const osTask_t *task)
- * @brief
- * @param[in] task
- * @return
- */
-void archStackInit(osTask_t *task)
-{
-  uint32_t *stk = task->stk_start;              //-- Load stack pointer
-  stk++;
-
-  *(--stk) = 0x01000000L;                       //-- xPSR
-  *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
-  *(--stk) = (uint32_t)TaskExit;                //-- R14 (LR)
-  *(--stk) = 0x12121212L;                       //-- R12
-  *(--stk) = 0x03030303L;                       //-- R3
-  *(--stk) = 0x02020202L;                       //-- R2
-  *(--stk) = 0x01010101L;                       //-- R1
-  *(--stk) = (uint32_t)task->func_param;        //-- R0 - task's function argument
-  *(--stk) = 0x11111111L;                       //-- R11
-  *(--stk) = 0x10101010L;                       //-- R10
-  *(--stk) = 0x09090909L;                       //-- R9
-  *(--stk) = 0x08080808L;                       //-- R8
-  *(--stk) = 0x07070707L;                       //-- R7
-  *(--stk) = 0x06060606L;                       //-- R6
-  *(--stk) = 0x05050505L;                       //-- R5
-  *(--stk) = 0x04040404L;                       //-- R4
-
-  task->stk = (uint32_t)stk;
-}
 
 /**
  * @fn      void PendSV_Handler(void)

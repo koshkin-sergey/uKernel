@@ -24,11 +24,26 @@
  *  includes
  ******************************************************************************/
 
-#include <stdint.h>
+#include <stdbool.h>
+#include "cmsis_compiler.h"
+#include "knl_lib.h"
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
+
+/* PendSV priority is minimal (0xFF) */
+#define PENDSV_PRIORITY (0x00FF0000)
+
+#define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
+/* System Handler Priority Register 2 Address */
+#define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
+/* System Handler Priority Register 3 Address */
+#define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
+/* Interrupt Control State Register Address */
+#define ICSR                          (*((volatile uint32_t *)0xE000ED04))
+/* PendSV bit in the Interrupt Control State Register */
+#define PENDSVSET                     (0x10000000)
 
 #define TIMER_STACK_SIZE              (48U)
 #define IDLE_STACK_SIZE               (48U)
@@ -36,37 +51,37 @@
 #define TN_ALIG                       sizeof(void*)
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
+#define STACK_OFFSET_R0()             (32U)
 
-#if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
-
-  #define USE_ASM_FFS
-
-  /* - Interrupt processing - processor specific -------------------------------*/
-  #define BEGIN_CRITICAL_SECTION  uint32_t tn_save_status_reg = tn_cpu_save_sr();
-  #define END_CRITICAL_SECTION    tn_cpu_restore_sr(tn_save_status_reg);  \
-                                  if (!tn_inside_irq())                   \
-                                    tn_switch_context();
-
-  #define BEGIN_DISABLE_INTERRUPT uint32_t tn_save_status_reg = tn_cpu_save_sr();
-  #define END_DISABLE_INTERRUPT   tn_cpu_restore_sr(tn_save_status_reg);
-
-#endif
-
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-
-  #include "core_cm.h"
-
-__STATIC_INLINE bool IsIrqMode(void)
+/**
+ * @fn          bool IsIrqMode(void)
+ * @brief       Check if in IRQ Mode
+ * @return      true=IRQ, false=thread
+ */
+__STATIC_INLINE
+bool IsIrqMode(void)
 {
   return (__get_IPSR() != 0U);
 }
 
-__STATIC_INLINE bool IsIrqMasked(void)
+/**
+ * @fn          bool IsIrqMasked(void)
+ * @brief       Check if IRQ is Masked
+ * @return      true=masked, false=not masked
+ */
+__STATIC_INLINE
+bool IsIrqMasked(void)
 {
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) || \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) || \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+  return ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U));
+#else
   return (__get_PRIMASK() != 0U);
+#endif
 }
 
-  #define STACK_OFFSET_R0()       (32U)
+#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect_r7(num)
@@ -84,21 +99,7 @@ __STATIC_INLINE bool IsIrqMasked(void)
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  #include "core_cm.h"
-
   #define USE_ASM_FFS
-
-__STATIC_INLINE bool IsIrqMode(void)
-{
-  return (__get_IPSR() != 0U);
-}
-
-__STATIC_INLINE bool IsIrqMasked(void)
-{
-  return ((__get_PRIMASK() != 0U) || (__get_BASEPRI() != 0U));
-}
-
-  #define STACK_OFFSET_R0()       (32U)
 
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect(num)
@@ -139,22 +140,46 @@ __STATIC_INLINE bool IsIrqMasked(void)
  *  exported function prototypes
  ******************************************************************************/
 
-__NO_RETURN void archKernelStart(void);
-void archStackInit(osTask_t *task);
-void archSwitchContextRequest(void);
-
-#if (defined (__ARM_ARCH_4T__ ) && (__ARM_ARCH_4T__  == 1))
-
-  extern void tn_switch_context(void);
-  extern void tn_cpu_irq_handler(void);
-  extern void tn_cpu_irq_isr(void);
-  extern void tn_cpu_fiq_isr(void);
-  extern int32_t ffs_asm(uint32_t val);
-  extern uint32_t tn_cpu_save_sr(void);
-  extern void tn_cpu_restore_sr(uint32_t sr);
-  extern int32_t tn_inside_irq(void);
-
+__STATIC_INLINE
+void SystemIsrInit(void)
+{
+#if !defined(__TARGET_ARCH_6S_M)
+  uint32_t sh, prigroup;
 #endif
+  NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
+#if defined(__TARGET_ARCH_6S_M)
+  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+#else
+  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
+  if (prigroup >= sh) {
+    sh = prigroup + 1U;
+  }
+  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+#endif
+}
+
+__STATIC_INLINE
+void archSwitchContextRequest(void)
+{
+  ICSR = PENDSVSET;
+}
+
+/**
+ * @fn      void archKernelStart(void)
+ * @brief
+ */
+__STATIC_INLINE __NO_RETURN
+void archKernelStart(void)
+{
+  SystemIsrInit();
+  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
+  archSwitchContextRequest();
+
+  __enable_irq();
+
+  for(;;);
+}
 
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )

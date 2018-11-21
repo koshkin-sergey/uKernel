@@ -59,6 +59,7 @@
  *  includes
  ******************************************************************************/
 
+#include "arch.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -90,7 +91,7 @@ osError_t svcTask(osError_t (*)(osTask_t*), osTask_t*);
 SVC_CALL
 void svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
 SVC_CALL
-void svcTaskExit(void (*)(task_exit_attr_t), task_exit_attr_t);
+void svcTaskExit(void (*)(void));
 SVC_CALL
 void svcTaskSleep(void (*)(osTime_t), osTime_t);
 SVC_CALL
@@ -104,6 +105,37 @@ osError_t TaskActivate(osTask_t *task);
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
+
+/**
+ * @fn    uint32_t* archStackInit(const osTask_t *task)
+ * @brief
+ * @param[in] task
+ */
+static
+void StackInit(osTask_t *task)
+{
+  uint32_t *stk = task->stk_start;              //-- Load stack pointer
+  stk++;
+
+  *(--stk) = 0x01000000L;                       //-- xPSR
+  *(--stk) = (uint32_t)task->func_addr;         //-- Entry Point
+  *(--stk) = (uint32_t)osTaskExit;              //-- R14 (LR)
+  *(--stk) = 0x12121212L;                       //-- R12
+  *(--stk) = 0x03030303L;                       //-- R3
+  *(--stk) = 0x02020202L;                       //-- R2
+  *(--stk) = 0x01010101L;                       //-- R1
+  *(--stk) = (uint32_t)task->func_param;        //-- R0 - task's function argument
+  *(--stk) = 0x11111111L;                       //-- R11
+  *(--stk) = 0x10101010L;                       //-- R10
+  *(--stk) = 0x09090909L;                       //-- R9
+  *(--stk) = 0x08080808L;                       //-- R8
+  *(--stk) = 0x07070707L;                       //-- R7
+  *(--stk) = 0x06060606L;                       //-- R6
+  *(--stk) = 0x05050505L;                       //-- R5
+  *(--stk) = 0x04040404L;                       //-- R4
+
+  task->stk = (uint32_t)stk;
+}
 
 /**
  * @brief
@@ -410,7 +442,7 @@ osError_t TaskActivate(osTask_t *task)
   if (task->state != TSK_STATE_DORMANT)
     return TERR_OVERFLOW;
 
-  archStackInit(task);
+  StackInit(task);
   TaskToRunnable(task);
 
   return TERR_NO_ERR;
@@ -447,14 +479,11 @@ osError_t TaskTerminate(osTask_t *task)
 }
 
 /**
- * @fn        void TaskExit(task_exit_attr_t attr)
- * @brief     Terminates the currently running task
- * @param[in] attr  Exit option. Option values:
- *                    TASK_EXIT             Currently running task will be terminated.
- *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ * @fn          void TaskExit(void)
+ * @brief       Terminates the currently running task
  */
 static
-void TaskExit(task_exit_attr_t attr)
+void TaskExit(void)
 {
   osTask_t *task = TaskGetCurrent();
 
@@ -463,10 +492,6 @@ void TaskExit(task_exit_attr_t attr)
 
   TaskToNonRunnable(task);
   TaskSetDormantState(task);
-
-  if (attr == TASK_EXIT_AND_DELETE) {
-    task->id = ID_INVALID;
-  }
 }
 
 /**
@@ -719,18 +744,14 @@ osError_t osTaskTerminate(osTask_t *task)
 }
 
 /**
- * @fn        void osTaskExit(task_exit_attr_t attr)
- * @brief     Terminates the currently running task
- * @param[in] attr  Exit option. Option values:
- *                    TASK_EXIT             Currently running task will be terminated.
- *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ * @fn          void osTaskExit(void)
+ * @brief       Terminates the currently running task
  */
-void osTaskExit(task_exit_attr_t attr)
+__NO_RETURN
+void osTaskExit(void)
 {
-  if (IsIrqMode() || IsIrqMasked())
-    return;
-
-  svcTaskExit(TaskExit, attr);
+  svcTaskExit(TaskExit);
+  for (;;);
 }
 
 /**

@@ -59,6 +59,7 @@
  *  includes
  ******************************************************************************/
 
+#include "arch.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -229,7 +230,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     else {
       task = TaskGetCurrent();
       TaskWaitEnter(task, &fmp->wait_queue, WAIT_REASON_WFIXMEM, timeout);
-      
+
       END_CRITICAL_SECTION
 
       //-- When returns to this point, in the 'data_elem' have to be valid value

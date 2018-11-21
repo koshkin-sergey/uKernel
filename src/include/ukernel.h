@@ -603,11 +603,6 @@ typedef enum {
   osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osError_t;
 
-typedef enum {
-  TASK_EXIT,
-  TASK_EXIT_AND_DELETE,
-} task_exit_attr_t;
-
 /* Task states */
 typedef enum {
   TSK_STATE_RUNNABLE  = 0x01,
@@ -943,13 +938,11 @@ osError_t osTaskActivate(osTask_t *task);
 osError_t osTaskTerminate(osTask_t *task);
 
 /**
- * @fn        void osTaskExit(task_exit_attr_t attr)
- * @brief     Terminates the currently running task
- * @param[in] attr  Exit option. Option values:
- *                    TASK_EXIT             Currently running task will be terminated.
- *                    TASK_EXIT_AND_DELETE  Currently running task will be terminated and then deleted
+ * @fn          void osTaskExit(void)
+ * @brief       Terminates the currently running task
  */
-void osTaskExit(task_exit_attr_t attr);
+__NO_RETURN
+void osTaskExit(void);
 
 /**
  * @fn          osError_t osTaskSuspend(osTask_t *task)
