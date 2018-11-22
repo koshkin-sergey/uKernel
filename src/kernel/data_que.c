@@ -403,13 +403,13 @@ osError_t tn_queue_flush(TN_DQUE *dque)
   if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   dque->cnt = 0;
   dque->tail_cnt = 0;
   dque->header_cnt = 0;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
 
   return TERR_NO_ERR;
 }
@@ -433,14 +433,14 @@ osError_t tn_queue_empty(TN_DQUE *dque)
   if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   if (dque->cnt == 0)
     rc = TERR_TRUE;
   else
     rc = TERR_NO_ERR;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
 
   return rc;
 }
@@ -464,14 +464,14 @@ osError_t tn_queue_full(TN_DQUE *dque)
   if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   if (dque->cnt == dque->num_entries)
     rc = TERR_TRUE;
   else
     rc = TERR_NO_ERR;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
 
   return rc;
 }
@@ -494,11 +494,11 @@ osError_t tn_queue_cnt(TN_DQUE *dque, int *cnt)
   if (dque->id != ID_DATAQUEUE)
     return TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   *cnt = dque->cnt;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
 
   return TERR_NO_ERR;
 }

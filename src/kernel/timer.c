@@ -122,7 +122,11 @@ void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg)
   QueueAddTail(que, &event->timer_que);
 }
 
-__FORCEINLINE void TimerDelete(timer_t *event)
+/**
+ * @fn          void TimerDelete(timer_t *event)
+ * @brief
+ */
+void TimerDelete(timer_t *event)
 {
   QueueRemoveEntry(&event->timer_que);
 }

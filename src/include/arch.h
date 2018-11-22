@@ -33,13 +33,13 @@
  ******************************************************************************/
 
 /* PendSV priority is minimal (0xFF) */
-#define PENDSV_PRIORITY (0x00FF0000)
+#define PENDSV_PRIORITY               (0x00FF0000)
 
-#define NVIC_AIR_CTRL   (*((volatile uint32_t *)0xE000ED0CU))
+#define NVIC_AIR_CTRL                 (*((volatile uint32_t *)0xE000ED0CU))
 /* System Handler Priority Register 2 Address */
-#define NVIC_SYS_PRI2   (*((volatile uint32_t *)0xE000ED1CU))
+#define NVIC_SYS_PRI2                 (*((volatile uint32_t *)0xE000ED1CU))
 /* System Handler Priority Register 3 Address */
-#define NVIC_SYS_PRI3   (*((volatile uint32_t *)0xE000ED20U))
+#define NVIC_SYS_PRI3                 (*((volatile uint32_t *)0xE000ED20U))
 /* Interrupt Control State Register Address */
 #define ICSR                          (*((volatile uint32_t *)0xE000ED04))
 /* PendSV bit in the Interrupt Control State Register */
@@ -52,6 +52,49 @@
 #define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
 #define STACK_OFFSET_R0()             (32U)
+
+#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+
+  /* - Interrupt processing - processor specific -----------------------------*/
+  #define __SVC(num)              __svc_indirect_r7(num)
+  #define SVC_CALL                __SVC(0)
+
+  #define BEGIN_CRITICAL_SECTION uint32_t primask = __get_PRIMASK(); \
+                                  __disable_irq();
+  #define END_CRITICAL_SECTION   __set_PRIMASK(primask);
+
+#endif
+
+#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
+     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+
+  #define USE_ASM_FFS
+
+  /* - Interrupt processing - processor specific -----------------------------*/
+  #define __SVC(num)              __svc_indirect(num)
+  #define SVC_CALL                __SVC(0)
+
+  #define BEGIN_CRITICAL_SECTION uint32_t basepri = __get_BASEPRI(); \
+                                  __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+  #define END_CRITICAL_SECTION   __set_BASEPRI(basepri);
+
+#endif
+
+#ifndef SVC_CALL
+  #define SVC_CALL
+#endif
+
+/*******************************************************************************
+ *  typedefs and structures (scope: module-local)
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  exported variables
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  exported function prototypes
+ ******************************************************************************/
 
 /**
  * @fn          bool IsIrqMode(void)
@@ -80,65 +123,6 @@ bool IsIrqMasked(void)
   return (__get_PRIMASK() != 0U);
 #endif
 }
-
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
-
-  /* - Interrupt processing - processor specific -----------------------------*/
-  #define __SVC(num)              __svc_indirect_r7(num)
-  #define SVC_CALL                __SVC(0)
-
-  #define BEGIN_DISABLE_INTERRUPT uint32_t primask = __get_PRIMASK(); \
-                                  __disable_irq();
-  #define END_DISABLE_INTERRUPT   __set_PRIMASK(primask);
-
-  #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
-  #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
-
-#endif
-
-#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
-
-  #define USE_ASM_FFS
-
-  /* - Interrupt processing - processor specific -----------------------------*/
-  #define __SVC(num)              __svc_indirect(num)
-  #define SVC_CALL                __SVC(0)
-
-  #define BEGIN_DISABLE_INTERRUPT uint32_t basepri = __get_BASEPRI(); \
-                                  __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
-  #define END_DISABLE_INTERRUPT   __set_BASEPRI(basepri);
-
-  #define BEGIN_CRITICAL_SECTION  BEGIN_DISABLE_INTERRUPT
-  #define END_CRITICAL_SECTION    END_DISABLE_INTERRUPT
-
-#endif
-
-#ifndef BEGIN_CRITICAL_SECTION
-  #define BEGIN_CRITICAL_SECTION
-  #define END_CRITICAL_SECTION
-#endif
-
-#ifndef BEGIN_DISABLE_INTERRUPT
-  #define BEGIN_DISABLE_INTERRUPT
-  #define END_DISABLE_INTERRUPT
-#endif
-
-#ifndef SVC_CALL
-  #define SVC_CALL
-#endif
-
-/*******************************************************************************
- *  typedefs and structures (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  exported variables
- ******************************************************************************/
-
-/*******************************************************************************
- *  exported function prototypes
- ******************************************************************************/
 
 __STATIC_INLINE
 void SystemIsrInit(void)
@@ -173,7 +157,8 @@ __STATIC_INLINE __NO_RETURN
 void archKernelStart(void)
 {
   SystemIsrInit();
-  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
+//  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
+  knlInfo.run.curr = NULL;
   archSwitchContextRequest();
 
   __enable_irq();
@@ -181,8 +166,8 @@ void archKernelStart(void)
   for(;;);
 }
 
-#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  != 0)) || \
+     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ != 0)))
 
   int32_t ffs_asm(uint32_t val);
 

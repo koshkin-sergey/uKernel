@@ -101,9 +101,7 @@ void TaskSetCurrent(osTask_t *task);
 osTask_t* TaskGetNext(void);
 void TaskSetNext(osTask_t *task);
 
-/* Timer */
-void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
-void TimerDelete(timer_t *event);
+
 
 /* Queue */
 void QueueReset(queue_t *que);
@@ -147,6 +145,23 @@ queue_t* QueueRemoveHead(queue_t *que);
  * @return      Returns a pointer to an entry at the tail of the queue
  */
 queue_t* QueueRemoveTail(queue_t *que);
+
+/* Timer */
+/**
+ * @fn          void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
+ * @brief
+ * @param event
+ * @param time
+ * @param callback
+ * @param arg
+ */
+void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
+
+/**
+ * @fn          void TimerDelete(timer_t *event)
+ * @brief
+ */
+void TimerDelete(timer_t *event);
 
 /* - Mutex Management --------------------------------------------------------*/
 

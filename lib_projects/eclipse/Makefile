@@ -1,8 +1,7 @@
 # This makefile accepts two params: ARCH and COMPILER. Both are mandatory.
 #
 #  ARCH: the following values are valid:
-# 
-#     arm7
+#
 #     cortex_m0
 #     cortex_m0plus    // it's not implemented
 #     cortex_m1        // it's not implemented
@@ -56,19 +55,20 @@ RM = rm
 ifeq ($(ARCH), $(filter $(ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cortex_m4 cortex_m4f))
   
   ifeq ($(COMPILER), armcc)
-  
-    ARCH_DIR = $(SRC)/arch/cortex_m
     
     ifeq ($(ARCH), cortex_m0)
       CPU := --cpu=cortex-m0
+      ARCH_DIR = $(SRC)/kernel/ARM
     endif
 
     ifeq ($(ARCH), cortex_m3)
       CPU := --cpu=cortex-m3
+      ARCH_DIR = $(SRC)/kernel/ARM
     endif
 
     ifeq ($(ARCH), cortex_m4)
       CPU := --cpu=cortex-m4
+      ARCH_DIR = $(SRC)/kernel/ARM
     endif
 
     CC = armcc
@@ -84,38 +84,17 @@ ifeq ($(ARCH), $(filter $(ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cor
   
 endif
 
-#---------------------------------------------------------------------------
-# ARM7
-#---------------------------------------------------------------------------
-
-ifeq ($(ARCH), arm7)
-
-  ifeq ($(COMPILER), armcc)
-    CPU := --cpu=arm7tdmi
-    ARCH_DIR = $(SRC)/arch/arm
-
-    CC = armcc
-    AS = armasm
-    LD = armlink
-    AR = armar
-
-    DEPFLAGS = --depend=$(@:.o=.d) --depend_format=unix_escaped
-    CFLAGS = $(INC) $(CPU) $(DEPFLAGS) $(DEFINES) --apcs=/interwork --c99 -O2 -Otime --split_sections
-    ASFLAGS = $(CPU) $(DEPFLAGS)
-
-  endif
-
-endif
-
 BINARY = $(BIN_FOLDER)/ukernel.lib
 
 INC := -I $(SRC)/include \
+       -I $(SRC)/CMSIS/Core/Include \
        -I $(ARCH_DIR)
 
 DIRS := $(SRC)/kernel \
         $(ARCH_DIR)
 
 CFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
+SFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.s))
 OBJS := $(patsubst %.c,$(OBJ_FOLDER)/%.o, $(notdir $(CFILES))) $(patsubst %.s,$(OBJ_FOLDER)/%.o,$(notdir $(SFILES)))
 DEPS := $(OBJS:.o=.d)
 

@@ -218,7 +218,6 @@ void osTimerHandle(void)
  *        called from main().
  * @param opt - Pointer to struct TN_OPTIONS.
  */
-__NO_RETURN
 void osKernelStart(TN_OPTIONS *opt)
 {
   __disable_irq();
@@ -265,11 +264,11 @@ int tn_sys_tslice_ticks(int priority, int value)
       value < 0 || value > MAX_TIME_SLICE)
     return TERR_WRONG_PARAM;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   knlInfo.tslice_ticks[priority] = value;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
   return TERR_NO_ERR;
 }
 

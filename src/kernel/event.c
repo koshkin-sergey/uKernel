@@ -246,12 +246,12 @@ uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
   if (evf->id != ID_EVENT_FLAGS)
     return (uint32_t)TERR_NOEXS;
 
-  BEGIN_DISABLE_INTERRUPT
+  BEGIN_CRITICAL_SECTION
 
   pattern = evf->pattern;
   evf->pattern &= ~flags;
 
-  END_DISABLE_INTERRUPT
+  END_CRITICAL_SECTION
 
   return pattern;
 }
