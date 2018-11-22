@@ -21,6 +21,7 @@
  *  includes
  ******************************************************************************/
 
+#include "cmsis_compiler.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -55,8 +56,8 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-       (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+#if ((defined(__ARM_ARCH_7M__)  && (__ARM_ARCH_7M__  != 0)) || \
+     (defined(__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ != 0)))
 
 /**
  * @fn      int32_t ffs_asm(uint32_t val)
