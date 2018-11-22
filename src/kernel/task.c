@@ -59,7 +59,6 @@
  *  includes
  ******************************************************************************/
 
-#include "arch.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -145,21 +144,7 @@ void StackInit(osTask_t *task)
 static
 void TaskDispatch(void)
 {
-  int32_t priority = 0;
-
-#if defined USE_ASM_FFS
-  priority = ffs_asm(knlInfo.ready_to_run_bmp);
-  priority--;
-#else
-  uint32_t run_bmp = knlInfo.ready_to_run_bmp;
-
-  for (int i = 0; i < BITS_IN_INT; ++i) {
-    if (run_bmp & (1UL << i)) {
-      priority = i;
-      break;
-    }
-  }
-#endif
+  uint8_t priority = TIMER_TASK_PRIORITY - __CLZ(knlInfo.ready_to_run_bmp);
 
   TaskSetNext(GetTaskByQueue(knlInfo.ready_list[priority].next));
 }
@@ -176,7 +161,7 @@ void TaskSetReady(osTask_t *thread)
   uint32_t priority = thread->priority;
 
   QueueAddTail(&info->ready_list[priority], &thread->task_que);
-  info->ready_to_run_bmp |= (1U << priority);
+  info->ready_to_run_bmp |= (1UL << priority);
 }
 
 /**
@@ -192,8 +177,7 @@ void TaskToRunnable(osTask_t *task)
   /* Add the task to the end of 'ready queue' for the current priority */
   TaskSetReady(task);
 
-  /* less value - greater priority, so '<' operation is used here */
-  if (task->priority < TaskGetNext()->priority) {
+  if (task->priority > TaskGetNext()->priority) {
     TaskSetNext(task);
   }
 }
@@ -215,7 +199,7 @@ void TaskToNonRunnable(osTask_t *task)
   if (isQueueEmpty(que)) {
     /* No ready tasks for the curr priority */
     /* Remove 'ready to run' from the curr priority */
-    knlInfo.ready_to_run_bmp &= ~(1 << priority);
+    knlInfo.ready_to_run_bmp &= ~(1UL << priority);
 
     /* Find highest priority ready to run -
        at least, MSB bit must be set for the idle task */
@@ -335,29 +319,6 @@ void TaskWaitDelete(queue_t *wait_que)
   }
 }
 
-osTask_t* TaskGetCurrent(void)
-{
-  return knlInfo.run.curr;
-}
-
-void TaskSetCurrent(osTask_t *task)
-{
-  knlInfo.run.curr = task;
-}
-
-osTask_t* TaskGetNext(void)
-{
-  return knlInfo.run.next;
-}
-
-void TaskSetNext(osTask_t *task)
-{
-  if (task != knlInfo.run.next) {
-    knlInfo.run.next = task;
-    archSwitchContextRequest();
-  }
-}
-
 /**
  * @fn          void TaskChangePriority(osTask_t *task, uint32_t new_priority)
  * @brief
@@ -375,7 +336,7 @@ void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority)
   //-- If there are no ready tasks for the old priority
   //-- clear ready bit for old priority
   if (isQueueEmpty(&info->ready_list[old_priority]))
-    info->ready_to_run_bmp &= ~(1 << old_priority);
+    info->ready_to_run_bmp &= ~(1UL << old_priority);
 
   task->priority = new_priority;
 
@@ -599,9 +560,6 @@ static
 osError_t TaskSetPriority(osTask_t *task, uint32_t new_priority)
 {
   /* TODO При установке нового значения приоритета не меняется поле base_priority. Исправить */
-  if (new_priority == 0)
-    new_priority = task->base_priority;
-
   if (task->state == TSK_STATE_DORMANT)
     return TERR_WCONTEXT;
 
@@ -655,7 +613,7 @@ osError_t osTaskCreate(osTask_t *task,
                        const void *param,
                        uint32_t option)
 {
-  if (priority == 0U || priority >= (NUM_PRIORITY-1))
+  if (priority == IDLE_TASK_PRIORITY || priority >= TIMER_TASK_PRIORITY)
     return TERR_WRONG_PARAM;
   if ((stack_size < osStackSizeMin) || (func == NULL) || (task == NULL)
     || (stack_start == NULL) || (task->id != 0) )
@@ -870,7 +828,7 @@ osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority)
     return TERR_WRONG_PARAM;
   if (task->id != ID_TASK)
     return TERR_NOEXS;
-  if (new_priority > (NUM_PRIORITY - 2))
+  if ((new_priority == IDLE_TASK_PRIORITY) || (new_priority >= TIMER_TASK_PRIORITY))
     return TERR_WRONG_PARAM;
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;

@@ -24,6 +24,7 @@
  *  includes
  ******************************************************************************/
 
+#include "arch.h"
 #include "ukernel.h"
 
 /*******************************************************************************
@@ -31,7 +32,9 @@
  ******************************************************************************/
 
 #define BITS_IN_INT                 (32UL)
-#define NUM_PRIORITY                BITS_IN_INT  //-- 0..31  Priority 0 always is used by timers task
+#define NUM_PRIORITY                BITS_IN_INT       // 0..31
+#define TIMER_TASK_PRIORITY         (NUM_PRIORITY-1)  // Priority 31 always is used by timers task
+#define IDLE_TASK_PRIORITY          (0UL)             // Priority 0 always is used by idle task
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
@@ -96,12 +99,27 @@ void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority);
 void TaskWaitDelete(queue_t *que);
 
 void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
-osTask_t* TaskGetCurrent(void);
-void TaskSetCurrent(osTask_t *task);
-osTask_t* TaskGetNext(void);
-void TaskSetNext(osTask_t *task);
 
+__STATIC_INLINE
+osTask_t* TaskGetCurrent(void)
+{
+  return knlInfo.run.curr;
+}
 
+__STATIC_INLINE
+osTask_t* TaskGetNext(void)
+{
+  return knlInfo.run.next;
+}
+
+__STATIC_INLINE
+void TaskSetNext(osTask_t *task)
+{
+  if (task != knlInfo.run.next) {
+    knlInfo.run.next = task;
+    archSwitchContextRequest();
+  }
+}
 
 /* Queue */
 void QueueReset(queue_t *que);

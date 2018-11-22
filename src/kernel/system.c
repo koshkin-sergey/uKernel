@@ -31,7 +31,6 @@
  *  includes
  ******************************************************************************/
 
-#include "arch.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -144,7 +143,7 @@ void IdleTaskCreate(void)
   attr.func_param = NULL;
   attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
   attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];
-  attr.priority = NUM_PRIORITY-1;
+  attr.priority = IDLE_TASK_PRIORITY;
   attr.option = osTaskStartOnCreating;
 
   TaskCreate(&idle_task, &attr);
@@ -161,7 +160,7 @@ void TimerTaskCreate(void *par)
   attr.func_param = par;
   attr.stk_size = sizeof(timer_task_stack)/sizeof(*timer_task_stack);
   attr.stk_start = (uint32_t *)&timer_task_stack[attr.stk_size-1];
-  attr.priority = 0;
+  attr.priority = TIMER_TASK_PRIORITY;
   attr.option = osTaskStartOnCreating;
 
   TaskCreate(&timer_task, &attr);
@@ -235,7 +234,6 @@ void osKernelStart(TN_OPTIONS *opt)
   knlInfo.os_period = 1000/knlInfo.HZ;
   knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
-  TaskSetCurrent(&idle_task);
   TaskSetNext(&idle_task);
 
   /* Create Idle task */

@@ -56,26 +56,6 @@
  *  function implementations (scope: module-exported)
  ******************************************************************************/
 
-#if ((defined(__ARM_ARCH_7M__)  && (__ARM_ARCH_7M__  != 0)) || \
-     (defined(__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ != 0)))
-
-/**
- * @fn      int32_t ffs_asm(uint32_t val)
- * @brief
- */
-__asm
-int32_t ffs_asm(uint32_t val)
-{
-  mov    r1, r0                    ;-- tmp = in
-  rsbs   r0, r1, #0                ;-- in = -in
-  ands   r0, r0, r1                ;-- in = in & tmp
-  CLZ.W  r0, r0
-  rsb    r0, r0, #0x20             ;-- 32 - in
-  bx     lr
-}
-
-#endif
-
 /**
  * @fn      void PendSV_Handler(void)
  * @brief

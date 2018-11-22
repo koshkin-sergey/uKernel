@@ -59,7 +59,6 @@
  *  includes
  ******************************************************************************/
 
-#include "arch.h"
 #include "knl_lib.h"
 
 /*******************************************************************************
@@ -118,7 +117,7 @@ void SetPriority(osTask_t *task, uint32_t priority)
   //-- The code is derived from Vyacheslav Ovsiyenko version
 
   for (;;) {
-    if (task->priority <= priority)
+    if (task->priority >= priority)
       return;
 
     if (task->state == TSK_STATE_RUNNABLE) {
@@ -150,7 +149,7 @@ uint32_t GetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
   curr_que = mutex->wait_que.next;
   while (curr_que != &mutex->wait_que) {
     task = GetTaskByQueue(curr_que);
-    if (task->priority < priority) //--  task priority is higher
+    if (task->priority > priority) //--  task priority is higher
       priority = task->priority;
 
     curr_que = curr_que->next;
@@ -316,7 +315,7 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
         if ((mutex->attr & osMutexPrioInherit) != 0U) {
           wait_reason = WAIT_REASON_MUTEX_I;
           /* Raise priority of owner Task if lower than priority of running Task */
-          if (task->priority < mutex->holder->priority) {
+          if (task->priority > mutex->holder->priority) {
             SetPriority(mutex->holder, task->priority);
           }
         }

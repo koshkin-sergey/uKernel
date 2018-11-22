@@ -26,7 +26,6 @@
 
 #include <stdbool.h>
 #include "cmsis_compiler.h"
-#include "knl_lib.h"
 
 /*******************************************************************************
  *  defines and macros (scope: module-local)
@@ -68,8 +67,6 @@
 #if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
      (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
 
-  #define USE_ASM_FFS
-
   /* - Interrupt processing - processor specific -----------------------------*/
   #define __SVC(num)              __svc_indirect(num)
   #define SVC_CALL                __SVC(0)
@@ -78,6 +75,14 @@
                                   __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
   #define END_CRITICAL_SECTION   __set_BASEPRI(basepri);
 
+#endif
+
+#ifndef BEGIN_CRITICAL_SECTION
+  #define BEGIN_CRITICAL_SECTION
+#endif
+
+#ifndef END_CRITICAL_SECTION
+  #define END_CRITICAL_SECTION
 #endif
 
 #ifndef SVC_CALL
@@ -157,21 +162,12 @@ __STATIC_INLINE __NO_RETURN
 void archKernelStart(void)
 {
   SystemIsrInit();
-//  __set_PSP((uint32_t)knlInfo.run.curr->stk + STACK_OFFSET_R0());
-  knlInfo.run.curr = NULL;
   archSwitchContextRequest();
 
   __enable_irq();
 
   for(;;);
 }
-
-#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  != 0)) || \
-     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ != 0)))
-
-  int32_t ffs_asm(uint32_t val);
-
-#endif
 
 #endif  // _ARCH_H_
 
