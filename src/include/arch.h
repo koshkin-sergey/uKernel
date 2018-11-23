@@ -139,7 +139,7 @@ void SystemIsrInit(void)
 #if defined(__TARGET_ARCH_6S_M)
   NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
 #else
-  sh       = 8U - __clz(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
+  sh       = 8U - __CLZ(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
   prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
   if (prigroup >= sh) {
     sh = prigroup + 1U;
