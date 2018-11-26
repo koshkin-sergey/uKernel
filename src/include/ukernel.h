@@ -60,11 +60,35 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+#ifdef  __cplusplus
+extern "C"
+{
+#endif
+
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#pragma anon_unions
+#if   defined (__CC_ARM)
+  #pragma push
+  #pragma anon_unions
+#elif defined (__ICCARM__)
+  #pragma language=extended
+#elif defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wc11-extensions"
+  #pragma clang diagnostic ignored "-Wreserved-id-macro"
+#elif defined (__GNUC__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TMS470__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TASKING__)
+  #pragma warning 586
+#elif defined (__CSMC__)
+  /* anonymous unions are enabled by default */
+#else
+  #warning Not supported compiler type
+#endif
 
 #ifndef __NO_RETURN
 #if   defined(__CC_ARM)
@@ -108,11 +132,6 @@
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
-
-#ifdef  __cplusplus
-extern "C"
-{
-#endif
 
 typedef enum {
   ID_INVALID        = 0x00000000,//!< ID_INVALID
@@ -948,6 +967,24 @@ osTask_t* osMutexGetOwner(osMutex_t *mutex);
 /* - tn_delay.c --------------------------------------------------------------*/
 void tn_mdelay(unsigned long ms);
 void tn_udelay(unsigned long usecs);
+
+#if   defined (__CC_ARM)
+  #pragma pop
+#elif defined (__ICCARM__)
+  /* leave anonymous unions enabled */
+#elif (defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050))
+  #pragma clang diagnostic pop
+#elif defined (__GNUC__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TMS470__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TASKING__)
+  #pragma warning restore
+#elif defined (__CSMC__)
+  /* anonymous unions are enabled by default */
+#else
+  #warning Not supported compiler type
+#endif
 
 #ifdef __cplusplus
 } /* extern "C" */
