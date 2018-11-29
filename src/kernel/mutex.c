@@ -85,15 +85,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMutexNew(osError_t (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMutexDelete(osError_t (*)(osMutex_t*), osMutex_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMutexAcquire(osError_t (*)(osMutex_t*, osTime_t), osMutex_t*, osTime_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMutexRelease(osError_t (*)(osMutex_t*), osMutex_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 osTask_t* svcMutexGetOwner(osTask_t* (*)(osMutex_t*), osMutex_t*);
 
 /*******************************************************************************

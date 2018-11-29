@@ -54,15 +54,15 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcAlarm(void (*)(TN_ALARM*), TN_ALARM*);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
 
 static

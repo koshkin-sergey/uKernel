@@ -55,23 +55,23 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMessageQueueNew(osError_t (*)(osMessageQueue_t*, void*, uint32_t, uint32_t), osMessageQueue_t*, void*, uint32_t, uint32_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMessageQueueDelete(osError_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMessageQueuePut(osError_t (*)(osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t), osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMessageQueueGet(osError_t (*)(osMessageQueue_t*, void*, osTime_t), osMessageQueue_t*, void*, osTime_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 uint32_t svcMessageQueueGetMsgSize(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 uint32_t svcMessageQueueGetCapacity(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 uint32_t svcMessageQueueGetCount(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 uint32_t svcMessageQueueGetSpace(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcMessageQueueReset(osError_t (*)(osMessageQueue_t*), osMessageQueue_t*);
 
 /*******************************************************************************

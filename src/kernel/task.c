@@ -85,17 +85,17 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcTask(osError_t (*)(osTask_t*), osTask_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcTaskExit(void (*)(void));
-SVC_CALL
+__SVC_INDIRECT(0)
 void svcTaskSleep(void (*)(osTime_t), osTime_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 osError_t svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint32_t);
-SVC_CALL
+__SVC_INDIRECT(0)
 osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
 
 static

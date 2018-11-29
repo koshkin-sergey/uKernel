@@ -190,6 +190,4 @@ void TimerDelete(timer_t *event);
  */
 void MutexOwnerRelease(queue_t *que);
 
-void calibrate_delay(void);
-
 #endif /* _KNL_LIB_H_ */

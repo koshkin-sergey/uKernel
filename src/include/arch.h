@@ -52,28 +52,30 @@
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
 #define STACK_OFFSET_R0()             (32U)
 
-#if (defined (__ARM_ARCH_6M__ ) && (__ARM_ARCH_6M__  == 1))
+#if defined(__CC_ARM)
 
-  /* - Interrupt processing - processor specific -----------------------------*/
-  #define __SVC(num)              __svc_indirect_r7(num)
-  #define SVC_CALL                __SVC(0)
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
 
-  #define BEGIN_CRITICAL_SECTION uint32_t primask = __get_PRIMASK(); \
-                                  __disable_irq();
-  #define END_CRITICAL_SECTION   __set_PRIMASK(primask);
+#define __SVC_INDIRECT(n)             __svc_indirect(n)
+#define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
+                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+#define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
+
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+
+#define __SVC_INDIRECT(n)             __svc_indirect_r7(n)
+#define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
+                                      __disable_irq();
+#define END_CRITICAL_SECTION          __set_PRIMASK(primask);
 
 #endif
 
-#if ((defined (__ARM_ARCH_7M__ ) && (__ARM_ARCH_7M__  == 1)) || \
-     (defined (__ARM_ARCH_7EM__) && (__ARM_ARCH_7EM__ == 1))     )
+#elif defined(__ICCARM__)
 
-  /* - Interrupt processing - processor specific -----------------------------*/
-  #define __SVC(num)              __svc_indirect(num)
-  #define SVC_CALL                __SVC(0)
-
-  #define BEGIN_CRITICAL_SECTION uint32_t basepri = __get_BASEPRI(); \
-                                  __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
-  #define END_CRITICAL_SECTION   __set_BASEPRI(basepri);
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 #endif
 
@@ -83,10 +85,6 @@
 
 #ifndef END_CRITICAL_SECTION
   #define END_CRITICAL_SECTION
-#endif
-
-#ifndef SVC_CALL
-  #define SVC_CALL
 #endif
 
 /*******************************************************************************

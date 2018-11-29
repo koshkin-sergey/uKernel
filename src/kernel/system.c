@@ -117,7 +117,6 @@ static void TimerTaskFunc(void *par)
 
   osSysTickInit(knlInfo.HZ);
 
-  calibrate_delay();
   knlInfo.kernel_state = KERNEL_STATE_RUNNING;
 
   for (;;) {

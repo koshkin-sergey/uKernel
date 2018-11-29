@@ -85,17 +85,6 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-SVC_CALL
-osError_t svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-SVC_CALL
-osError_t svcEventFlagsDelete(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-SVC_CALL
-uint32_t svcEventFlagsSet(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
-SVC_CALL
-uint32_t svcEventFlagsWait(uint32_t (*)(osEventFlags_t*, uint32_t, uint32_t, osTime_t), osEventFlags_t*, uint32_t, uint32_t, osTime_t);
-SVC_CALL
-uint32_t svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
-
 /*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
@@ -142,7 +131,7 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
 }
 
 static
-osError_t EventFlagsNew(osEventFlags_t *evf)
+osError_t EventFlagsNew(osEventFlags_t *evf) // @suppress("Unused static function")
 {
   if (evf->id == ID_EVENT_FLAGS)
     return TERR_NO_ERR;
@@ -156,7 +145,7 @@ osError_t EventFlagsNew(osEventFlags_t *evf)
 }
 
 static
-osError_t EventFlagsDelete(osEventFlags_t *evf)
+osError_t EventFlagsDelete(osEventFlags_t *evf) // @suppress("Unused static function")
 {
   if (evf->id != ID_EVENT_FLAGS)
     return TERR_NOEXS;
@@ -255,6 +244,54 @@ uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
   return pattern;
 }
 
+#if defined(__CC_ARM)
+
+__SVC_INDIRECT(0)
+osError_t __svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsNew(osEventFlags_t *evf) {
+  return __svcEventFlagsNew(EventFlagsNew, evf);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcEventFlagsDelete(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsDelete(osEventFlags_t *evf)
+{
+  return __svcEventFlagsDelete(EventFlagsDelete, evf);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsSet(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+{
+  return __svcEventFlagsSet(EventFlagsSet, evf, flags);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsWait(uint32_t (*)(osEventFlags_t*, uint32_t, uint32_t, osTime_t), osEventFlags_t*, uint32_t, uint32_t, osTime_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+{
+  return __svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+{
+  return __svcEventFlagsClear(EventFlagsClear, evf, flags);
+}
+
+#endif
+
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -274,7 +311,7 @@ osError_t osEventFlagsNew(osEventFlags_t *evf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcEventFlagsNew(EventFlagsNew, evf);
+  return svcEventFlagsNew(evf);
 }
 
 /**
@@ -293,7 +330,7 @@ osError_t osEventFlagsDelete(osEventFlags_t *evf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcEventFlagsDelete(EventFlagsDelete, evf);
+  return svcEventFlagsDelete(evf);
 }
 
 /**
@@ -313,7 +350,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
     return EventFlagsSet(evf, flags);
   }
   else {
-    return svcEventFlagsSet(EventFlagsSet, evf, flags);
+    return svcEventFlagsSet(evf, flags);
   }
 }
 
@@ -340,7 +377,7 @@ uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options,
     return EventFlagsWait(evf, flags, options, timeout);
   }
   else {
-    uint32_t ret_val = svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
+    uint32_t ret_val = svcEventFlagsWait(evf, flags, options, timeout);
 
     if (ret_val == (uint32_t)TERR_WAIT)
       return TaskGetCurrent()->wait_info.ret_val;
@@ -365,7 +402,7 @@ uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
     return EventFlagsClear(evf, flags);
   }
   else {
-    return svcEventFlagsClear(EventFlagsClear, evf, flags);
+    return svcEventFlagsClear(evf, flags);
   }
 }
 
