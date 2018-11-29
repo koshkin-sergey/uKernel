@@ -271,4 +271,9 @@ int tn_sys_tslice_ticks(int priority, int value)
 
 #endif  // ROUND_ROBIN_ENABLE
 
+osTime_t osGetTickCount(void)
+{
+  return knlInfo.jiffies;
+}
+
 /*------------------------------ End of file ---------------------------------*/

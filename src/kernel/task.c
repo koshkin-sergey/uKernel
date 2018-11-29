@@ -85,19 +85,6 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC_INDIRECT(0)
-osError_t svcTask(osError_t (*)(osTask_t*), osTask_t*);
-__SVC_INDIRECT(0)
-void svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
-__SVC_INDIRECT(0)
-void svcTaskExit(void (*)(void));
-__SVC_INDIRECT(0)
-void svcTaskSleep(void (*)(osTime_t), osTime_t);
-__SVC_INDIRECT(0)
-osError_t svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint32_t);
-__SVC_INDIRECT(0)
-osTime_t svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
-
 static
 osError_t TaskActivate(osTask_t *task);
 
@@ -577,17 +564,121 @@ osTime_t TaskGetTime(osTask_t *task)
   return task->time;
 }
 
-osTime_t osTaskGetTime(osTask_t *task)
-{
-  if (task == NULL)
-    return 0;
-  if (task->id != ID_TASK)
-    return 0;
-  if (IsIrqMode() || IsIrqMasked())
-    return 0;
+#if defined(__CC_ARM)
 
-  return svcTaskGetTime(TaskGetTime, task);
+__SVC_INDIRECT(0)
+void __svcTaskCreate(void (*)(osTask_t*, const task_create_attr_t*), osTask_t*, const task_create_attr_t*);
+
+__STATIC_FORCEINLINE
+void svcTaskCreate(osTask_t* task, const task_create_attr_t* task_create_attr)
+{
+  __svcTaskCreate(TaskCreate, task, task_create_attr);
 }
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskDelete(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskDelete(osTask_t *task)
+{
+  return __svcTaskDelete(TaskDelete, task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskActivate(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskActivate(osTask_t *task)
+{
+  return __svcTaskActivate(TaskActivate, task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskTerminate(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskTerminate(osTask_t *task)
+{
+  return __svcTaskTerminate(TaskTerminate, task);
+}
+
+__SVC_INDIRECT(0)
+void __svcTaskExit(void (*)(void));
+
+__STATIC_FORCEINLINE
+void svcTaskExit(void)
+{
+  __svcTaskExit(TaskExit);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskSuspend(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSuspend(osTask_t *task)
+{
+  return __svcTaskSuspend(TaskSuspend, task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskResume(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskResume(osTask_t *task)
+{
+  return __svcTaskResume(TaskResume, task);
+}
+
+__SVC_INDIRECT(0)
+void __svcTaskSleep(void (*)(osTime_t), osTime_t);
+
+__STATIC_FORCEINLINE
+void svcTaskSleep(osTime_t timeout)
+{
+  __svcTaskSleep(TaskSleep, timeout);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskWakeup(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskWakeup(osTask_t *task)
+{
+  return __svcTaskWakeup(TaskWakeup, task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskReleaseWait(osError_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskReleaseWait(osTask_t *task)
+{
+  return __svcTaskReleaseWait(TaskReleaseWait, task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskSetPriority(osError_t (*)(osTask_t*, uint32_t), osTask_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSetPriority(osTask_t *task, uint32_t new_priority)
+{
+  return __svcTaskSetPriority(TaskSetPriority, task, new_priority);
+}
+
+__SVC_INDIRECT(0)
+osTime_t __svcTaskGetTime(osTime_t (*)(osTask_t*), osTask_t*);
+
+__STATIC_FORCEINLINE
+osTime_t svcTaskGetTime(osTask_t *task)
+{
+  return __svcTaskGetTime(TaskGetTime, task);
+}
+
+#endif
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
 
 /**
  * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
@@ -630,7 +721,7 @@ osError_t osTaskCreate(osTask_t *task,
   task_create_attr.priority = priority;
   task_create_attr.option = option;
 
-  svcTaskCreate(TaskCreate, task, &task_create_attr);
+  svcTaskCreate(task, &task_create_attr);
 
   return TERR_NO_ERR;
 }
@@ -654,7 +745,7 @@ osError_t osTaskDelete(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskDelete, task);
+  return svcTaskDelete(task);
 }
 
 /**
@@ -676,7 +767,7 @@ osError_t osTaskActivate(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskActivate, task);
+  return svcTaskActivate(task);
 }
 
 /**
@@ -698,7 +789,7 @@ osError_t osTaskTerminate(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskTerminate, task);
+  return svcTaskTerminate(task);
 }
 
 /**
@@ -708,7 +799,7 @@ osError_t osTaskTerminate(osTask_t *task)
 __NO_RETURN
 void osTaskExit(void)
 {
-  svcTaskExit(TaskExit);
+  svcTaskExit();
   for (;;);
 }
 
@@ -732,7 +823,7 @@ osError_t osTaskSuspend(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskSuspend, task);
+  return svcTaskSuspend(task);
 }
 
 /**
@@ -754,7 +845,7 @@ osError_t osTaskResume(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskResume, task);
+  return svcTaskResume(task);
 }
 
 /**
@@ -773,7 +864,7 @@ osError_t osTaskSleep(osTime_t timeout)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcTaskSleep(TaskSleep, timeout);
+  svcTaskSleep(timeout);
 
   return TERR_NO_ERR;
 }
@@ -797,7 +888,7 @@ osError_t osTaskWakeup(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskWakeup, task);
+  return svcTaskWakeup(task);
 }
 
 /**
@@ -819,7 +910,7 @@ osError_t osTaskReleaseWait(osTask_t *task)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTask(TaskReleaseWait, task);
+  return svcTaskReleaseWait(task);
 }
 
 osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority)
@@ -833,7 +924,19 @@ osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcTaskSetPriority(TaskSetPriority, task, new_priority);
+  return svcTaskSetPriority(task, new_priority);
+}
+
+osTime_t osTaskGetTime(osTask_t *task)
+{
+  if (task == NULL)
+    return 0;
+  if (task->id != ID_TASK)
+    return 0;
+  if (IsIrqMode() || IsIrqMasked())
+    return 0;
+
+  return svcTaskGetTime(task);
 }
 
 /* ----------------------------- End of file ---------------------------------*/

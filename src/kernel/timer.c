@@ -54,16 +54,9 @@
  *  function prototypes (scope: module-local)
  ******************************************************************************/
 
-__SVC_INDIRECT(0)
-void svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
-__SVC_INDIRECT(0)
-void svcAlarm(void (*)(TN_ALARM*), TN_ALARM*);
-__SVC_INDIRECT(0)
-void svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
-__SVC_INDIRECT(0)
-void svcCyclic(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-__SVC_INDIRECT(0)
-void svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
+/*******************************************************************************
+ *  function implementations (scope: module-local)
+ ******************************************************************************/
 
 static
 osTime_t CyclicNextTime(TN_CYCLIC *cyc)
@@ -275,10 +268,85 @@ void CyclicStop(TN_CYCLIC *cyc)
   }
 }
 
-osTime_t osGetTickCount(void)
+#if defined(__CC_ARM)
+
+__SVC_INDIRECT(0)
+void __svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
+
+__STATIC_FORCEINLINE
+void svcAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 {
-  return knlInfo.jiffies;
+  __svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
 }
+
+__SVC_INDIRECT(0)
+void __svcAlarmDelete(void (*)(TN_ALARM*), TN_ALARM*);
+
+__STATIC_FORCEINLINE
+void svcAlarmDelete(TN_ALARM *alarm)
+{
+  __svcAlarmDelete(AlarmDelete, alarm);
+}
+
+__SVC_INDIRECT(0)
+void __svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
+
+__STATIC_FORCEINLINE
+void svcAlarmStart(TN_ALARM *alarm, osTime_t timeout)
+{
+  __svcAlarmStart(AlarmStart, alarm, timeout);
+}
+
+__SVC_INDIRECT(0)
+void __svcAlarmStop(void (*)(TN_ALARM*), TN_ALARM*);
+
+__STATIC_FORCEINLINE
+void svcAlarmStop(TN_ALARM *alarm)
+{
+  __svcAlarmStop(AlarmStop, alarm);
+}
+
+__SVC_INDIRECT(0)
+void __svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
+
+__STATIC_FORCEINLINE
+void svcCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+{
+  __svcCyclicCreate(CyclicCreate, cyc, handler, param, exinf);
+}
+
+__SVC_INDIRECT(0)
+void __svcCyclicDelete(void (*)(TN_CYCLIC*), TN_CYCLIC*);
+
+__STATIC_FORCEINLINE
+void svcCyclicDelete(TN_CYCLIC *cyc)
+{
+  __svcCyclicDelete(CyclicDelete, cyc);
+}
+
+__SVC_INDIRECT(0)
+void __svcCyclicStart(void (*)(TN_CYCLIC*), TN_CYCLIC*);
+
+__STATIC_FORCEINLINE
+void svcCyclicStart(TN_CYCLIC *cyc)
+{
+  __svcCyclicStart(CyclicStart, cyc);
+}
+
+__SVC_INDIRECT(0)
+void __svcCyclicStop(void (*)(TN_CYCLIC*), TN_CYCLIC*);
+
+__STATIC_FORCEINLINE
+void svcCyclicStop(TN_CYCLIC *cyc)
+{
+  __svcCyclicStop(CyclicStop, cyc);
+}
+
+#endif
+
+/*******************************************************************************
+ *  function implementations (scope: module-exported)
+ ******************************************************************************/
 
 /**
  * @fn          osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
@@ -298,7 +366,7 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
+  svcAlarmCreate(alarm, handler, exinf);
 
   return TERR_NO_ERR;
 }
@@ -320,7 +388,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarm(AlarmDelete, alarm);
+  svcAlarmDelete(alarm);
 
   return TERR_NO_ERR;
 }
@@ -343,7 +411,7 @@ osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmStart(AlarmStart, alarm, timeout);
+  svcAlarmStart(alarm, timeout);
 
   return TERR_NO_ERR;
 }
@@ -365,7 +433,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarm(AlarmStop, alarm);
+  svcAlarmStop(alarm);
 
   return TERR_NO_ERR;
 }
@@ -389,7 +457,7 @@ osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *pa
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclicCreate(CyclicCreate, cyc, handler, param, exinf);
+  svcCyclicCreate(cyc, handler, param, exinf);
 
   return TERR_NO_ERR;
 }
@@ -411,7 +479,7 @@ osError_t osCyclicDelete(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclic(CyclicDelete, cyc);
+  svcCyclicDelete(cyc);
 
   return TERR_NO_ERR;
 }
@@ -433,7 +501,7 @@ osError_t osCyclicStart(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclic(CyclicStart, cyc);
+  svcCyclicStart(cyc);
 
   return TERR_NO_ERR;
 }
@@ -455,7 +523,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclic(CyclicStop, cyc);
+  svcCyclicStop(cyc);
 
   return TERR_NO_ERR;
 }
