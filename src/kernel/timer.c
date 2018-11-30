@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2011-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -340,6 +340,88 @@ __STATIC_FORCEINLINE
 void svcCyclicStop(TN_CYCLIC *cyc)
 {
   __svcCyclicStop(CyclicStop, cyc);
+}
+
+#elif defined(__ICCARM__)
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+__STATIC_FORCEINLINE
+void svcAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmCreate;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)handler;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)exinf;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2));
+}
+
+__STATIC_FORCEINLINE
+void svcAlarmDelete(TN_ALARM *alarm)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
+}
+
+__STATIC_FORCEINLINE
+void svcAlarmStart(TN_ALARM *alarm, osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmStart;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1));
+}
+
+__STATIC_FORCEINLINE
+void svcAlarmStop(TN_ALARM *alarm)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmStop;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
+}
+
+__STATIC_FORCEINLINE
+void svcCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicCreate;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)handler;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)param;
+  register uint32_t r3  __ASM("r3")     = (uint32_t)exinf;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
+}
+
+__STATIC_FORCEINLINE
+void svcCyclicDelete(TN_CYCLIC *cyc)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
+}
+
+__STATIC_FORCEINLINE
+void svcCyclicStart(TN_CYCLIC *cyc)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicStart;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
+}
+
+__STATIC_FORCEINLINE
+void svcCyclicStop(TN_CYCLIC *cyc)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicStop;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
 }
 
 #endif

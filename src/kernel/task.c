@@ -17,37 +17,6 @@
  * Project: uKernel real-time kernel
  */
 
-/*******************************************************************************
- *
- * TNKernel real-time kernel
- *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
-
 /**
  * @file
  *
@@ -672,6 +641,137 @@ __STATIC_FORCEINLINE
 osTime_t svcTaskGetTime(osTask_t *task)
 {
   return __svcTaskGetTime(TaskGetTime, task);
+}
+
+#elif defined(__ICCARM__)
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+__STATIC_FORCEINLINE
+void svcTaskCreate(osTask_t* task, const task_create_attr_t* task_create_attr)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskCreate;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)task_create_attr;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1));
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskDelete(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskActivate(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskActivate;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskTerminate(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskTerminate;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+void svcTaskExit(void)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskExit;
+
+  __ASM volatile ("svc 0" :: "r"(rf) : "r0","r1");
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSuspend(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskSuspend;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskResume(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskResume;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+void svcTaskSleep(osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskSleep;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskWakeup(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskWakeup;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskReleaseWait(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskReleaseWait;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSetPriority(osTask_t *task, uint32_t new_priority)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskSetPriority;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)new_priority;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osTime_t svcTaskGetTime(osTask_t *task)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)TaskGetTime;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)task;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osTime_t)r0);
 }
 
 #endif

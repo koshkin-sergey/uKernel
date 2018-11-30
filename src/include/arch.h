@@ -77,6 +77,25 @@
 
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+
+#define SVC_REG                       "r12"
+#define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
+                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+#define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
+
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+
+#define SVC_REG                       "r7"
+#define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
+                                      __disable_irq();
+#define END_CRITICAL_SECTION          __set_PRIMASK(primask);
+
+#endif
+
 #endif
 
 #ifndef BEGIN_CRITICAL_SECTION
@@ -85,6 +104,26 @@
 
 #ifndef END_CRITICAL_SECTION
   #define END_CRITICAL_SECTION
+#endif
+
+#ifndef __STATIC_INLINE
+  #define __STATIC_INLINE
+#endif
+
+#ifndef __STATIC_FORCEINLINE
+  #define __STATIC_FORCEINLINE
+#endif
+
+#ifndef __ASM
+  #define __ASM
+#endif
+
+#ifndef __NO_RETURN
+  #define __NO_RETURN
+#endif
+
+#ifndef __WEAK
+  #define __WEAK
 #endif
 
 /*******************************************************************************

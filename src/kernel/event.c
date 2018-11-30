@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -16,37 +16,6 @@
  *
  * Project: uKernel real-time kernel
  */
-
-/*******************************************************************************
- *
- * TNKernel real-time kernel
- *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
 
 /**
  * @file
@@ -131,7 +100,7 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
 }
 
 static
-osError_t EventFlagsNew(osEventFlags_t *evf) // @suppress("Unused static function")
+osError_t EventFlagsNew(osEventFlags_t *evf)
 {
   if (evf->id == ID_EVENT_FLAGS)
     return TERR_NO_ERR;
@@ -145,7 +114,7 @@ osError_t EventFlagsNew(osEventFlags_t *evf) // @suppress("Unused static functio
 }
 
 static
-osError_t EventFlagsDelete(osEventFlags_t *evf) // @suppress("Unused static function")
+osError_t EventFlagsDelete(osEventFlags_t *evf)
 {
   if (evf->id != ID_EVENT_FLAGS)
     return TERR_NOEXS;
@@ -250,7 +219,8 @@ __SVC_INDIRECT(0)
 osError_t __svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
 
 __STATIC_FORCEINLINE
-osError_t svcEventFlagsNew(osEventFlags_t *evf) {
+osError_t svcEventFlagsNew(osEventFlags_t *evf)
+{
   return __svcEventFlagsNew(EventFlagsNew, evf);
 }
 
@@ -288,6 +258,70 @@ __STATIC_FORCEINLINE
 uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
 {
   return __svcEventFlagsClear(EventFlagsClear, evf, flags);
+}
+
+#elif defined(__ICCARM__)
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsNew(osEventFlags_t *evf)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsNew;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsDelete(osEventFlags_t *evf)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsSet;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsWait;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)options;
+  register uint32_t r3  __ASM("r3")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsClear;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
+
+  return (r0);
 }
 
 #endif

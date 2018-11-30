@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -16,37 +16,6 @@
  *
  * Project: uKernel real-time kernel
  */
-
-/*******************************************************************************
- *
- * TNKernel real-time kernel
- *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2011-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
 
 /**
  * @file
@@ -247,6 +216,66 @@ __STATIC_FORCEINLINE
 uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
 {
   return __svcSemaphoreGetCount(SemaphoreGetCount, sem);
+}
+
+#elif defined(__ICCARM__)
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+__STATIC_FORCEINLINE
+void svcSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreNew;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)initial_count;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)max_count;
+
+  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2));
+}
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreDelete(osSemaphore_t *sem)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreRelease(osSemaphore_t *sem)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreRelease;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreAcquire;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreGetCount;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
 }
 
 #endif

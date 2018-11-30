@@ -23,8 +23,8 @@
  * Kernel system routines.
  *
  * The System uses two levels of priorities for the own purpose:
- *   - level 0                    (highest) for system timers task
- *   - level (TN_NUM_PRIORITY-1)  (lowest)  for system idle task
+ *   - level 0                    (lowest)  for system idle task
+ *   - level 31                   (highest) for system timers task
  */
 
 /*******************************************************************************

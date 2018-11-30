@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2013-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -386,6 +386,117 @@ __STATIC_FORCEINLINE
 osError_t svcMessageQueueReset(osMessageQueue_t *mq)
 {
   return __svcMessageQueueReset(MessageQueueReset, mq);
+}
+
+#elif defined(__ICCARM__)
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueNew;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)buf;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)bufsz;
+  register uint32_t r3  __ASM("r3")     = (uint32_t)msz;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueDelete(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueDelete;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueuePut;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)msg;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)msg_pri;
+  register uint32_t r3  __ASM("r3")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGet;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+  register uint32_t r1  __ASM("r1")     = (uint32_t)msg;
+  register uint32_t r2  __ASM("r2")     = (uint32_t)timeout;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2));
+
+  return ((osError_t)r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetMsgSize(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetMsgSize;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetCapacity(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetCapacity;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetCount(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetCount;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetSpace(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetSpace;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
+}
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueReset(osMessageQueue_t *mq)
+{
+  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueReset;
+  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
+
+  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
+
+  return (r0);
 }
 
 #endif

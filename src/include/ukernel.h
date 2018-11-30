@@ -104,7 +104,7 @@ extern "C"
 #endif
 #endif
 
-#define osStack_t                     __attribute__((aligned(8), section("STACK"), zero_init)) uint32_t
+#define osStack_t                     __attribute__((aligned(8), section(".bss.os.thread.stack"))) uint32_t
 #define osStackSizeMin                (48U)
 
 #define osTaskStartOnCreating         (1U)
