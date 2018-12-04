@@ -92,6 +92,21 @@ void StackInit(osTask_t *task)
   task->stk = (uint32_t)stk;
 }
 
+static
+void TaskSetNext(osTask_t *task)
+{
+  if (task != knlInfo.run.next) {
+    knlInfo.run.next = task;
+    archSwitchContextRequest();
+  }
+}
+
+static
+osTask_t* TaskGetNext(void)
+{
+  return knlInfo.run.next;
+}
+
 /**
  * @brief
  * @param
@@ -812,16 +827,16 @@ osError_t osTaskCreate(osTask_t *task,
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  task_create_attr_t task_create_attr;
+  volatile task_create_attr_t task_create_attr = {
+      .func_addr = (void *)func,
+      .func_param = param,
+      .stk_start = (uint32_t *)stack_start,
+      .stk_size = stack_size,
+      .priority = priority,
+      .option = option,
+  };
 
-  task_create_attr.func_addr = (void *)func;
-  task_create_attr.func_param = param;
-  task_create_attr.stk_start = (uint32_t *)stack_start;
-  task_create_attr.stk_size = stack_size;
-  task_create_attr.priority = priority;
-  task_create_attr.option = option;
-
-  svcTaskCreate(task, &task_create_attr);
+  svcTaskCreate(task, (const task_create_attr_t *)&task_create_attr);
 
   return TERR_NO_ERR;
 }

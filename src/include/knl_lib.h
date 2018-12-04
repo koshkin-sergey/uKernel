@@ -106,21 +106,6 @@ osTask_t* TaskGetCurrent(void)
   return knlInfo.run.curr;
 }
 
-__STATIC_INLINE
-osTask_t* TaskGetNext(void)
-{
-  return knlInfo.run.next;
-}
-
-__STATIC_INLINE
-void TaskSetNext(osTask_t *task)
-{
-  if (task != knlInfo.run.next) {
-    knlInfo.run.next = task;
-    archSwitchContextRequest();
-  }
-}
-
 /* Queue */
 void QueueReset(queue_t *que);
 bool isQueueEmpty(queue_t *que);

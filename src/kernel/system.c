@@ -233,7 +233,8 @@ void osKernelStart(TN_OPTIONS *opt)
   knlInfo.os_period = 1000/knlInfo.HZ;
   knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
-  TaskSetNext(&idle_task);
+  knlInfo.run.curr = NULL;
+  knlInfo.run.next = &idle_task;
 
   /* Create Idle task */
   IdleTaskCreate();

@@ -19,6 +19,7 @@
 
         .file    "irq_cm3.S"
         .syntax  unified
+        .fpu     softvfp
 
         .thumb
         .section ".text"

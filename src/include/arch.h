@@ -48,9 +48,7 @@
 #define IDLE_STACK_SIZE               (48U)
 
 #define TN_ALIG                       sizeof(void*)
-#define MAKE_ALIG(a)                  ((sizeof(a)+(TN_ALIG-1))&(~(TN_ALIG-1)))
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
-#define STACK_OFFSET_R0()             (32U)
 
 #if defined(__CC_ARM)
 
@@ -199,7 +197,6 @@ __STATIC_INLINE __NO_RETURN
 void archKernelStart(void)
 {
   SystemIsrInit();
-  archSwitchContextRequest();
 
   __enable_irq();
 
