@@ -220,6 +220,60 @@ uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
 
 #elif defined(__ICCARM__)
 
+__SVC_INDIRECT(0)
+void __svcSemaphoreNew(osSemaphore_t*, uint32_t, uint32_t);
+
+__STATIC_FORCEINLINE
+void svcSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
+{
+  SVC_ArgF(SemaphoreNew);
+  __svcSemaphoreNew(sem, initial_count, max_count);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcSemaphoreDelete(osSemaphore_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreDelete(osSemaphore_t *sem)
+{
+  SVC_ArgF(SemaphoreDelete);
+
+  return __svcSemaphoreDelete(sem);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcSemaphoreRelease(osSemaphore_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreRelease(osSemaphore_t *sem)
+{
+  SVC_ArgF(SemaphoreRelease);
+
+  return __svcSemaphoreRelease(sem);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcSemaphoreAcquire(osSemaphore_t*, osTime_t);
+
+__STATIC_FORCEINLINE
+osError_t svcSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+{
+  SVC_ArgF(SemaphoreAcquire);
+
+  return __svcSemaphoreAcquire(sem, timeout);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcSemaphoreGetCount(osSemaphore_t*);
+
+__STATIC_FORCEINLINE
+uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
+{
+  SVC_ArgF(SemaphoreGetCount);
+
+  return __svcSemaphoreGetCount(sem);
+}
+
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 __STATIC_FORCEINLINE

@@ -104,8 +104,7 @@ extern "C"
 #endif
 #endif
 
-#define osStack_t                     __attribute__((aligned(8), section(".bss.os.thread.stack"))) uint32_t
-#define osStackSizeMin                (48U)
+#define osStackSizeMin                (24U)
 
 #define osTaskStartOnCreating         (1U)
 
@@ -442,7 +441,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc);
 /* - Task --------------------------------------------------------------------*/
 
 /**
- * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint32_t *stack_start, int32_t stack_size, const void *param, int32_t option)
+ * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint64_t *stack_start, int32_t stack_size, const void *param, int32_t option)
  * @brief       Creates a task.
  * @param[out]  task          Pointer to the task TCB to be created
  * @param[in]   func          Task body function
@@ -457,7 +456,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc);
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osTaskCreate(osTask_t *task, void (*func)(void *), uint32_t priority, const uint32_t *stack_start, uint32_t stack_size, const void *param, uint32_t option);
+osError_t osTaskCreate(osTask_t *task, void (*func)(void *), uint32_t priority, const uint64_t *stack_start, uint32_t stack_size, const void *param, uint32_t option);
 
 /**
  * @fn          osError_t osTaskDelete(osTask_t *task)

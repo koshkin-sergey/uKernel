@@ -44,8 +44,8 @@
 /* PendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-#define TIMER_STACK_SIZE              (48U)
-#define IDLE_STACK_SIZE               (48U)
+#define TIMER_STACK_SIZE              (24U)
+#define IDLE_STACK_SIZE               (24U)
 
 #define TN_ALIG                       sizeof(void*)
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
@@ -72,6 +72,38 @@
 #endif
 
 #elif defined(__ICCARM__)
+
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+
+#define SVC_ArgF(f)                                                            \
+  __asm(                                                                       \
+    "mov r12,%0\n"                                                             \
+    :: "r"(&f): "r12"                                                          \
+  );
+
+#define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
+                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+#define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
+
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+
+#define SVC_ArgF(f)                                                            \
+  __asm(                                                                       \
+    "mov r7,%0\n"                                                              \
+    :: "r"(&f): "r7"                                                           \
+  );
+
+#define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
+                                      __disable_irq();
+#define END_CRITICAL_SECTION          __set_PRIMASK(primask);
+
+#endif
+
+#define STRINGIFY(a) #a
+#define __SVC_INDIRECT(n) _Pragma(STRINGIFY(swi_number = n)) __swi
 
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 

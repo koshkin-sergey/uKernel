@@ -373,6 +373,61 @@ osTask_t* svcMutexGetOwner(osMutex_t *mutex)
 
 #elif defined(__ICCARM__)
 
+__SVC_INDIRECT(0)
+osError_t __svcMutexNew(osMutex_t*, const osMutexAttr_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+{
+  SVC_ArgF(MutexNew);
+
+  return __svcMutexNew(mutex, attr);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMutexDelete(osMutex_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcMutexDelete(osMutex_t *mutex)
+{
+  SVC_ArgF(MutexDelete);
+
+  return __svcMutexDelete(mutex);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMutexAcquire(osMutex_t*, osTime_t);
+
+__STATIC_FORCEINLINE
+osError_t svcMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+{
+  SVC_ArgF(MutexAcquire);
+
+  return __svcMutexAcquire(mutex, timeout);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMutexRelease(osMutex_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcMutexRelease(osMutex_t *mutex)
+{
+  SVC_ArgF(MutexRelease);
+
+  return __svcMutexRelease(mutex);
+}
+
+__SVC_INDIRECT(0)
+osTask_t* __svcMutexGetOwner(osMutex_t*);
+
+__STATIC_FORCEINLINE
+osTask_t* svcMutexGetOwner(osMutex_t *mutex)
+{
+  SVC_ArgF(MutexGetOwner);
+
+  return __svcMutexGetOwner(mutex);
+}
+
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 __STATIC_FORCEINLINE

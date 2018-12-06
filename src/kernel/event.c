@@ -262,6 +262,61 @@ uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
 
 #elif defined(__ICCARM__)
 
+__SVC_INDIRECT(0)
+osError_t __svcEventFlagsNew(osEventFlags_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsNew(osEventFlags_t *evf)
+{
+  SVC_ArgF(EventFlagsNew);
+
+  return __svcEventFlagsNew(evf);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcEventFlagsDelete(osEventFlags_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcEventFlagsDelete(osEventFlags_t *evf)
+{
+  SVC_ArgF(EventFlagsDelete);
+
+  return __svcEventFlagsDelete(evf);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsSet(osEventFlags_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+{
+  SVC_ArgF(EventFlagsSet);
+
+  return __svcEventFlagsSet(evf, flags);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsWait(osEventFlags_t*, uint32_t, uint32_t, osTime_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+{
+  SVC_ArgF(EventFlagsWait);
+
+  return __svcEventFlagsWait(evf, flags, options, timeout);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcEventFlagsClear(osEventFlags_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+{
+  SVC_ArgF(EventFlagsClear);
+
+  return __svcEventFlagsClear(evf, flags);
+}
+
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 __STATIC_FORCEINLINE
@@ -441,4 +496,3 @@ uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
 }
 
 /* ----------------------------- End of file ---------------------------------*/
-

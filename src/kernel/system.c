@@ -56,10 +56,10 @@ knlInfo_t knlInfo;
  ******************************************************************************/
 
 static osTask_t idle_task;
-__WEAK osStack_t idle_task_stack[IDLE_STACK_SIZE];
+static uint64_t idle_task_stack[IDLE_STACK_SIZE] __attribute__((section(".bss.os.thread.stack")));
 
 static osTask_t timer_task;
-__WEAK osStack_t timer_task_stack[TIMER_STACK_SIZE];
+static uint64_t timer_task_stack[TIMER_STACK_SIZE] __attribute__((section(".bss.os.thread.stack")));
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)

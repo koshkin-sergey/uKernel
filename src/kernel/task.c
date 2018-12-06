@@ -660,6 +660,135 @@ osTime_t svcTaskGetTime(osTask_t *task)
 
 #elif defined(__ICCARM__)
 
+__SVC_INDIRECT(0)
+void __svcTaskCreate(osTask_t*, const task_create_attr_t*);
+
+__STATIC_FORCEINLINE
+void svcTaskCreate(osTask_t* task, const task_create_attr_t* task_create_attr)
+{
+  SVC_ArgF(TaskCreate);
+  __svcTaskCreate(task, task_create_attr);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskDelete(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskDelete(osTask_t *task)
+{
+  SVC_ArgF(TaskDelete);
+
+  return __svcTaskDelete(task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskActivate(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskActivate(osTask_t *task)
+{
+  SVC_ArgF(TaskActivate);
+
+  return __svcTaskActivate(task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskTerminate(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskTerminate(osTask_t *task)
+{
+  SVC_ArgF(TaskTerminate);
+
+  return __svcTaskTerminate(task);
+}
+
+__SVC_INDIRECT(0)
+void __svcTaskExit(void);
+
+__STATIC_FORCEINLINE
+void svcTaskExit(void)
+{
+  SVC_ArgF(TaskExit);
+  __svcTaskExit();
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskSuspend(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSuspend(osTask_t *task)
+{
+  SVC_ArgF(TaskSuspend);
+
+  return __svcTaskSuspend(task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskResume(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskResume(osTask_t *task)
+{
+  SVC_ArgF(TaskResume);
+
+  return __svcTaskResume(task);
+}
+
+__SVC_INDIRECT(0)
+void __svcTaskSleep(osTime_t);
+
+__STATIC_FORCEINLINE
+void svcTaskSleep(osTime_t timeout)
+{
+  SVC_ArgF(TaskSleep);
+  __svcTaskSleep(timeout);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskWakeup(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskWakeup(osTask_t *task)
+{
+  SVC_ArgF(TaskWakeup);
+
+  return __svcTaskWakeup(task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskReleaseWait(osTask_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskReleaseWait(osTask_t *task)
+{
+  SVC_ArgF(TaskReleaseWait);
+
+  return __svcTaskReleaseWait(task);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcTaskSetPriority(osTask_t*, uint32_t);
+
+__STATIC_FORCEINLINE
+osError_t svcTaskSetPriority(osTask_t *task, uint32_t new_priority)
+{
+  SVC_ArgF(TaskSetPriority);
+
+  return __svcTaskSetPriority(task, new_priority);
+}
+
+__SVC_INDIRECT(0)
+osTime_t __svcTaskGetTime(osTask_t*);
+
+__STATIC_FORCEINLINE
+osTime_t svcTaskGetTime(osTask_t *task)
+{
+  SVC_ArgF(TaskGetTime);
+
+  return __svcTaskGetTime(task);
+}
+
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 __STATIC_FORCEINLINE
@@ -814,7 +943,7 @@ osTime_t svcTaskGetTime(osTask_t *task)
 osError_t osTaskCreate(osTask_t *task,
                        void (*func)(void *),
                        uint32_t priority,
-                       const uint32_t *stack_start,
+                       const uint64_t *stack_start,
                        uint32_t stack_size,
                        const void *param,
                        uint32_t option)
@@ -831,7 +960,7 @@ osError_t osTaskCreate(osTask_t *task,
       .func_addr = (void *)func,
       .func_param = param,
       .stk_start = (uint32_t *)stack_start,
-      .stk_size = stack_size,
+      .stk_size = stack_size * 2,
       .priority = priority,
       .option = option,
   };

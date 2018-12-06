@@ -390,6 +390,105 @@ osError_t svcMessageQueueReset(osMessageQueue_t *mq)
 
 #elif defined(__ICCARM__)
 
+__SVC_INDIRECT(0)
+osError_t __svcMessageQueueNew(osMessageQueue_t*, void*, uint32_t, uint32_t);
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
+{
+  SVC_ArgF(MessageQueueNew);
+
+  return __svcMessageQueueNew(mq, buf, bufsz, msz);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMessageQueueDelete(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueDelete(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueDelete);
+
+  return __svcMessageQueueDelete(mq);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMessageQueuePut(osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t);
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+{
+  SVC_ArgF(MessageQueuePut);
+
+  return __svcMessageQueuePut(mq, msg, msg_pri, timeout);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMessageQueueGet(osMessageQueue_t*, void*, osTime_t);
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+{
+  SVC_ArgF(MessageQueueGet);
+
+  return __svcMessageQueueGet(mq, msg, timeout);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcMessageQueueGetMsgSize(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetMsgSize(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueGetMsgSize);
+
+  return __svcMessageQueueGetMsgSize(mq);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcMessageQueueGetCapacity(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetCapacity(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueGetCapacity);
+
+  return __svcMessageQueueGetCapacity(mq);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcMessageQueueGetCount(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetCount(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueGetCount);
+
+  return __svcMessageQueueGetCount(mq);
+}
+
+__SVC_INDIRECT(0)
+uint32_t __svcMessageQueueGetSpace(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+uint32_t svcMessageQueueGetSpace(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueGetSpace);
+
+  return __svcMessageQueueGetSpace(mq);
+}
+
+__SVC_INDIRECT(0)
+osError_t __svcMessageQueueReset(osMessageQueue_t*);
+
+__STATIC_FORCEINLINE
+osError_t svcMessageQueueReset(osMessageQueue_t *mq)
+{
+  SVC_ArgF(MessageQueueReset);
+
+  return __svcMessageQueueReset(mq);
+}
+
 #else   // !(defined(__CC_ARM) || defined(__ICCARM__))
 
 __STATIC_FORCEINLINE
