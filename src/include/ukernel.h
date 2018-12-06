@@ -410,6 +410,7 @@ typedef struct {
  ******************************************************************************/
 
 /* - system.c ----------------------------------------------------------------*/
+__NO_RETURN
 void osKernelStart(TN_OPTIONS *opt);
 
 #if defined(ROUND_ROBIN_ENABLE)

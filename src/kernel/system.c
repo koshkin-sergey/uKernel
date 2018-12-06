@@ -216,6 +216,7 @@ void osTimerHandle(void)
  *        called from main().
  * @param opt - Pointer to struct TN_OPTIONS.
  */
+__NO_RETURN
 void osKernelStart(TN_OPTIONS *opt)
 {
   __disable_irq();
@@ -241,8 +242,11 @@ void osKernelStart(TN_OPTIONS *opt)
   /* Create Timer task */
   TimerTaskCreate((void *)opt);
 
-  //-- Run OS - first context switch
-  archKernelStart();
+  SystemIsrInit();
+
+  __enable_irq();
+
+  for(;;);
 }
 
 #if defined(ROUND_ROBIN_ENABLE)

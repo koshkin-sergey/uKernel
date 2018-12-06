@@ -57,17 +57,11 @@
        (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
 
 #define __SVC_INDIRECT(n)             __svc_indirect(n)
-#define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
-                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
-#define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
 
 #elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
        (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
 
 #define __SVC_INDIRECT(n)             __svc_indirect_r7(n)
-#define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
-                                      __disable_irq();
-#define END_CRITICAL_SECTION          __set_PRIMASK(primask);
 
 #endif
 
@@ -83,10 +77,6 @@
     :: "r"(&f): "r12"                                                          \
   );
 
-#define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
-                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
-#define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
-
 #elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
        (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
 
@@ -95,10 +85,6 @@
     "mov r7,%0\n"                                                              \
     :: "r"(&f): "r7"                                                           \
   );
-
-#define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
-                                      __disable_irq();
-#define END_CRITICAL_SECTION          __set_PRIMASK(primask);
 
 #endif
 
@@ -112,6 +98,20 @@
        (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
 
 #define SVC_REG                       "r12"
+
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+
+#define SVC_REG                       "r7"
+
+#endif
+
+#endif
+
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+
 #define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
                                       __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
 #define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
@@ -119,12 +119,9 @@
 #elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
        (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
 
-#define SVC_REG                       "r7"
 #define BEGIN_CRITICAL_SECTION        uint32_t primask = __get_PRIMASK(); \
                                       __disable_irq();
 #define END_CRITICAL_SECTION          __set_PRIMASK(primask);
-
-#endif
 
 #endif
 
@@ -219,20 +216,6 @@ __STATIC_INLINE
 void archSwitchContextRequest(void)
 {
   ICSR = PENDSVSET;
-}
-
-/**
- * @fn      void archKernelStart(void)
- * @brief
- */
-__STATIC_INLINE __NO_RETURN
-void archKernelStart(void)
-{
-  SystemIsrInit();
-
-  __enable_irq();
-
-  for(;;);
 }
 
 #endif  // _ARCH_H_
