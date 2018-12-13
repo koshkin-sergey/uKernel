@@ -324,171 +324,6 @@ osTask_t* MutexGetOwner(osMutex_t *mutex)
   return mutex->holder;
 }
 
-#if defined(__CC_ARM)
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexNew(osError_t (*)(osMutex_t*, const osMutexAttr_t*), osMutex_t*, const osMutexAttr_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
-{
-  return __svcMutexNew(MutexNew, mutex, attr);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexDelete(osError_t (*)(osMutex_t*), osMutex_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexDelete(osMutex_t *mutex)
-{
-  return __svcMutexDelete(MutexDelete, mutex);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexAcquire(osError_t (*)(osMutex_t*, osTime_t), osMutex_t*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexAcquire(osMutex_t *mutex, osTime_t timeout)
-{
-  return __svcMutexAcquire(MutexAcquire, mutex, timeout);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexRelease(osError_t (*)(osMutex_t*), osMutex_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexRelease(osMutex_t *mutex)
-{
-  return __svcMutexRelease(MutexRelease, mutex);
-}
-
-__SVC_INDIRECT(0)
-osTask_t* __svcMutexGetOwner(osTask_t* (*)(osMutex_t*), osMutex_t*);
-
-__STATIC_FORCEINLINE
-osTask_t* svcMutexGetOwner(osMutex_t *mutex)
-{
-  return __svcMutexGetOwner(MutexGetOwner, mutex);
-}
-
-#elif defined(__ICCARM__)
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexNew(osMutex_t*, const osMutexAttr_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
-{
-  SVC_ArgF(MutexNew);
-
-  return __svcMutexNew(mutex, attr);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexDelete(osMutex_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexDelete(osMutex_t *mutex)
-{
-  SVC_ArgF(MutexDelete);
-
-  return __svcMutexDelete(mutex);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexAcquire(osMutex_t*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexAcquire(osMutex_t *mutex, osTime_t timeout)
-{
-  SVC_ArgF(MutexAcquire);
-
-  return __svcMutexAcquire(mutex, timeout);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMutexRelease(osMutex_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMutexRelease(osMutex_t *mutex)
-{
-  SVC_ArgF(MutexRelease);
-
-  return __svcMutexRelease(mutex);
-}
-
-__SVC_INDIRECT(0)
-osTask_t* __svcMutexGetOwner(osMutex_t*);
-
-__STATIC_FORCEINLINE
-osTask_t* svcMutexGetOwner(osMutex_t *mutex)
-{
-  SVC_ArgF(MutexGetOwner);
-
-  return __svcMutexGetOwner(mutex);
-}
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-__STATIC_FORCEINLINE
-osError_t svcMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MutexNew;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mutex;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)attr;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMutexDelete(osMutex_t *mutex)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MutexDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mutex;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMutexAcquire(osMutex_t *mutex, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MutexAcquire;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mutex;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMutexRelease(osMutex_t *mutex)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MutexRelease;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mutex;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osTask_t* svcMutexGetOwner(osMutex_t *mutex)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MutexGetOwner;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mutex;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osTask_t *)r0);
-}
-
-#endif
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -510,7 +345,7 @@ osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMutexNew(mutex, attr);
+  return (osError_t)svc_2((uint32_t)mutex, (uint32_t)attr, (uint32_t)MutexNew);
 }
 
 /**
@@ -528,7 +363,7 @@ osError_t osMutexDelete(osMutex_t *mutex)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMutexDelete(mutex);
+  return (osError_t)svc_1((uint32_t)mutex, (uint32_t)MutexDelete);
 }
 
 /**
@@ -550,7 +385,7 @@ osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  osError_t ret_val = svcMutexAcquire(mutex, timeout);
+  osError_t ret_val = (osError_t)svc_2((uint32_t)mutex, (uint32_t)timeout, (uint32_t)MutexAcquire);
 
   if (ret_val == TERR_WAIT)
     return (osError_t)TaskGetCurrent()->wait_info.ret_val;
@@ -574,7 +409,7 @@ osError_t osMutexRelease(osMutex_t *mutex)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMutexRelease(mutex);
+  return (osError_t)svc_1((uint32_t)mutex, (uint32_t)MutexRelease);
 }
 
 /**
@@ -591,7 +426,7 @@ osTask_t* osMutexGetOwner(osMutex_t *mutex)
   if (IsIrqMode() || IsIrqMasked())
     return NULL;
 
-  return svcMutexGetOwner(mutex);
+  return (osTask_t *)svc_1((uint32_t)mutex, (uint32_t)MutexGetOwner);
 }
 
 /*------------------------------ End of file ---------------------------------*/

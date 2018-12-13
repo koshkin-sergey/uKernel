@@ -305,301 +305,6 @@ osError_t MessageQueueReset(osMessageQueue_t *mq)
   return TERR_NO_ERR;
 }
 
-#if defined(__CC_ARM)
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueNew(osError_t (*)(osMessageQueue_t*, void*, uint32_t, uint32_t), osMessageQueue_t*, void*, uint32_t, uint32_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
-{
-  return __svcMessageQueueNew(MessageQueueNew, mq, buf, bufsz, msz);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueDelete(osError_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueDelete(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueDelete(MessageQueueDelete, mq);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueuePut(osError_t (*)(osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t), osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
-{
-  return __svcMessageQueuePut(MessageQueuePut, mq, msg, msg_pri, timeout);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueGet(osError_t (*)(osMessageQueue_t*, void*, osTime_t), osMessageQueue_t*, void*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
-{
-  return __svcMessageQueueGet(MessageQueueGet, mq, msg, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetMsgSize(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetMsgSize(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueGetMsgSize(MessageQueueGetMsgSize, mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetCapacity(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCapacity(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueGetCapacity(MessageQueueGetCapacity, mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetCount(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCount(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueGetCount(MessageQueueGetCount, mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetSpace(uint32_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetSpace(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueGetSpace(MessageQueueGetSpace, mq);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueReset(osError_t (*)(osMessageQueue_t*), osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueReset(osMessageQueue_t *mq)
-{
-  return __svcMessageQueueReset(MessageQueueReset, mq);
-}
-
-#elif defined(__ICCARM__)
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueNew(osMessageQueue_t*, void*, uint32_t, uint32_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
-{
-  SVC_ArgF(MessageQueueNew);
-
-  return __svcMessageQueueNew(mq, buf, bufsz, msz);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueDelete(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueDelete(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueDelete);
-
-  return __svcMessageQueueDelete(mq);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueuePut(osMessageQueue_t*, const void*, osMsgPriority_t, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
-{
-  SVC_ArgF(MessageQueuePut);
-
-  return __svcMessageQueuePut(mq, msg, msg_pri, timeout);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueGet(osMessageQueue_t*, void*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
-{
-  SVC_ArgF(MessageQueueGet);
-
-  return __svcMessageQueueGet(mq, msg, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetMsgSize(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetMsgSize(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueGetMsgSize);
-
-  return __svcMessageQueueGetMsgSize(mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetCapacity(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCapacity(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueGetCapacity);
-
-  return __svcMessageQueueGetCapacity(mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetCount(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCount(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueGetCount);
-
-  return __svcMessageQueueGetCount(mq);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcMessageQueueGetSpace(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetSpace(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueGetSpace);
-
-  return __svcMessageQueueGetSpace(mq);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcMessageQueueReset(osMessageQueue_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueReset(osMessageQueue_t *mq)
-{
-  SVC_ArgF(MessageQueueReset);
-
-  return __svcMessageQueueReset(mq);
-}
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueNew;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)buf;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)bufsz;
-  register uint32_t r3  __ASM("r3")     = (uint32_t)msz;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueDelete(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueuePut;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)msg;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)msg_pri;
-  register uint32_t r3  __ASM("r3")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGet;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)msg;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetMsgSize(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetMsgSize;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCapacity(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetCapacity;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetCount(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetCount;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcMessageQueueGetSpace(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueGetSpace;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcMessageQueueReset(osMessageQueue_t *mq)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)MessageQueueReset;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)mq;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-#endif
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -623,7 +328,7 @@ osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uin
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMessageQueueNew(mq, buf, bufsz, msz);
+  return (osError_t)svc_4((uint32_t)mq, (uint32_t)buf, bufsz, msz, (uint32_t)MessageQueueNew);
 }
 
 /**
@@ -642,7 +347,7 @@ osError_t osMessageQueueDelete(osMessageQueue_t *mq)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMessageQueueDelete(mq);
+  return (osError_t)svc_1((uint32_t)mq, (uint32_t)MessageQueueDelete);
 }
 
 /**
@@ -669,7 +374,7 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
     return MessageQueuePut(mq, msg, msg_pri, timeout);
   }
   else {
-    osError_t ret_val = svcMessageQueuePut(mq, msg, msg_pri, timeout);
+    osError_t ret_val = (osError_t)svc_4((uint32_t)mq, (uint32_t)msg, (uint32_t)msg_pri, (uint32_t)timeout, (uint32_t)MessageQueuePut);
 
     if (ret_val == TERR_WAIT)
       return (osError_t)TaskGetCurrent()->wait_info.ret_val;
@@ -701,7 +406,7 @@ osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
     return MessageQueueGet(mq, msg, timeout);
   }
   else {
-    osError_t ret_val = svcMessageQueueGet(mq, msg, timeout);
+    osError_t ret_val = (osError_t)svc_3((uint32_t)mq, (uint32_t)msg, (uint32_t)timeout, (uint32_t)MessageQueueGet);
 
     if (ret_val == TERR_WAIT)
       return (osError_t)TaskGetCurrent()->wait_info.ret_val;
@@ -725,7 +430,7 @@ uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq)
     return MessageQueueGetMsgSize(mq);
   }
   else {
-    return svcMessageQueueGetMsgSize(mq);
+    return svc_1((uint32_t)mq, (uint32_t)MessageQueueGetMsgSize);
   }
 }
 
@@ -744,7 +449,7 @@ uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq)
     return MessageQueueGetCapacity(mq);
   }
   else {
-    return svcMessageQueueGetCapacity(mq);
+    return svc_1((uint32_t)mq, (uint32_t)MessageQueueGetCapacity);
   }
 }
 
@@ -763,7 +468,7 @@ uint32_t osMessageQueueGetCount(osMessageQueue_t *mq)
     return MessageQueueGetCount(mq);
   }
   else {
-    return svcMessageQueueGetCount(mq);
+    return svc_1((uint32_t)mq, (uint32_t)MessageQueueGetCount);
   }
 }
 
@@ -782,7 +487,7 @@ uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq)
     return MessageQueueGetSpace(mq);
   }
   else {
-    return svcMessageQueueGetSpace(mq);
+    return svc_1((uint32_t)mq, (uint32_t)MessageQueueGetSpace);
   }
 }
 
@@ -802,7 +507,7 @@ osError_t osMessageQueueReset(osMessageQueue_t *mq)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcMessageQueueReset(mq);
+  return (osError_t)svc_1((uint32_t)mq, (uint32_t)MessageQueueReset);
 }
 
 /* ----------------------------- End of file ---------------------------------*/

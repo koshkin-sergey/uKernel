@@ -268,244 +268,6 @@ void CyclicStop(TN_CYCLIC *cyc)
   }
 }
 
-#if defined(__CC_ARM)
-
-__SVC_INDIRECT(0)
-void __svcAlarmCreate(void (*)(TN_ALARM*, CBACK, void*), TN_ALARM*, CBACK, void*);
-
-__STATIC_FORCEINLINE
-void svcAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
-{
-  __svcAlarmCreate(AlarmCreate, alarm, handler, exinf);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmDelete(void (*)(TN_ALARM*), TN_ALARM*);
-
-__STATIC_FORCEINLINE
-void svcAlarmDelete(TN_ALARM *alarm)
-{
-  __svcAlarmDelete(AlarmDelete, alarm);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmStart(void (*)(TN_ALARM*, osTime_t), TN_ALARM*, osTime_t);
-
-__STATIC_FORCEINLINE
-void svcAlarmStart(TN_ALARM *alarm, osTime_t timeout)
-{
-  __svcAlarmStart(AlarmStart, alarm, timeout);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmStop(void (*)(TN_ALARM*), TN_ALARM*);
-
-__STATIC_FORCEINLINE
-void svcAlarmStop(TN_ALARM *alarm)
-{
-  __svcAlarmStop(AlarmStop, alarm);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicCreate(void (*)(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*), TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
-
-__STATIC_FORCEINLINE
-void svcCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
-{
-  __svcCyclicCreate(CyclicCreate, cyc, handler, param, exinf);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicDelete(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicDelete(TN_CYCLIC *cyc)
-{
-  __svcCyclicDelete(CyclicDelete, cyc);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicStart(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicStart(TN_CYCLIC *cyc)
-{
-  __svcCyclicStart(CyclicStart, cyc);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicStop(void (*)(TN_CYCLIC*), TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicStop(TN_CYCLIC *cyc)
-{
-  __svcCyclicStop(CyclicStop, cyc);
-}
-
-#elif defined(__ICCARM__)
-
-__SVC_INDIRECT(0)
-void __svcAlarmCreate(TN_ALARM*, CBACK, void*);
-
-__STATIC_FORCEINLINE
-void svcAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
-{
-  SVC_ArgF(AlarmCreate);
-  __svcAlarmCreate(alarm, handler, exinf);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmDelete(TN_ALARM*);
-
-__STATIC_FORCEINLINE
-void svcAlarmDelete(TN_ALARM *alarm)
-{
-  SVC_ArgF(AlarmDelete);
-  __svcAlarmDelete(alarm);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmStart(TN_ALARM*, osTime_t);
-
-__STATIC_FORCEINLINE
-void svcAlarmStart(TN_ALARM *alarm, osTime_t timeout)
-{
-  SVC_ArgF(AlarmStart);
-  __svcAlarmStart(alarm, timeout);
-}
-
-__SVC_INDIRECT(0)
-void __svcAlarmStop(TN_ALARM*);
-
-__STATIC_FORCEINLINE
-void svcAlarmStop(TN_ALARM *alarm)
-{
-  SVC_ArgF(AlarmStop);
-  __svcAlarmStop(alarm);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicCreate(TN_CYCLIC*, CBACK, const cyclic_param_t*, void*);
-
-__STATIC_FORCEINLINE
-void svcCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
-{
-  SVC_ArgF(CyclicCreate);
-  __svcCyclicCreate(cyc, handler, param, exinf);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicDelete(TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicDelete(TN_CYCLIC *cyc)
-{
-  SVC_ArgF(CyclicDelete);
-  __svcCyclicDelete(cyc);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicStart(TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicStart(TN_CYCLIC *cyc)
-{
-  SVC_ArgF(CyclicStart);
-  __svcCyclicStart(cyc);
-}
-
-__SVC_INDIRECT(0)
-void __svcCyclicStop(TN_CYCLIC*);
-
-__STATIC_FORCEINLINE
-void svcCyclicStop(TN_CYCLIC *cyc)
-{
-  SVC_ArgF(CyclicStop);
-  __svcCyclicStop(cyc);
-}
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-__STATIC_FORCEINLINE
-void svcAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmCreate;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)handler;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)exinf;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2));
-}
-
-__STATIC_FORCEINLINE
-void svcAlarmDelete(TN_ALARM *alarm)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
-}
-
-__STATIC_FORCEINLINE
-void svcAlarmStart(TN_ALARM *alarm, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmStart;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1));
-}
-
-__STATIC_FORCEINLINE
-void svcAlarmStop(TN_ALARM *alarm)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)AlarmStop;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)alarm;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
-}
-
-__STATIC_FORCEINLINE
-void svcCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicCreate;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)handler;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)param;
-  register uint32_t r3  __ASM("r3")     = (uint32_t)exinf;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
-}
-
-__STATIC_FORCEINLINE
-void svcCyclicDelete(TN_CYCLIC *cyc)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
-}
-
-__STATIC_FORCEINLINE
-void svcCyclicStart(TN_CYCLIC *cyc)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicStart;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
-}
-
-__STATIC_FORCEINLINE
-void svcCyclicStop(TN_CYCLIC *cyc)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)CyclicStop;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)cyc;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0) : "r1");
-}
-
-#endif
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -528,7 +290,7 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmCreate(alarm, handler, exinf);
+  svc_3((uint32_t)alarm, (uint32_t)handler, (uint32_t)exinf, (uint32_t)AlarmCreate);
 
   return TERR_NO_ERR;
 }
@@ -550,7 +312,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmDelete(alarm);
+  svc_1((uint32_t)alarm, (uint32_t)AlarmDelete);
 
   return TERR_NO_ERR;
 }
@@ -573,7 +335,7 @@ osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmStart(alarm, timeout);
+  svc_2((uint32_t)alarm, (uint32_t)timeout, (uint32_t)AlarmStart);
 
   return TERR_NO_ERR;
 }
@@ -595,7 +357,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcAlarmStop(alarm);
+  svc_1((uint32_t)alarm, (uint32_t)AlarmStop);
 
   return TERR_NO_ERR;
 }
@@ -619,7 +381,7 @@ osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *pa
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclicCreate(cyc, handler, param, exinf);
+  svc_4((uint32_t)cyc, (uint32_t)handler, (uint32_t)param, (uint32_t)exinf, (uint32_t)CyclicCreate);
 
   return TERR_NO_ERR;
 }
@@ -641,7 +403,7 @@ osError_t osCyclicDelete(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclicDelete(cyc);
+  svc_1((uint32_t)cyc, (uint32_t)CyclicDelete);
 
   return TERR_NO_ERR;
 }
@@ -663,7 +425,7 @@ osError_t osCyclicStart(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclicStart(cyc);
+  svc_1((uint32_t)cyc, (uint32_t)CyclicStart);
 
   return TERR_NO_ERR;
 }
@@ -685,7 +447,7 @@ osError_t osCyclicStop(TN_CYCLIC *cyc)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcCyclicStop(cyc);
+  svc_1((uint32_t)cyc, (uint32_t)CyclicStop);
 
   return TERR_NO_ERR;
 }

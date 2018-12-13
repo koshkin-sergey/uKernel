@@ -171,169 +171,6 @@ uint32_t SemaphoreGetCount(osSemaphore_t *sem)
   return sem->count;
 }
 
-#if defined(__CC_ARM)
-
-__SVC_INDIRECT(0)
-void __svcSemaphoreNew(void (*)(osSemaphore_t*, uint32_t, uint32_t), osSemaphore_t*, uint32_t, uint32_t);
-
-__STATIC_FORCEINLINE
-void svcSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
-{
-  __svcSemaphoreNew(SemaphoreNew, sem, initial_count, max_count);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreDelete(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreDelete(osSemaphore_t *sem)
-{
-  return __svcSemaphoreDelete(SemaphoreDelete, sem);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreRelease(osError_t (*)(osSemaphore_t*), osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreRelease(osSemaphore_t *sem)
-{
-  return __svcSemaphoreRelease(SemaphoreRelease, sem);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreAcquire(osError_t (*)(osSemaphore_t*, osTime_t), osSemaphore_t*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
-{
-  return __svcSemaphoreAcquire(SemaphoreAcquire, sem, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcSemaphoreGetCount(uint32_t (*)(osSemaphore_t*), osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
-{
-  return __svcSemaphoreGetCount(SemaphoreGetCount, sem);
-}
-
-#elif defined(__ICCARM__)
-
-__SVC_INDIRECT(0)
-void __svcSemaphoreNew(osSemaphore_t*, uint32_t, uint32_t);
-
-__STATIC_FORCEINLINE
-void svcSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
-{
-  SVC_ArgF(SemaphoreNew);
-  __svcSemaphoreNew(sem, initial_count, max_count);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreDelete(osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreDelete(osSemaphore_t *sem)
-{
-  SVC_ArgF(SemaphoreDelete);
-
-  return __svcSemaphoreDelete(sem);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreRelease(osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreRelease(osSemaphore_t *sem)
-{
-  SVC_ArgF(SemaphoreRelease);
-
-  return __svcSemaphoreRelease(sem);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcSemaphoreAcquire(osSemaphore_t*, osTime_t);
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
-{
-  SVC_ArgF(SemaphoreAcquire);
-
-  return __svcSemaphoreAcquire(sem, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcSemaphoreGetCount(osSemaphore_t*);
-
-__STATIC_FORCEINLINE
-uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
-{
-  SVC_ArgF(SemaphoreGetCount);
-
-  return __svcSemaphoreGetCount(sem);
-}
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-__STATIC_FORCEINLINE
-void svcSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreNew;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)initial_count;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)max_count;
-
-  __ASM volatile ("svc 0" :: "r"(rf),"r"(r0),"r"(r1),"r"(r2));
-}
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreDelete(osSemaphore_t *sem)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreRelease(osSemaphore_t *sem)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreRelease;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreAcquire;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcSemaphoreGetCount(osSemaphore_t *sem)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)SemaphoreGetCount;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)sem;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return (r0);
-}
-
-#endif
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -357,7 +194,7 @@ osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t ma
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  svcSemaphoreNew(sem, initial_count, max_count);
+  svc_3((uint32_t)sem, initial_count, max_count, (uint32_t)SemaphoreNew);
 
   return TERR_NO_ERR;
 }
@@ -378,7 +215,7 @@ osError_t osSemaphoreDelete(osSemaphore_t *sem)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcSemaphoreDelete(sem);
+  return (osError_t)svc_1((uint32_t)sem, (uint32_t)SemaphoreDelete);
 }
 
 /**
@@ -398,7 +235,7 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem)
   if (IsIrqMode() || IsIrqMasked())
     return SemaphoreRelease(sem);
   else
-    return svcSemaphoreRelease(sem);
+    return (osError_t)svc_1((uint32_t)sem, (uint32_t)SemaphoreRelease);
 }
 
 /**
@@ -423,7 +260,7 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
     return SemaphoreAcquire(sem, timeout);
   }
   else {
-    osError_t ret_val = svcSemaphoreAcquire(sem, timeout);
+    osError_t ret_val = (osError_t)svc_2((uint32_t)sem, (uint32_t)timeout, (uint32_t)SemaphoreAcquire);
 
     if (ret_val == TERR_WAIT)
       return (osError_t)TaskGetCurrent()->wait_info.ret_val;
@@ -447,7 +284,7 @@ uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
     return SemaphoreGetCount(sem);
   }
   else {
-    return svcSemaphoreGetCount(sem);
+    return svc_1((uint32_t)sem, (uint32_t)SemaphoreGetCount);
   }
 }
 

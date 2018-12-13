@@ -213,174 +213,6 @@ uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
   return pattern;
 }
 
-#if defined(__CC_ARM)
-
-__SVC_INDIRECT(0)
-osError_t __svcEventFlagsNew(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsNew(osEventFlags_t *evf)
-{
-  return __svcEventFlagsNew(EventFlagsNew, evf);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcEventFlagsDelete(osError_t (*)(osEventFlags_t*), osEventFlags_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsDelete(osEventFlags_t *evf)
-{
-  return __svcEventFlagsDelete(EventFlagsDelete, evf);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsSet(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
-{
-  return __svcEventFlagsSet(EventFlagsSet, evf, flags);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsWait(uint32_t (*)(osEventFlags_t*, uint32_t, uint32_t, osTime_t), osEventFlags_t*, uint32_t, uint32_t, osTime_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
-{
-  return __svcEventFlagsWait(EventFlagsWait, evf, flags, options, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsClear(uint32_t (*)(osEventFlags_t*, uint32_t), osEventFlags_t*, uint32_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
-{
-  return __svcEventFlagsClear(EventFlagsClear, evf, flags);
-}
-
-#elif defined(__ICCARM__)
-
-__SVC_INDIRECT(0)
-osError_t __svcEventFlagsNew(osEventFlags_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsNew(osEventFlags_t *evf)
-{
-  SVC_ArgF(EventFlagsNew);
-
-  return __svcEventFlagsNew(evf);
-}
-
-__SVC_INDIRECT(0)
-osError_t __svcEventFlagsDelete(osEventFlags_t*);
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsDelete(osEventFlags_t *evf)
-{
-  SVC_ArgF(EventFlagsDelete);
-
-  return __svcEventFlagsDelete(evf);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsSet(osEventFlags_t*, uint32_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
-{
-  SVC_ArgF(EventFlagsSet);
-
-  return __svcEventFlagsSet(evf, flags);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsWait(osEventFlags_t*, uint32_t, uint32_t, osTime_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
-{
-  SVC_ArgF(EventFlagsWait);
-
-  return __svcEventFlagsWait(evf, flags, options, timeout);
-}
-
-__SVC_INDIRECT(0)
-uint32_t __svcEventFlagsClear(osEventFlags_t*, uint32_t);
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
-{
-  SVC_ArgF(EventFlagsClear);
-
-  return __svcEventFlagsClear(evf, flags);
-}
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsNew(osEventFlags_t *evf)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsNew;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-osError_t svcEventFlagsDelete(osEventFlags_t *evf)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsDelete;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0) : "r1");
-
-  return ((osError_t)r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsSet;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsWait;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
-  register uint32_t r2  __ASM("r2")     = (uint32_t)options;
-  register uint32_t r3  __ASM("r3")     = (uint32_t)timeout;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1),"r"(r2),"r"(r3));
-
-  return (r0);
-}
-
-__STATIC_FORCEINLINE
-uint32_t svcEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
-{
-  register uint32_t rf  __ASM(SVC_REG)  = (uint32_t)EventFlagsClear;
-  register uint32_t r0  __ASM("r0")     = (uint32_t)evf;
-  register uint32_t r1  __ASM("r1")     = (uint32_t)flags;
-
-  __ASM volatile ("svc 0" : "=r"(r0) : "r"(rf),"r"(r0),"r"(r1));
-
-  return (r0);
-}
-
-#endif
-
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -400,7 +232,7 @@ osError_t osEventFlagsNew(osEventFlags_t *evf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcEventFlagsNew(evf);
+  return (osError_t)svc_1((uint32_t)evf, (uint32_t)EventFlagsNew);
 }
 
 /**
@@ -419,7 +251,7 @@ osError_t osEventFlagsDelete(osEventFlags_t *evf)
   if (IsIrqMode() || IsIrqMasked())
     return TERR_ISR;
 
-  return svcEventFlagsDelete(evf);
+  return (osError_t)svc_1((uint32_t)evf, (uint32_t)EventFlagsDelete);
 }
 
 /**
@@ -439,7 +271,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
     return EventFlagsSet(evf, flags);
   }
   else {
-    return svcEventFlagsSet(evf, flags);
+    return svc_2((uint32_t)evf, flags, (uint32_t)EventFlagsSet);
   }
 }
 
@@ -466,7 +298,7 @@ uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options,
     return EventFlagsWait(evf, flags, options, timeout);
   }
   else {
-    uint32_t ret_val = svcEventFlagsWait(evf, flags, options, timeout);
+    uint32_t ret_val = svc_4((uint32_t)evf, flags, options, (uint32_t)timeout, (uint32_t)EventFlagsWait);
 
     if (ret_val == (uint32_t)TERR_WAIT)
       return TaskGetCurrent()->wait_info.ret_val;
@@ -491,7 +323,7 @@ uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
     return EventFlagsClear(evf, flags);
   }
   else {
-    return svcEventFlagsClear(evf, flags);
+    return svc_2((uint32_t)evf, flags, (uint32_t)EventFlagsClear);
   }
 }
 

@@ -44,67 +44,40 @@
 /* PendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-#define TIMER_STACK_SIZE              (24U)
-#define IDLE_STACK_SIZE               (24U)
+#define TIMER_STACK_SIZE              (48U)
+#define IDLE_STACK_SIZE               (48U)
 
 #define TN_ALIG                       sizeof(void*)
 #define TN_FILL_STACK_VAL             0xFFFFFFFF
 
-#if defined(__CC_ARM)
-
 #if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
        (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
        (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
 
-#define __SVC_INDIRECT(n)             __svc_indirect(n)
+  #if defined(__CC_ARM)
+    #define SVC_INDIRECT_REG          r12
+  #elif defined(__ICCARM__)
+    #define SVC_FUNC(f)               __asm (                                  \
+                                        "mov r12,%0\n"                         \
+                                        :: "r"(f): "r12"                       \
+                                      )
+  #else
+    #define SVC_INDIRECT_REG          "r12"
+  #endif
 
 #elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
        (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
 
-#define __SVC_INDIRECT(n)             __svc_indirect_r7(n)
-
-#endif
-
-#elif defined(__ICCARM__)
-
-#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
-       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
-       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
-
-#define SVC_ArgF(f)                                                            \
-  __asm(                                                                       \
-    "mov r12,%0\n"                                                             \
-    :: "r"(&f): "r12"                                                          \
-  );
-
-#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
-       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
-
-#define SVC_ArgF(f)                                                            \
-  __asm(                                                                       \
-    "mov r7,%0\n"                                                              \
-    :: "r"(&f): "r7"                                                           \
-  );
-
-#endif
-
-#define STRINGIFY(a) #a
-#define __SVC_INDIRECT(n) _Pragma(STRINGIFY(swi_number = n)) __swi
-
-#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
-
-#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
-       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
-       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
-
-#define SVC_REG                       "r12"
-
-#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
-       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
-
-#define SVC_REG                       "r7"
-
-#endif
+  #if defined(__CC_ARM)
+    #define SVC_INDIRECT_REG          r7
+  #elif defined(__ICCARM__)
+    #define SVC_FUNC(f)               __asm (                                  \
+                                        "mov r7,%0\n"                          \
+                                        :: "r"(f): "r7"                        \
+                                      )
+  #else
+    #define SVC_INDIRECT_REG          "r7"
+  #endif
 
 #endif
 
@@ -216,6 +189,192 @@ __STATIC_INLINE
 void archSwitchContextRequest(void)
 {
   ICSR = PENDSVSET;
+}
+
+__STATIC_FORCEINLINE
+uint32_t svc_0(uint32_t func)
+{
+#if defined(__CC_ARM)
+
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM {
+    SVC 0, {SVC_INDIRECT_REG=func}, {__r0=r0}
+  }
+
+  return (__r0);
+
+#elif defined(__ICCARM__)
+
+  _Pragma("swi_number = 0") __swi uint32_t __svc_0(void);
+
+  SVC_FUNC(func);
+
+  return __svc_0();
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+  register uint32_t __rf __ASM(SVC_INDIRECT_REG) = func;
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM volatile ("svc 0\n"
+                 :"=r"(__r0)
+                 :"r"(__rf)
+  );
+
+  return (__r0);
+
+#endif
+}
+
+__STATIC_FORCEINLINE
+uint32_t svc_1(uint32_t param1, uint32_t func)
+{
+#if defined(__CC_ARM)
+
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM {
+    SVC 0, {SVC_INDIRECT_REG=func, r0=param1}, {__r0=r0}
+  }
+
+  return (__r0);
+
+#elif defined(__ICCARM__)
+
+  _Pragma("swi_number = 0") __swi uint32_t __svc_1(uint32_t);
+
+  SVC_FUNC(func);
+
+  return __svc_1(param1);
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+  register uint32_t __rf __ASM(SVC_INDIRECT_REG) = func;
+  register uint32_t __r0 __ASM("r0") = param1;
+
+  __ASM volatile ("svc 0\n"
+                 :"=r"(__r0)
+                 :"r"(__rf),"r"(__r0)
+  );
+
+  return (__r0);
+
+#endif
+}
+
+__STATIC_FORCEINLINE
+uint32_t svc_2(uint32_t param1, uint32_t param2, uint32_t func)
+{
+#if defined(__CC_ARM)
+
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM {
+    SVC 0, {SVC_INDIRECT_REG=func, r0=param1, r1=param2}, {__r0=r0}
+  }
+
+  return (__r0);
+
+#elif defined(__ICCARM__)
+
+  _Pragma("swi_number = 0") __swi uint32_t __svc_2(uint32_t, uint32_t);
+
+  SVC_FUNC(func);
+
+  return __svc_2(param1, param2);
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+  register uint32_t __rf __ASM(SVC_INDIRECT_REG) = func;
+  register uint32_t __r0 __ASM("r0") = param1;
+  register uint32_t __r1 __ASM("r1") = param2;
+
+  __ASM volatile ("svc 0\n"
+                 :"=r"(__r0)
+                 :"r"(__rf),"r"(__r0),"r"(__r1)
+  );
+
+  return (__r0);
+
+#endif
+}
+
+__STATIC_FORCEINLINE
+uint32_t svc_3(uint32_t param1, uint32_t param2, uint32_t param3, uint32_t func)
+{
+#if defined(__CC_ARM)
+
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM {
+    SVC 0, {SVC_INDIRECT_REG=func, r0=param1, r1=param2, r2=param3}, {__r0=r0}
+  }
+
+  return (__r0);
+
+#elif defined(__ICCARM__)
+
+  _Pragma("swi_number = 0") __swi uint32_t __svc_3(uint32_t, uint32_t, uint32_t);
+
+  SVC_FUNC(func);
+
+  return __svc_3(param1, param2, param3);
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+  register uint32_t __rf __ASM(SVC_INDIRECT_REG) = func;
+  register uint32_t __r0 __ASM("r0") = param1;
+  register uint32_t __r1 __ASM("r1") = param2;
+  register uint32_t __r2 __ASM("r2") = param3;
+
+  __ASM volatile ("svc 0\n"
+                 :"=r"(__r0)
+                 :"r"(__rf),"r"(__r0),"r"(__r1),"r"(__r2)
+  );
+
+  return (__r0);
+
+#endif
+}
+
+__STATIC_FORCEINLINE
+uint32_t svc_4(uint32_t param1, uint32_t param2, uint32_t param3, uint32_t param4, uint32_t func)
+{
+#if defined(__CC_ARM)
+
+  register uint32_t __r0 __ASM("r0");
+
+  __ASM {
+    SVC 0, {SVC_INDIRECT_REG=func, r0=param1, r1=param2, r2=param3, r3=param4}, {__r0=r0}
+  }
+
+  return (__r0);
+
+#elif defined(__ICCARM__)
+
+  _Pragma("swi_number = 0") __swi uint32_t __svc_4(uint32_t, uint32_t, uint32_t, uint32_t);
+
+  SVC_FUNC(func);
+
+  return __svc_4(param1, param2, param3, param4);
+
+#else   // !(defined(__CC_ARM) || defined(__ICCARM__))
+
+  register uint32_t __rf __ASM(SVC_INDIRECT_REG) = func;
+  register uint32_t __r0 __ASM("r0") = param1;
+  register uint32_t __r1 __ASM("r1") = param2;
+  register uint32_t __r2 __ASM("r2") = param3;
+  register uint32_t __r3 __ASM("r3") = param4;
+
+  __ASM volatile ("svc 0\n"
+                 :"=r"(__r0)
+                 :"r"(__rf),"r"(__r0),"r"(__r1),"r"(__r2),"r"(__r3)
+  );
+
+  return (__r0);
+
+#endif
 }
 
 #endif  // _ARCH_H_
