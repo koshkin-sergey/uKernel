@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -16,37 +16,6 @@
  *
  * Project: uKernel real-time kernel
  */
-
-/*******************************************************************************
- *
- * TNKernel real-time kernel
- *
- * Copyright © 2004, 2013 Yuri Tiomkin
- * Copyright © 2013-2016 Sergey Koshkin <koshkin.sergey@gmail.com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- ******************************************************************************/
 
 #ifndef _UKERNEL_H_
 #define _UKERNEL_H_
@@ -104,10 +73,6 @@ extern "C"
 #endif
 #endif
 
-#define osStackSizeMin                (24U)
-
-#define osTaskStartOnCreating         (1U)
-
 #define osFlagsWaitAny                0x00000000U ///< Wait for any flag (default).
 #define osFlagsWaitAll                0x00000001U ///< Wait for all flags.
 #define osFlagsNoClear                0x00000002U ///< Do not clear flags which have been specified to wait for.
@@ -117,7 +82,7 @@ extern "C"
 #define osMutexRecursive              (1UL<<1)  ///< Recursive mutex.
 #define osMutexRobust                 (1UL<<2)  ///< Robust mutex.
 
-#define TIME_WAIT_INFINITE            (0xFFFFFFFF)
+#define osWaitForever                 (0xFFFFFFFF)
 
 #define NO_TIME_SLICE                 (0)
 #define MAX_TIME_SLICE                (0xFFFE)
@@ -132,19 +97,50 @@ extern "C"
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
+/// Status code values returned by CMSIS-RTOS functions.
 typedef enum {
-  ID_INVALID        = 0x00000000,//!< ID_INVALID
-  ID_TASK           = 0x47ABCF69,//!< ID_TASK
-  ID_SEMAPHORE      = 0x6FA173EB,//!< ID_SEMAPHORE
-  ID_EVENT_FLAGS    = 0x5E224F25,//!< ID_EVENT_FLAGS
-  ID_DATAQUEUE      = 0x0C8A6C89,//!< ID_DATAQUEUE
-  ID_FSMEMORYPOOL   = 0x26B7CE8B,//!< ID_FSMEMORYPOOL
-  ID_MUTEX          = 0x17129E45,//!< ID_MUTEX
-  ID_RENDEZVOUS     = 0x74289EBD,//!< ID_RENDEZVOUS
-  ID_ALARM          = 0x7A5762BC,//!< ID_ALARM
-  ID_CYCLIC         = 0x2B8F746B,//!< ID_CYCLIC
-  ID_MESSAGE_QUEUE  = 0x1C9A6C89,//!< ID_MESSAGE_QUEUE
-} id_t;
+  osOK                    =  0,         ///< Operation completed successfully.
+  osError                 = -1,         ///< Unspecified RTOS error: run-time error but no other error message fits.
+  osErrorTimeout          = -2,         ///< Operation not completed within the timeout period.
+  osErrorResource         = -3,         ///< Resource not available.
+  osErrorParameter        = -4,         ///< Parameter error.
+  osErrorNoMemory         = -5,         ///< System is out of memory: it was impossible to allocate or reserve memory for the operation.
+  osErrorISR              = -6,         ///< Not allowed in ISR context: the function cannot be called from interrupt service routines.
+  osStatusReserved        = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} osStatus_t;
+
+/// Priority values.
+typedef enum {
+  osPriorityNone          =  0,         ///< No priority (not initialized).
+  osPriorityIdle          =  1,         ///< Reserved for Idle thread.
+  osPriorityLow           =  4,         ///< Priority: low
+  osPriorityLow1          =  4+1,       ///< Priority: low + 1
+  osPriorityLow2          =  4+2,       ///< Priority: low + 2
+  osPriorityLow3          =  4+3,       ///< Priority: low + 3
+  osPriorityBelowNormal   =  8,         ///< Priority: below normal
+  osPriorityBelowNormal1  =  8+1,       ///< Priority: below normal + 1
+  osPriorityBelowNormal2  =  8+2,       ///< Priority: below normal + 2
+  osPriorityBelowNormal3  =  8+3,       ///< Priority: below normal + 3
+  osPriorityNormal        = 12,         ///< Priority: normal
+  osPriorityNormal1       = 12+1,       ///< Priority: normal + 1
+  osPriorityNormal2       = 12+2,       ///< Priority: normal + 2
+  osPriorityNormal3       = 12+3,       ///< Priority: normal + 3
+  osPriorityAboveNormal   = 16,         ///< Priority: above normal
+  osPriorityAboveNormal1  = 16+1,       ///< Priority: above normal + 1
+  osPriorityAboveNormal2  = 16+2,       ///< Priority: above normal + 2
+  osPriorityAboveNormal3  = 16+3,       ///< Priority: above normal + 3
+  osPriorityHigh          = 20,         ///< Priority: high
+  osPriorityHigh1         = 20+1,       ///< Priority: high + 1
+  osPriorityHigh2         = 20+2,       ///< Priority: high + 2
+  osPriorityHigh3         = 20+3,       ///< Priority: high + 3
+  osPriorityRealtime      = 24,         ///< Priority: realtime
+  osPriorityRealtime1     = 24+1,       ///< Priority: realtime + 1
+  osPriorityRealtime2     = 24+2,       ///< Priority: realtime + 2
+  osPriorityRealtime3     = 24+3,       ///< Priority: realtime + 3
+  osPriorityISR           = 32,         ///< Reserved for ISR deferred thread.
+  osPriorityError         = -1,         ///< System cannot determine priority or illegal priority.
+  osPriorityReserved      = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} osPriority_t;
 
 /// Error code values returned by uKernel functions.
 typedef enum {
@@ -165,32 +161,16 @@ typedef enum {
   osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osError_t;
 
-/* Task states */
+/// Thread state.
 typedef enum {
-  TSK_STATE_RUNNABLE  = 0x01,
-  TSK_STATE_WAIT      = 0x02,
-  TSK_STATE_SUSPEND   = 0x04,
-  TSK_STATE_DORMANT   = 0x08,
-  task_state_reserved = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
-} task_state_t;
-
-/* Task Wait Reason */
-typedef enum {
-  WAIT_REASON_NO            = 0x0000,
-  WAIT_REASON_SLEEP         = 0x0001,
-  WAIT_REASON_SEM           = 0x0002,
-  WAIT_REASON_EVENT         = 0x0004,
-  WAIT_REASON_DQUE_WSEND    = 0x0008,
-  WAIT_REASON_DQUE_WRECEIVE = 0x0010,
-  WAIT_REASON_MUTEX         = 0x0020,
-  WAIT_REASON_MUTEX_I       = 0x0040,
-  WAIT_REASON_MQUE_WSEND    = 0x0080,
-  WAIT_REASON_MQUE_WRECEIVE = 0x0100,
-  WAIT_REASON_WFIXMEM       = 0x0200,
-  wait_reason_reserved      = 0x7fffffff
-} wait_reason_t;
-
-typedef uint32_t osTime_t;
+  osThreadInactive        =  0,         ///< Inactive.
+  osThreadReady           =  1,         ///< Ready.
+  osThreadRunning         =  2,         ///< Running.
+  osThreadBlocked         =  3,         ///< Blocked.
+  osThreadTerminated      =  4,         ///< Terminated.
+  osThreadError           = -1,         ///< Error.
+  osThreadReserved        = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
+} osThreadState_t;
 
 typedef void (*CBACK)(void *);
 
@@ -209,15 +189,18 @@ typedef struct timer_event_block {
 
 /* - Message Queue -----------------------------------------------------------*/
 typedef struct osMessageQueue_s {
-  id_t id;                // Message buffer ID
-  queue_t send_queue;     // Message buffer send wait queue
-  queue_t recv_queue;     // Message buffer receive wait queue
-  uint8_t *buf;           // Message buffer address
-  uint32_t msg_size;      // Message size in bytes
-  uint32_t num_entries;   // Capacity of data_fifo(num entries)
-  uint32_t cnt;           // Number of queued messages
-  uint32_t tail;          // Next to the last message store address
-  uint32_t head;          // First message store address
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  queue_t                  send_queue;  ///< Message buffer send wait queue
+  queue_t                  recv_queue;  ///< Message buffer receive wait queue
+  uint8_t                        *buf;  ///< Message buffer address
+  uint32_t                   msg_size;  ///< Message size in bytes
+  uint32_t                num_entries;  ///< Capacity of data_fifo(num entries)
+  uint32_t                        cnt;  ///< Number of queued messages
+  uint32_t                       tail;  ///< Next to the last message store address
+  uint32_t                       head;  ///< First message store address
 } osMessageQueue_t;
 
 typedef enum {
@@ -272,63 +255,62 @@ typedef struct winfo_s {
   uint32_t ret_val;
 } wait_info;
 
+/// @details Thread ID identifies the thread.
+typedef void *osThreadId_t;
+
+/// Entry point of a thread.
+typedef void (*osThreadFunc_t) (void *argument);
+
 /* - Task Control Block ------------------------------------------------------*/
-typedef struct osTask_s {
-  uint32_t stk;               ///< Address of task's top of stack
-  queue_t task_que;           ///< Queue is used to include task in ready/wait lists
-  queue_t *pwait_que;         ///< Ptr to object's(semaphor,event,etc.) wait list
-  queue_t mutex_que;          ///< List of all mutexes that tack locked
-  uint32_t *stk_start;        ///< Base address of task's stack space
-  uint32_t stk_size;          ///< Task's stack size (in sizeof(void*),not bytes)
-  const void *func_addr;      ///< filled on creation
-  const void *func_param;     ///< filled on creation
-  uint32_t base_priority;     ///< Task base priority
-  uint32_t priority;          ///< Task current priority
-  id_t id;                    ///< ID for verification(is it a task or another object?)
-  task_state_t state;         ///< Task state
-  wait_reason_t wait_reason;  ///< Reason for waiting
-  wait_info wait_info;        ///< Wait information
-  timer_t wait_timer;         ///< Wait timer
-  int tslice_count;           ///< Time slice counter
-  osTime_t time;              ///< Time work task
-} osTask_t;
+typedef struct osThread_s {
+  uint32_t        stk;            ///< Address of task's top of stack
+  queue_t         task_que;       ///< Queue is used to include task in ready/wait lists
+  queue_t         mutex_que;      ///< List of all mutexes that tack locked
+  void           *stk_mem;        ///< Base address of task's stack space
+  uint32_t        stk_size;       ///< Task's stack size (in bytes)
+  int8_t          base_priority;  ///< Task base priority
+  int8_t          priority;       ///< Task current priority
+  uint8_t         id;             ///< ID for verification(is it a task or another object?)
+  uint8_t         state;          ///< Task state
+  const char     *name;           ///< Object Name
+  wait_info       wait_info;      ///< Wait information
+  timer_t         wait_timer;     ///< Wait timer
+  int32_t         tslice_count;   ///< Time slice counter
+} osThread_t;
 
 /* - Semaphore ---------------------------------------------------------------*/
 typedef struct osSemaphore_s {
-  queue_t wait_queue;
-  uint32_t count;
-  uint32_t max_count;
-  id_t id;                    ///< ID for verification(is it a semaphore or another object?)
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  queue_t                  wait_queue;
+  uint32_t                      count;
+  uint32_t                  max_count;
 } osSemaphore_t;
 
 /* - Event Flags -------------------------------------------------------------*/
-typedef struct _TN_EVENT {
-  id_t id;                    ///< ID for verification(is it a event or another object?)
-  queue_t wait_queue;
-  uint32_t pattern;           ///< Initial value of the eventflag bit pattern
+typedef struct osEventFlags_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  queue_t                  wait_queue;
+  uint32_t                    pattern;  ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
-
-/* - Data queue --------------------------------------------------------------*/
-typedef struct _TN_DQUE {
-  queue_t wait_send_list;
-  queue_t wait_receive_list;
-  void **data_fifo;        //-- Array of void* to store data queue entries
-  int num_entries;        //-- Capacity of data_fifo(num entries)
-  int cnt;                // Кол-во данных в очереди
-  int tail_cnt;           //-- Counter to processing data queue's Array of void*
-  int header_cnt;         //-- Counter to processing data queue's Array of void*
-  id_t id;                //-- ID for verification(is it a data queue or another object?)
-} TN_DQUE;
 
 /* - Fixed-sized blocks memory pool ------------------------------------------*/
 typedef struct _TN_FMP {
-  queue_t wait_queue;
-  unsigned int block_size;   //-- Actual block size (in bytes)
-  int num_blocks;   //-- Capacity (Fixed-sized blocks actual max qty)
-  void *start_addr;  //-- Memory pool actual start address
-  void *free_list;   //-- Ptr to free block list
-  int fblkcnt;      //-- Num of free blocks
-  id_t id;          //-- ID for verification(is it a fixed-sized blocks memory pool or another object?)
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  queue_t                  wait_queue;
+  unsigned int             block_size;  ///< Actual block size (in bytes)
+  int                      num_blocks;  ///< Capacity (Fixed-sized blocks actual max qty)
+  void                    *start_addr;  ///< Memory pool actual start address
+  void                     *free_list;  ///< Ptr to free block list
+  int                         fblkcnt;  ///< Num of free blocks
 } TN_FMP;
 
 
@@ -341,12 +323,14 @@ typedef struct osMutexAttr_s {
 
 /* Mutex Control Block */
 typedef struct osMutex_s {
-  id_t id;                ///< ID for verification(is it a mutex or another object?)
-  queue_t wait_que;       ///< List of tasks that wait a mutex
-  queue_t mutex_que;      ///< To include in task's locked mutexes list (if any)
-  uint32_t attr;          ///< Mutex creation attributes
-  osTask_t *holder;       ///< Current mutex owner(task that locked mutex)
-  uint32_t cnt;           ///< Lock counter
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  queue_t                    wait_que;  ///< List of tasks that wait a mutex
+  queue_t                   mutex_que;  ///< To include in task's locked mutexes list (if any)
+  osThread_t                  *holder;  ///< Current mutex owner(task that locked mutex)
+  uint32_t                        cnt;  ///< Lock counter
 } osMutex_t;
 
 
@@ -358,13 +342,16 @@ typedef enum {
   timer_state_reserved  = 0x7fffffff
 } timer_state_t;
 
-typedef struct _TN_ALARM {
-  void *exinf;              /**< Extended information */
-  CBACK handler;            /**< Alarm handler address */
-  timer_state_t state;      /**< Timer state */
-  timer_t timer;               /**< Timer event block */
-  id_t id;                  /**< ID for verification */
-} TN_ALARM;
+typedef struct osAlarm_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        attr;  ///< Object Attributes
+  void                         *exinf;  ///< Extended information
+  CBACK                       handler;  ///< Alarm handler address
+  timer_state_t                 state;  ///< Timer state
+  timer_t                       timer;  ///< Timer event block
+} osAlarm_t;
 
 /* Cyclic attributes */
 typedef enum {
@@ -381,15 +368,18 @@ typedef struct {
 } cyclic_param_t;
 
 /* - Cyclic Timer ------------------------------------------------------------*/
-typedef struct _TN_CYCLIC {
-  void *exinf;              /**< Extended information */
-  CBACK handler;            /**< Cyclic handler address */
-  timer_state_t state;      /**< Timer state */
-  cyclic_attr_t attr;       /**< Cyclic handler attributes */
-  uint32_t time;            /**< Cyclic time */
-  timer_t timer;               /**< Timer event block */
-  id_t id;                  /**< ID for verification */
-} TN_CYCLIC;
+typedef struct osCyclic_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t               reserved_attr;  ///< Object Attributes
+  void                         *exinf;  ///< Extended information
+  CBACK                       handler;  ///< Cyclic handler address
+  timer_state_t                 state;  ///< Timer state
+  cyclic_attr_t                  attr;  ///< Cyclic handler attributes
+  uint32_t                       time;  ///< Cyclic time
+  timer_t                       timer;  ///< Timer event block
+} osCyclic_t;
 
 
 /* - User functions ----------------------------------------------------------*/
@@ -401,6 +391,25 @@ typedef struct {
   uint32_t max_syscall_interrupt_priority;
 } TN_OPTIONS;
 
+#ifndef TZ_MODULEID_T
+#define TZ_MODULEID_T
+/// \details Data type that identifies secure software modules called by a process.
+typedef uint32_t TZ_ModuleId_t;
+#endif
+
+/// Attributes structure for thread.
+typedef struct {
+  const char                   *name;   ///< name of the thread
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                      *cb_mem;    ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+  void                   *stack_mem;    ///< memory for stack
+  uint32_t                stack_size;   ///< size of stack
+  osPriority_t              priority;   ///< initial thread priority (default: osPriorityNormal)
+  TZ_ModuleId_t            tz_module;   ///< TrustZone module identifier
+  uint32_t                  reserved;   ///< reserved (must be 0)
+} osThreadAttr_t;
+
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
@@ -409,7 +418,10 @@ typedef struct {
  *  exported function prototypes
  ******************************************************************************/
 
-/* - system.c ----------------------------------------------------------------*/
+/*******************************************************************************
+ *  Kernel Information and Control
+ ******************************************************************************/
+
 __NO_RETURN
 void osKernelStart(TN_OPTIONS *opt);
 
@@ -417,157 +429,177 @@ void osKernelStart(TN_OPTIONS *opt);
 int tn_sys_tslice_ticks(int priority, int value);
 #endif
 
-/* - Timer -------------------------------------------------------------------*/
+/*******************************************************************************
+ *  Timer Management
+ ******************************************************************************/
 
 void osTimerHandle(void);
 
-osTime_t osGetTickCount(void);
+uint32_t osGetTickCount(void);
 
-osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf);
+osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf);
 
-osError_t osAlarmDelete(TN_ALARM *alarm);
+osError_t osAlarmDelete(osAlarm_t *alarm);
 
-osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout);
+osError_t osAlarmStart(osAlarm_t *alarm, uint32_t timeout);
 
-osError_t osAlarmStop(TN_ALARM *alarm);
+osError_t osAlarmStop(osAlarm_t *alarm);
 
-osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf);
+osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf);
 
-osError_t osCyclicDelete(TN_CYCLIC *cyc);
+osError_t osCyclicDelete(osCyclic_t *cyc);
 
-osError_t osCyclicStart(TN_CYCLIC *cyc);
+osError_t osCyclicStart(osCyclic_t *cyc);
 
-osError_t osCyclicStop(TN_CYCLIC *cyc);
+osError_t osCyclicStop(osCyclic_t *cyc);
 
-/* - Task --------------------------------------------------------------------*/
-
-/**
- * @fn          osError_t osTaskCreate(osTask_t *task, void (*func)(void *), int32_t priority, const uint64_t *stack_start, int32_t stack_size, const void *param, int32_t option)
- * @brief       Creates a task.
- * @param[out]  task          Pointer to the task TCB to be created
- * @param[in]   func          Task body function
- * @param[in]   priority      Task priority. User tasks may have priorities 1…30
- * @param[in]   stack_start   Task's stack bottom address
- * @param[in]   stack_size    Task's stack size – number of task stack elements (not bytes)
- * @param[in]   param         task_func parameter. param will be passed to task_func on creation time
- * @param[in]   option        Creation option. Option values:
- *                              0                           After creation task has a DORMANT state
- *                              osTaskStartOnCreating   After creation task is switched to the runnable state (READY/RUNNING)
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          The function cannot be called from interrupt service routines
- */
-osError_t osTaskCreate(osTask_t *task, void (*func)(void *), uint32_t priority, const uint64_t *stack_start, uint32_t stack_size, const void *param, uint32_t option);
+/*******************************************************************************
+ *  Thread Management
+ ******************************************************************************/
 
 /**
- * @fn          osError_t osTaskDelete(osTask_t *task)
- * @brief       Deletes the task specified by the task.
- * @param[out]  task  Pointer to the task TCB to be deleted
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_WCONTEXT     Unacceptable system's state for this request
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osThreadId_t osThreadNew(osThreadFunc_t func, void *argument, const osThreadAttr_t *attr)
+ * @brief       Create a thread and add it to Active Threads.
+ * @param[in]   func      thread function.
+ * @param[in]   argument  pointer that is passed to the thread function as start argument.
+ * @param[in]   attr      thread attributes.
+ * @return      thread ID for reference by other functions or NULL in case of error.
  */
-osError_t osTaskDelete(osTask_t *task);
+osThreadId_t osThreadNew(osThreadFunc_t func, void *argument, const osThreadAttr_t *attr);
 
 /**
- * @fn          osError_t osTaskActivate(osTask_t *task)
- * @brief       Activates a task specified by the task
- * @param[out]  task  Pointer to the task TCB to be activated
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_OVERFLOW     Task is already active (not in DORMANT state)
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          const char *osThreadGetName(osThreadId_t thread_id)
+ * @brief       Get name of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      name as null-terminated string.
  */
-osError_t osTaskActivate(osTask_t *task);
+const char *osThreadGetName(osThreadId_t thread_id);
 
 /**
- * @fn          osError_t osTaskTerminate(osTask_t *task)
- * @brief       Terminates the task specified by the task
- * @param[out]  task  Pointer to the task TCB to be terminated
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_WCONTEXT     Unacceptable system state for this request
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osThreadId_t osThreadGetId(void)
+ * @brief       Return the thread ID of the current running thread.
+ * @return      thread ID for reference by other functions or NULL in case of error.
  */
-osError_t osTaskTerminate(osTask_t *task);
+osThreadId_t osThreadGetId(void);
 
 /**
- * @fn          void osTaskExit(void)
- * @brief       Terminates the currently running task
+ * @fn          osThreadState_t osThreadGetState(osThreadId_t thread_id)
+ * @brief       Get current thread state of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      current thread state of the specified thread.
  */
-__NO_RETURN
-void osTaskExit(void);
+osThreadState_t osThreadGetState(osThreadId_t thread_id);
 
 /**
- * @fn          osError_t osTaskSuspend(osTask_t *task)
- * @brief       Suspends the task specified by the task
- * @param[out]  task  Pointer to the task TCB to be suspended
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_OVERFLOW     Task already suspended
- *              TERR_WSTATE       Task is not active (i.e in DORMANT state )
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          uint32_t osThreadGetStackSize(osThreadId_t thread_id)
+ * @brief       Get stack size of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      stack size in bytes.
  */
-osError_t osTaskSuspend(osTask_t *task);
+uint32_t osThreadGetStackSize(osThreadId_t thread_id);
 
 /**
- * @fn          osError_t osTaskResume(osTask_t *task)
- * @brief       Releases the task specified by the task from the SUSPENDED state
- * @param[out]  task  Pointer to task TCB to be resumed
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_WSTATE       Task is not in SUSPEDED or WAITING_SUSPEDED state
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          uint32_t osThreadGetStackSpace(osThreadId_t thread_id)
+ * @brief       Get available stack space of a thread based on stack watermark recording during execution.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      remaining stack space in bytes.
  */
-osError_t osTaskResume(osTask_t *task);
+uint32_t osThreadGetStackSpace(osThreadId_t thread_id);
 
 /**
- * @fn        osError_t osTaskSleep(osTime_t timeout)
- * @brief     Puts the currently running task to the sleep for at most timeout system ticks.
- * @param[in] timeout   Timeout value must be greater than 0.
- *                      A value of TIME_WAIT_INFINITE causes an infinite delay.
- * @return    TERR_NO_ERR       Normal completion
- *            TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *            TERR_NOEXS        Object is not a task or non-existent
- *            TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osStatus_t osThreadSetPriority(osThreadId_t thread_id, osPriority_t priority)
+ * @brief       Change priority of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @param[in]   priority    new priority value for the thread function.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osTaskSleep(osTime_t timeout);
+osStatus_t osThreadSetPriority(osThreadId_t thread_id, osPriority_t priority);
 
 /**
- * @fn          osError_t osTaskWakeup(osTask_t *task)
- * @brief       Wakes up the task specified by the task from sleep options
- * @param[out]  task  Pointer to the task TCB to be wake up
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_WSTATE       Task is not in WAIT state
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osPriority_t osThreadGetPriority(osThreadId_t thread_id)
+ * @brief       Get current priority of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      current priority value of the specified thread.
  */
-osError_t osTaskWakeup(osTask_t *task);
+osPriority_t osThreadGetPriority(osThreadId_t thread_id);
 
 /**
- * @fn          osError_t osTaskReleaseWait(osTask_t *task)
- * @brief       Forcibly releases the task specified by the task from waiting
- * @param[out]  task  Pointer to the task TCB to be released from waiting or sleep
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_WCONTEXT     Unacceptable system's state for function's request executing
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osStatus_t osThreadYield(void)
+ * @brief       Pass control to next thread that is in state READY.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osTaskReleaseWait(osTask_t *task);
+osStatus_t osThreadYield(void);
 
-osError_t osTaskSetPriority(osTask_t *task, uint32_t new_priority);
+/**
+ * @fn          osStatus_t osThreadSuspend(osThreadId_t thread_id)
+ * @brief       Suspend execution of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osThreadSuspend(osThreadId_t thread_id);
 
-osTime_t osTaskGetTime(osTask_t *task);
+/**
+ * @fn          osStatus_t osThreadResume(osThreadId_t thread_id)
+ * @brief       Resume execution of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osThreadResume(osThreadId_t thread_id);
 
-/* - Semaphore ---------------------------------------------------------------*/
+/**
+ * @fn          void osThreadExit(void)
+ * @brief       Terminate execution of current running thread.
+ */
+__NO_RETURN void osThreadExit(void);
+
+/**
+ * @fn          osStatus_t osThreadTerminate(osThreadId_t thread_id)
+ * @brief       Terminate execution of a thread.
+ * @param[in]   thread_id   thread ID obtained by \ref osThreadNew or \ref osThreadGetId.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osThreadTerminate(osThreadId_t thread_id);
+
+/**
+ * @fn          uint32_t osThreadGetCount(void)
+ * @brief       Get number of active threads.
+ * @return      number of active threads or 0 in case of an error.
+ */
+uint32_t osThreadGetCount(void);
+
+/**
+ * @fn          uint32_t osThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items)
+ * @brief       Enumerate active threads.
+ * @param[out]  thread_array  pointer to array for retrieving thread IDs.
+ * @param[in]   array_items   maximum number of items in array for retrieving thread IDs.
+ * @return      number of enumerated threads or 0 in case of an error.
+ */
+uint32_t osThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items);
+
+/*******************************************************************************
+ *  Generic Wait Functions
+ ******************************************************************************/
+
+/**
+ * @fn          osStatus_t osDelay(uint32_t ticks)
+ * @brief       Wait for Timeout (Time Delay).
+ * @param[in]   ticks   \ref CMSIS_RTOS_TimeOutValue "time ticks" value
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDelay(uint32_t ticks);
+
+/**
+ * @fn          osStatus_t osDelayUntil(uint32_t ticks)
+ * @brief       Wait until specified time.
+ * @param[in]   ticks   absolute time in ticks
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDelayUntil(uint32_t ticks);
+
+/*******************************************************************************
+ *  Semaphores
+ ******************************************************************************/
+
 /**
  * @fn          osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
  * @brief       Creates a semaphore
@@ -603,7 +635,7 @@ osError_t osSemaphoreDelete(osSemaphore_t *sem);
 osError_t osSemaphoreRelease(osSemaphore_t *sem);
 
 /**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+ * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
  * @param[out]  sem       Pointer to the semaphore structure to be acquired
  * @param[in]   timeout   Timeout value must be equal or greater than 0
@@ -612,7 +644,7 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem);
  *              TERR_TIMEOUT      Timeout expired
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  */
-osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout);
+osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout);
 
 /**
  * @fn          uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
@@ -623,7 +655,9 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout);
 uint32_t osSemaphoreGetCount(osSemaphore_t *sem);
 
 
-/* - Message Queue -----------------------------------------------------------*/
+/*******************************************************************************
+ *  Message Queue
+ ******************************************************************************/
 
 /**
  * @fn          osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
@@ -651,7 +685,7 @@ osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uin
 osError_t osMessageQueueDelete(osMessageQueue_t *mq);
 
 /**
- * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+ * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
  * @brief       Puts the message into the the message queue
  * @param[out]  mq        Pointer to the osMessageQueue_t structure
  * @param[in]   msg       Pointer to buffer with message to put into a queue
@@ -662,10 +696,10 @@ osError_t osMessageQueueDelete(osMessageQueue_t *mq);
  *              TERR_NOEXS        Object is not a Message Queue or non-existent
  *              TERR_TIMEOUT      The message could not be put into the queue in the given time
  */
-osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout);
+osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout);
 
 /**
- * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+ * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
  * @brief       Retrieves a message from the message queue and saves it to the buffer
  * @param[out]  mq        Pointer to the osMessageQueue_t structure
  * @param[out]  msg       Pointer to buffer for message to get from a queue
@@ -675,7 +709,7 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
  *              TERR_NOEXS        Object is not a Message Queue or non-existent
  *              TERR_TIMEOUT      The message could not be retrieved from the queue in the given time
  */
-osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout);
+osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout);
 
 /**
  * @fn          uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq)
@@ -721,7 +755,9 @@ uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq);
 osError_t osMessageQueueReset(osMessageQueue_t *mq);
 
 
-/* - Event Flags -------------------------------------------------------------*/
+/*******************************************************************************
+ *  Event Flags
+ ******************************************************************************/
 
 /**
  * @fn          osError_t osEventFlagsNew(osEventFlags_t *evf)
@@ -755,7 +791,7 @@ osError_t osEventFlagsDelete(osEventFlags_t *evf);
 uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags);
 
 /**
- * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+ * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
  * @brief       Suspends the execution of the currently RUNNING task until any
  *              or all event flags in the event object are set. When these event
  *              flags are already set, the function returns instantly.
@@ -765,7 +801,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags);
  * @param[in]   timeout   Timeout Value or 0 in case of no time-out
  * @return      Event flags before clearing or error code if highest bit set
  */
-uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout);
+uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout);
 
 /**
  * @fn          uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
@@ -784,7 +820,10 @@ osError_t tn_fmem_delete(TN_FMP *fmp);
 osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
 osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
 
-/* - Mutex Management --------------------------------------------------------*/
+
+/*******************************************************************************
+ *  Mutex Management
+ ******************************************************************************/
 
 /**
  * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
@@ -809,7 +848,7 @@ osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr);
 osError_t osMutexDelete(osMutex_t *mutex);
 
 /**
- * @fn          osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+ * @fn          osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
  * @brief       Waits until a mutex object becomes available
  * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
  * @param[in]   timeout   Timeout Value or 0 in case of no time-out. Specifies
@@ -820,7 +859,7 @@ osError_t osMutexDelete(osMutex_t *mutex);
  *              TERR_ILUSE        Illegal usage, e.g. trying to acquire already obtained mutex
  *              TERR_ISR          Cannot be called from interrupt service routines
  */
-osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout);
+osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout);
 
 /**
  * @fn          osError_t osMutexRelease(osMutex_t *mutex)
@@ -834,13 +873,13 @@ osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout);
 osError_t osMutexRelease(osMutex_t *mutex);
 
 /**
- * @fn          osTask_t* osMutexGetOwner(osMutex_t *mutex)
+ * @fn          osThread_t* osMutexGetOwner(osMutex_t *mutex)
  * @brief       Returns the pointer to the task that acquired a mutex. In case
  *              of an error or if the mutex is not blocked by any task, it returns NULL.
  * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
  * @return      Pointer to owner task or NULL when mutex was not acquired
  */
-osTask_t* osMutexGetOwner(osMutex_t *mutex);
+osThread_t* osMutexGetOwner(osMutex_t *mutex);
 
 
 #if   defined (__CC_ARM)

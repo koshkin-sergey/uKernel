@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -59,7 +59,7 @@
  ******************************************************************************/
 
 static
-void SetPriority(osTask_t *task, uint32_t priority)
+void SetPriority(osThread_t *task, uint8_t priority)
 {
   //-- transitive priority changing
 
@@ -78,18 +78,19 @@ void SetPriority(osTask_t *task, uint32_t priority)
     if (task->priority >= priority)
       return;
 
-    if (task->state == TSK_STATE_RUNNABLE) {
-      TaskChangeRunningPriority(task, priority);
-      return;
-    }
+//    if (task->state == TSK_STATE_RUNNABLE) {
+//      TaskChangeRunningPriority(task, priority);
+//      return;
+//    }
 
-    if (task->state & TSK_STATE_WAIT) {
-      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
-        task->priority = priority;
-        task = GetMutexByWaitQueque(task->pwait_que)->holder;
-        continue;
-      }
-    }
+    // TODO: поля wait_reason и pwait_que были удалены. Исправить!
+//    if (task->state & TSK_STATE_WAIT) {
+//      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
+//        task->priority = priority;
+//        task = GetMutexByWaitQueque(task->pwait_que)->holder;
+//        continue;
+//      }
+//    }
 
     task->priority = priority;
     return;
@@ -97,11 +98,11 @@ void SetPriority(osTask_t *task, uint32_t priority)
 }
 
 static
-uint32_t GetMaxPriority(osMutex_t *mutex, uint32_t ref_priority)
+int8_t GetMaxPriority(osMutex_t *mutex, int8_t ref_priority)
 {
-  uint32_t priority;
+  int8_t priority;
   queue_t *curr_que;
-  osTask_t *task;
+  osThread_t *task;
 
   priority = ref_priority;
   curr_que = mutex->wait_que.next;
@@ -120,8 +121,8 @@ static
 void MutexUnLock(osMutex_t *mutex)
 {
   queue_t *que;
-  uint32_t priority;
-  osTask_t *task;
+  int8_t priority;
+  osThread_t *task;
 
   task = mutex->holder;
   /* Remove Mutex from Task owner list */
@@ -140,8 +141,8 @@ void MutexUnLock(osMutex_t *mutex)
 
     //-- Restore original priority
     if (priority != task->priority) {
-      if (task->state == TSK_STATE_RUNNABLE) {
-        TaskChangeRunningPriority(task, priority);
+      if (task->state == osThreadReady || task->state == osThreadRunning) {
+        _ThreadSetPriority(task, priority);
       }
       else {
         task->priority = priority;
@@ -161,7 +162,7 @@ void MutexUnLock(osMutex_t *mutex)
     QueueAddTail(&mutex->holder->mutex_que, &mutex->mutex_que);
     mutex->cnt = 1U;
 
-    TaskWaitComplete(mutex->holder, (uint32_t)TERR_NO_ERR);
+    _ThreadWaitExit(mutex->holder, (uint32_t)TERR_NO_ERR);
   }
 }
 
@@ -197,7 +198,7 @@ osError_t MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
     return TERR_NO_ERR;
 
   if (attr != NULL) {
-    mutex->attr = attr->attr_bits;
+    mutex->attr = (uint8_t)attr->attr_bits;
   }
   else {
     mutex->attr = 0U;
@@ -222,7 +223,7 @@ osError_t MutexDelete(osMutex_t *mutex)
   /* Check if Mutex is locked */
   if (mutex->cnt != 0U) {
     /* Unblock waiting tasks */
-    TaskWaitDelete(&mutex->wait_que);
+    _ThreadWaitDelete(&mutex->wait_que);
     /* Unlock Mutex */
     MutexUnLock(mutex);
   }
@@ -234,14 +235,14 @@ osError_t MutexDelete(osMutex_t *mutex)
 }
 
 static
-osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
+osError_t MutexAcquire(osMutex_t *mutex, uint32_t timeout)
 {
   osError_t rc;
 
   if (mutex->id != ID_MUTEX)
     return TERR_NOEXS;
 
-  osTask_t *task = TaskGetCurrent();
+  osThread_t *task = ThreadGetRunning();
 
   /* Check if Mutex is not locked */
   if (mutex->cnt == 0U) {
@@ -268,17 +269,15 @@ osError_t MutexAcquire(osMutex_t *mutex, osTime_t timeout)
     else {
       /* Check if timeout is specified */
       if (timeout != 0U) {
-        wait_reason_t wait_reason = WAIT_REASON_MUTEX;
         /* Check if Priority inheritance protocol is enabled */
         if ((mutex->attr & osMutexPrioInherit) != 0U) {
-          wait_reason = WAIT_REASON_MUTEX_I;
           /* Raise priority of owner Task if lower than priority of running Task */
           if (task->priority > mutex->holder->priority) {
             SetPriority(mutex->holder, task->priority);
           }
         }
         /* Suspend current Thread */
-        TaskWaitEnter(task, &mutex->wait_que, wait_reason, timeout);
+        _ThreadWaitEnter(task, &mutex->wait_que, timeout);
         rc = TERR_WAIT;
       }
       else {
@@ -297,7 +296,7 @@ osError_t MutexRelease(osMutex_t *mutex)
     return TERR_NOEXS;
 
   /* Unlocking is enabled only for the owner and already locked mutex */
-  if (TaskGetCurrent() != mutex->holder)
+  if (ThreadGetRunning() != mutex->holder)
     return TERR_ILUSE;
 
   if (mutex->cnt == 0U)
@@ -313,7 +312,7 @@ osError_t MutexRelease(osMutex_t *mutex)
 }
 
 static
-osTask_t* MutexGetOwner(osMutex_t *mutex)
+osThread_t* MutexGetOwner(osMutex_t *mutex)
 {
   if (mutex->id != ID_MUTEX)
     return NULL;
@@ -367,7 +366,7 @@ osError_t osMutexDelete(osMutex_t *mutex)
 }
 
 /**
- * @fn          osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+ * @fn          osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
  * @brief       Waits until a mutex object becomes available
  * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
  * @param[in]   timeout   Timeout Value or 0 in case of no time-out. Specifies
@@ -378,7 +377,7 @@ osError_t osMutexDelete(osMutex_t *mutex)
  *              TERR_ILUSE        Illegal usage, e.g. trying to acquire already obtained mutex
  *              TERR_ISR          Cannot be called from interrupt service routines
  */
-osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
+osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
 {
   if (mutex == NULL)
     return TERR_WRONG_PARAM;
@@ -388,7 +387,7 @@ osError_t osMutexAcquire(osMutex_t *mutex, osTime_t timeout)
   osError_t ret_val = (osError_t)svc_2((uint32_t)mutex, (uint32_t)timeout, (uint32_t)MutexAcquire);
 
   if (ret_val == TERR_WAIT)
-    return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+    return (osError_t)ThreadGetRunning()->wait_info.ret_val;
 
   return ret_val;
 }
@@ -413,20 +412,20 @@ osError_t osMutexRelease(osMutex_t *mutex)
 }
 
 /**
- * @fn          osTask_t* osMutexGetOwner(osMutex_t *mutex)
+ * @fn          osThread_t* osMutexGetOwner(osMutex_t *mutex)
  * @brief       Returns the pointer to the task that acquired a mutex. In case
  *              of an error or if the mutex is not blocked by any task, it returns NULL.
  * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
  * @return      Pointer to owner task or NULL when mutex was not acquired
  */
-osTask_t* osMutexGetOwner(osMutex_t *mutex)
+osThread_t* osMutexGetOwner(osMutex_t *mutex)
 {
   if (mutex == NULL)
     return NULL;
   if (IsIrqMode() || IsIrqMasked())
     return NULL;
 
-  return (osTask_t *)svc_1((uint32_t)mutex, (uint32_t)MutexGetOwner);
+  return (osThread_t *)svc_1((uint32_t)mutex, (uint32_t)MutexGetOwner);
 }
 
 /*------------------------------ End of file ---------------------------------*/

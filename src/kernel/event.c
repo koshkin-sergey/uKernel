@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -119,7 +119,7 @@ osError_t EventFlagsDelete(osEventFlags_t *evf)
   if (evf->id != ID_EVENT_FLAGS)
     return TERR_NOEXS;
 
-  TaskWaitDelete(&evf->wait_queue);
+  _ThreadWaitDelete(&evf->wait_queue);
 
   evf->id = ID_INVALID;
 
@@ -131,7 +131,7 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 {
   uint32_t event_flags, pattern;
   queue_t *que;
-  osTask_t *task;
+  osThread_t *task;
 
   if (evf->id != ID_EVENT_FLAGS)
     return (uint32_t)TERR_NOEXS;
@@ -155,7 +155,7 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
       else {
         event_flags = pattern;
       }
-      TaskWaitComplete(task, pattern);
+      _ThreadWaitExit(task, pattern);
     }
   }
 
@@ -165,7 +165,7 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 }
 
 static
-uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
 {
   uint32_t pattern;
 
@@ -182,10 +182,10 @@ uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, o
   }
 
   if (timeout) {
-    osTask_t *task = TaskGetCurrent();
+    osThread_t *task = ThreadGetRunning();
     task->wait_info.event.options = options;
     task->wait_info.event.flags = flags;
-    TaskWaitEnter(task, &evf->wait_queue, WAIT_REASON_EVENT, timeout);
+    _ThreadWaitEnter(task, &evf->wait_queue, timeout);
     END_CRITICAL_SECTION
     return (uint32_t)TERR_WAIT;
   }
@@ -276,7 +276,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 }
 
 /**
- * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+ * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
  * @brief       Suspends the execution of the currently RUNNING task until any
  *              or all event flags in the event object are set. When these event
  *              flags are already set, the function returns instantly.
@@ -286,7 +286,7 @@ uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
  * @param[in]   timeout   Timeout Value or 0 in case of no time-out
  * @return      Event flags before clearing or error code if highest bit set
  */
-uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, osTime_t timeout)
+uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
 {
   if (evf == NULL || flags == 0)
     return (uint32_t)TERR_WRONG_PARAM;
@@ -301,7 +301,7 @@ uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options,
     uint32_t ret_val = svc_4((uint32_t)evf, flags, options, (uint32_t)timeout, (uint32_t)EventFlagsWait);
 
     if (ret_val == (uint32_t)TERR_WAIT)
-      return TaskGetCurrent()->wait_info.ret_val;
+      return ThreadGetRunning()->wait_info.ret_val;
 
     return ret_val;
   }

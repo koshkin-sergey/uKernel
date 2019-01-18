@@ -44,11 +44,11 @@
 /* PendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-#define TIMER_STACK_SIZE              (48U)
-#define IDLE_STACK_SIZE               (48U)
+#define TIMER_STACK_SIZE              (256U)
+#define IDLE_STACK_SIZE               (256U)
 
 #define TN_ALIG                       sizeof(void*)
-#define TN_FILL_STACK_VAL             0xFFFFFFFF
+#define FILL_STACK_VALUE              0xFFFFFFFF
 
 #if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
        (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \

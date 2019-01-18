@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2013-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -162,17 +162,17 @@ osError_t MessageQueueDelete(osMessageQueue_t *mq)
   if (mq->id != ID_MESSAGE_QUEUE)
     return TERR_NOEXS;
 
-  TaskWaitDelete(&mq->send_queue);
-  TaskWaitDelete(&mq->recv_queue);
+  _ThreadWaitDelete(&mq->send_queue);
+  _ThreadWaitDelete(&mq->recv_queue);
   mq->id = ID_INVALID;
 
   return TERR_NO_ERR;
 }
 
 static
-osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
 {
-  osTask_t *task;
+  osThread_t *task;
 
   if (mq->id != ID_MESSAGE_QUEUE)
     return TERR_NOEXS;
@@ -183,7 +183,7 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t
     /* There are task(s) in the data queue's wait_receive list */
     task = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
     memcpy(task->wait_info.rmque.msg, msg, mq->msg_size);
-    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
+    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }
@@ -199,20 +199,20 @@ osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t
     return TERR_TIMEOUT;
   }
 
-  task = TaskGetCurrent();
+  task = ThreadGetRunning();
   task->wait_info.smque.msg = msg;
   task->wait_info.smque.msg_pri = msg_pri;
-  TaskWaitEnter(task, &mq->send_queue, WAIT_REASON_MQUE_WSEND, timeout);
+  _ThreadWaitEnter(task, &mq->send_queue, timeout);
 
   END_CRITICAL_SECTION
   return TERR_WAIT;
 }
 
 static
-osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
 {
   osError_t rc;
-  osTask_t *task;
+  osThread_t *task;
 
   if (mq->id != ID_MESSAGE_QUEUE)
     return TERR_NOEXS;
@@ -227,7 +227,7 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
       mbf_fifo_write(mq, task->wait_info.smque.msg, task->wait_info.smque.msg_pri);
     else
       memcpy(msg, task->wait_info.smque.msg, mq->msg_size);
-    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
+    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }
@@ -237,9 +237,9 @@ osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
       rc = TERR_TIMEOUT;
     }
     else {
-      task = TaskGetCurrent();
+      task = ThreadGetRunning();
       task->wait_info.rmque.msg = msg;
-      TaskWaitEnter(task, &mq->recv_queue, WAIT_REASON_MQUE_WRECEIVE, timeout);
+      _ThreadWaitEnter(task, &mq->recv_queue, timeout);
       rc = TERR_WAIT;
     }
   }
@@ -351,7 +351,7 @@ osError_t osMessageQueueDelete(osMessageQueue_t *mq)
 }
 
 /**
- * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+ * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
  * @brief       Puts the message into the the message queue
  * @param[out]  mq        Pointer to the osMessageQueue_t structure
  * @param[in]   msg       Pointer to buffer with message to put into a queue
@@ -362,7 +362,7 @@ osError_t osMessageQueueDelete(osMessageQueue_t *mq)
  *              TERR_NOEXS        Object is not a Message Queue or non-existent
  *              TERR_TIMEOUT      The message could not be put into the queue in the given time
  */
-osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, osTime_t timeout)
+osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
 {
   if (mq == NULL)
     return TERR_WRONG_PARAM;
@@ -377,14 +377,14 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
     osError_t ret_val = (osError_t)svc_4((uint32_t)mq, (uint32_t)msg, (uint32_t)msg_pri, (uint32_t)timeout, (uint32_t)MessageQueuePut);
 
     if (ret_val == TERR_WAIT)
-      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+      return (osError_t)ThreadGetRunning()->wait_info.ret_val;
 
     return ret_val;
   }
 }
 
 /**
- * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+ * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
  * @brief       Retrieves a message from the message queue and saves it to the buffer
  * @param[out]  mq        Pointer to the osMessageQueue_t structure
  * @param[out]  msg       Pointer to buffer for message to get from a queue
@@ -394,7 +394,7 @@ osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority
  *              TERR_NOEXS        Object is not a Message Queue or non-existent
  *              TERR_TIMEOUT      The message could not be retrieved from the queue in the given time
  */
-osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
+osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
 {
   if (mq == NULL || msg == NULL)
     return TERR_WRONG_PARAM;
@@ -409,7 +409,7 @@ osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, osTime_t timeout)
     osError_t ret_val = (osError_t)svc_3((uint32_t)mq, (uint32_t)msg, (uint32_t)timeout, (uint32_t)MessageQueueGet);
 
     if (ret_val == TERR_WAIT)
-      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+      return (osError_t)ThreadGetRunning()->wait_info.ret_val;
 
     return ret_val;
   }

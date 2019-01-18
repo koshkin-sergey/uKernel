@@ -59,9 +59,9 @@
  ******************************************************************************/
 
 static
-osTime_t CyclicNextTime(TN_CYCLIC *cyc)
+uint32_t CyclicNextTime(osCyclic_t *cyc)
 {
-  osTime_t time, jiffies;
+  uint32_t time, jiffies;
   uint32_t n;
 
   time = cyc->timer.time + cyc->time;
@@ -79,7 +79,7 @@ osTime_t CyclicNextTime(TN_CYCLIC *cyc)
 }
 
 static
-void AlarmHandler(TN_ALARM *alarm)
+void AlarmHandler(osAlarm_t *alarm)
 {
   if (alarm == NULL)
     return;
@@ -89,13 +89,13 @@ void AlarmHandler(TN_ALARM *alarm)
 }
 
 static
-void CyclicHandler(TN_CYCLIC *cyc)
+void CyclicHandler(osCyclic_t *cyc)
 {
   TimerInsert(&cyc->timer, CyclicNextTime(cyc), (CBACK)CyclicHandler, cyc);
   cyc->handler(cyc->exinf);
 }
 
-void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg)
+void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg)
 {
   queue_t *que;
   timer_t *timer;
@@ -124,13 +124,13 @@ void TimerDelete(timer_t *event)
 }
 
 /**
- * @fn          void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+ * @fn          void AlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
  * @param[out]  alarm
  * @param[in]   handler
  * @param[in]   exinf
  */
 static
-void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+void AlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
 {
   alarm->exinf    = exinf;
   alarm->handler  = handler;
@@ -139,11 +139,11 @@ void AlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 }
 
 /**
- * @fn          void AlarmDelete(TN_ALARM *alarm)
+ * @fn          void AlarmDelete(osAlarm_t *alarm)
  * @param[out]  alarm
  */
 static
-void AlarmDelete(TN_ALARM *alarm)
+void AlarmDelete(osAlarm_t *alarm)
 {
   if (alarm->state == TIMER_START) {
     TimerDelete(&alarm->timer);
@@ -155,12 +155,12 @@ void AlarmDelete(TN_ALARM *alarm)
 }
 
 /**
- * @fn          void AlarmStart(TN_ALARM *alarm, osTime_t time)
+ * @fn          void AlarmStart(osAlarm_t *alarm, uint32_t time)
  * @param[out]  alarm
  * @param[in]   time
  */
 static
-void AlarmStart(TN_ALARM *alarm, osTime_t timeout)
+void AlarmStart(osAlarm_t *alarm, uint32_t timeout)
 {
   if (alarm->state == TIMER_START)
     TimerDelete(&alarm->timer);
@@ -170,11 +170,11 @@ void AlarmStart(TN_ALARM *alarm, osTime_t timeout)
 }
 
 /**
- * @fn          void AlarmStop(TN_ALARM *alarm)
+ * @fn          void AlarmStop(osAlarm_t *alarm)
  * @param[out]  alarm
  */
 static
-void AlarmStop(TN_ALARM *alarm)
+void AlarmStop(osAlarm_t *alarm)
 {
   if (alarm->state == TIMER_START) {
     TimerDelete(&alarm->timer);
@@ -183,14 +183,14 @@ void AlarmStop(TN_ALARM *alarm)
 }
 
 /**
- * @fn          void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+ * @fn          void CyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
  * @param[out]  cyc
  * @param[in]   handler
  * @param[in]   param
  * @param[in]   exinf
  */
 static
-void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+void CyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
 {
   cyc->exinf    = exinf;
   cyc->attr     = param->cyc_attr;
@@ -198,7 +198,7 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
   cyc->time     = param->cyc_time;
   cyc->id       = ID_CYCLIC;
 
-  osTime_t time = knlInfo.jiffies + param->cyc_phs;
+  uint32_t time = knlInfo.jiffies + param->cyc_phs;
 
   if (cyc->attr & CYCLIC_ATTR_START) {
     cyc->state = TIMER_START;
@@ -211,11 +211,11 @@ void CyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, vo
 }
 
 /**
- * @fn          void CyclicDelete(TN_CYCLIC *cyc)
+ * @fn          void CyclicDelete(osCyclic_t *cyc)
  * @param[out]  cyc
  */
 static
-void CyclicDelete(TN_CYCLIC *cyc)
+void CyclicDelete(osCyclic_t *cyc)
 {
   if (cyc->state == TIMER_START) {
     TimerDelete(&cyc->timer);
@@ -227,17 +227,17 @@ void CyclicDelete(TN_CYCLIC *cyc)
 }
 
 /**
- * @fn          void CyclicStart(TN_CYCLIC *cyc)
+ * @fn          void CyclicStart(osCyclic_t *cyc)
  * @param[out]  cyc
  */
 static
-void CyclicStart(TN_CYCLIC *cyc)
+void CyclicStart(osCyclic_t *cyc)
 {
-  osTime_t jiffies = knlInfo.jiffies;
+  uint32_t jiffies = knlInfo.jiffies;
 
   if (cyc->attr & CYCLIC_ATTR_PHS) {
     if (cyc->state == TIMER_STOP) {
-      osTime_t time = cyc->timer.time;
+      uint32_t time = cyc->timer.time;
 
       if (time_before_eq(time, jiffies))
         time = CyclicNextTime(cyc);
@@ -256,11 +256,11 @@ void CyclicStart(TN_CYCLIC *cyc)
 }
 
 /**
- * @fn          void CyclicStop(TN_CYCLIC *cyc)
+ * @fn          void CyclicStop(osCyclic_t *cyc)
  * @param[out]  cyc
  */
 static
-void CyclicStop(TN_CYCLIC *cyc)
+void CyclicStop(osCyclic_t *cyc)
 {
   if (cyc->state == TIMER_START) {
     TimerDelete(&cyc->timer);
@@ -273,7 +273,7 @@ void CyclicStop(TN_CYCLIC *cyc)
  ******************************************************************************/
 
 /**
- * @fn          osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+ * @fn          osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
  * @param[out]  alarm
  * @param[in]   handler
  * @param[in]   exinf
@@ -281,7 +281,7 @@ void CyclicStop(TN_CYCLIC *cyc)
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
+osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -296,14 +296,14 @@ osError_t osAlarmCreate(TN_ALARM *alarm, CBACK handler, void *exinf)
 }
 
 /**
- * @fn          osError_t osAlarmDelete(TN_ALARM *alarm)
+ * @fn          osError_t osAlarmDelete(osAlarm_t *alarm)
  * @param[out]  alarm
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osAlarmDelete(TN_ALARM *alarm)
+osError_t osAlarmDelete(osAlarm_t *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -318,7 +318,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
 }
 
 /**
- * @fn          osError_t osAlarmStart(TN_ALARM *alarm, osTime_t time)
+ * @fn          osError_t osAlarmStart(osAlarm_t *alarm, uint32_t time)
  * @param[out]  alarm
  * @param[in]   time
  * @return      TERR_NO_ERR       Normal completion
@@ -326,7 +326,7 @@ osError_t osAlarmDelete(TN_ALARM *alarm)
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
+osError_t osAlarmStart(osAlarm_t *alarm, uint32_t timeout)
 {
   if (alarm == NULL || timeout == 0)
     return TERR_WRONG_PARAM;
@@ -341,14 +341,14 @@ osError_t osAlarmStart(TN_ALARM *alarm, osTime_t timeout)
 }
 
 /**
- * @fn          osError_t osAlarmStop(TN_ALARM *alarm)
+ * @fn          osError_t osAlarmStop(osAlarm_t *alarm)
  * @param[out]  alarm
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osAlarmStop(TN_ALARM *alarm)
+osError_t osAlarmStop(osAlarm_t *alarm)
 {
   if (alarm == NULL)
     return TERR_WRONG_PARAM;
@@ -363,7 +363,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
 }
 
 /**
- * @fn          osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+ * @fn          osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
  * @param[out]  cyc
  * @param[in]   handler
  * @param[in]   param
@@ -372,7 +372,7 @@ osError_t osAlarmStop(TN_ALARM *alarm)
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
 {
   if (cyc == NULL || handler == NULL || param->cyc_time == 0)
     return TERR_WRONG_PARAM;
@@ -387,14 +387,14 @@ osError_t osCyclicCreate(TN_CYCLIC *cyc, CBACK handler, const cyclic_param_t *pa
 }
 
 /**
- * @fn          osError_t osCyclicDelete(TN_CYCLIC *cyc)
+ * @fn          osError_t osCyclicDelete(osCyclic_t *cyc)
  * @param[out]  cyc
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osCyclicDelete(TN_CYCLIC *cyc)
+osError_t osCyclicDelete(osCyclic_t *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
@@ -409,14 +409,14 @@ osError_t osCyclicDelete(TN_CYCLIC *cyc)
 }
 
 /**
- * @fn          osError_t osCyclicStart(TN_CYCLIC *cyc)
+ * @fn          osError_t osCyclicStart(osCyclic_t *cyc)
  * @param[out]  cyc
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osCyclicStart(TN_CYCLIC *cyc)
+osError_t osCyclicStart(osCyclic_t *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;
@@ -431,14 +431,14 @@ osError_t osCyclicStart(TN_CYCLIC *cyc)
 }
 
 /**
- * @fn          osError_t osCyclicStop(TN_CYCLIC *cyc)
+ * @fn          osError_t osCyclicStop(osCyclic_t *cyc)
  * @param[out]  cyc
  * @return      TERR_NO_ERR       Normal completion
  *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
  *              TERR_NOEXS        Object is not a task or non-existent
  *              TERR_ISR          The function cannot be called from interrupt service routines
  */
-osError_t osCyclicStop(TN_CYCLIC *cyc)
+osError_t osCyclicStop(osCyclic_t *cyc)
 {
   if (cyc == NULL)
     return TERR_WRONG_PARAM;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -55,11 +55,11 @@ knlInfo_t knlInfo;
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
 
-static osTask_t idle_task;
-static uint64_t idle_task_stack[IDLE_STACK_SIZE] __attribute__((section(".bss.os.thread.stack")));
+static osThread_t idle_task;
+static uint64_t idle_task_stack[IDLE_STACK_SIZE/8U] __attribute__((section(".bss.os.thread.stack")));
 
-static osTask_t timer_task;
-static uint64_t timer_task_stack[TIMER_STACK_SIZE] __attribute__((section(".bss.os.thread.stack")));
+static osThread_t timer_task;
+static uint64_t timer_task_stack[TIMER_STACK_SIZE/8U] __attribute__((section(".bss.os.thread.stack")));
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -124,45 +124,40 @@ static void TimerTaskFunc(void *par)
       (*timer->callback)(timer->arg);
     }
 
-    osTaskSleep(TIME_WAIT_INFINITE);
+    osDelay(osWaitForever);
   }
 }
 
-/**
- * @brief Create system idle task.
- *
- * Idle task priority (TN_NUM_PRIORITY-1) - lowest.
- */
-static
-void IdleTaskCreate(void)
+static void IdleTaskCreate(void)
 {
-  task_create_attr_t attr;
+  osThreadAttr_t attr = {
+      .name = NULL,
+      .attr_bits = 0U,
+      .cb_mem = &idle_task,
+      .cb_size = sizeof(idle_task),
+      .stack_mem = &idle_task_stack[0],
+      .stack_size = sizeof(idle_task_stack),
+      .priority = osPriorityIdle,
+  };
 
-  attr.func_addr = (void *)osIdleTaskFunc;
-  attr.func_param = NULL;
-  attr.stk_size = sizeof(idle_task_stack)/sizeof(*idle_task_stack);
-  attr.stk_start = (uint32_t *)&idle_task_stack[attr.stk_size-1];
-  attr.priority = IDLE_TASK_PRIORITY;
-  attr.option = osTaskStartOnCreating;
-
-  TaskCreate(&idle_task, &attr);
+  ThreadNew((uint32_t)osIdleTaskFunc, NULL, &attr);
 }
 
-static
-void TimerTaskCreate(void *par)
+static void TimerTaskCreate(void *par)
 {
-  task_create_attr_t attr;
+  osThreadAttr_t attr = {
+      .name = NULL,
+      .attr_bits = 0U,
+      .cb_mem = &timer_task,
+      .cb_size = sizeof(timer_task),
+      .stack_mem = &timer_task_stack[0],
+      .stack_size = sizeof(timer_task_stack),
+      .priority = osPriorityISR,
+  };
 
   QueueReset(&knlInfo.timer_queue);
 
-  attr.func_addr = (void *)TimerTaskFunc;
-  attr.func_param = par;
-  attr.stk_size = sizeof(timer_task_stack)/sizeof(*timer_task_stack);
-  attr.stk_start = (uint32_t *)&timer_task_stack[attr.stk_size-1];
-  attr.priority = TIMER_TASK_PRIORITY;
-  attr.option = osTaskStartOnCreating;
-
-  TaskCreate(&timer_task, &attr);
+  ThreadNew((uint32_t)TimerTaskFunc, par, &attr);
 }
 
 void osTimerHandle(void)
@@ -171,13 +166,12 @@ void osTimerHandle(void)
 
   knlInfo.jiffies += knlInfo.os_period;
   if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
-    TaskGetCurrent()->time += knlInfo.os_period;
 
 #if defined(ROUND_ROBIN_ENABLE)
     volatile queue_t *curr_que;   //-- Need volatile here only to solve
     volatile queue_t *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
     volatile int        priority;
-    osTask_t *task = TaskGetCurrent();
+    osThread_t *task = ThreadGetRunning();
     uint16_t *tslice_ticks = knlInfo.tslice_ticks;
 
     //-------  Round -robin (if is used)
@@ -201,7 +195,7 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    TaskWaitComplete(&timer_task, TERR_NO_ERR);
+    _ThreadWaitExit(&timer_task, TERR_NO_ERR);
   }
 
   END_CRITICAL_SECTION
@@ -276,7 +270,7 @@ int tn_sys_tslice_ticks(int priority, int value)
 
 #endif  // ROUND_ROBIN_ENABLE
 
-osTime_t osGetTickCount(void)
+uint32_t osGetTickCount(void)
 {
   return knlInfo.jiffies;
 }

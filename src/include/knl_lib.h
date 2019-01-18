@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -31,38 +31,54 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define BITS_IN_INT                 (32UL)
-#define NUM_PRIORITY                BITS_IN_INT       // 0..31
-#define TIMER_TASK_PRIORITY         (NUM_PRIORITY-1)  // Priority 31 always is used by timers task
-#define IDLE_TASK_PRIORITY          (0UL)             // Priority 0 always is used by idle task
+/* Object Identifier definitions */
+#define ID_INVALID                  0x00
+#define ID_THREAD                   0x47
+#define ID_SEMAPHORE                0x6F
+#define ID_EVENT_FLAGS              0x5E
+#define ID_DATAQUEUE                0x0C
+#define ID_FSMEMORYPOOL             0x26
+#define ID_MUTEX                    0x17
+#define ID_ALARM                    0x7A
+#define ID_CYCLIC                   0x2B
+#define ID_MESSAGE_QUEUE            0x1C
+
+/* Thread State definitions */
+#define ThreadStateInactive         ((uint8_t)osThreadInactive)
+#define ThreadStateReady            ((uint8_t)osThreadReady)
+#define ThreadStateRunning          ((uint8_t)osThreadRunning)
+#define ThreadStateBlocked          ((uint8_t)osThreadBlocked)
+#define ThreadStateTerminated       ((uint8_t)osThreadTerminated)
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define GetTaskByQueue(que)         container_of(que, osTask_t, task_que)
+#define GetTaskByQueue(que)         container_of(que, osThread_t, task_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
 #define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
+
+#define NUM_PRIORITY                (32U)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
 typedef enum {
-  KERNEL_STATE_NOT_RUN = 0,
-  KERNEL_STATE_RUNNING = 1,
-  kernel_state_reserved = 0x7fffffff
+  KERNEL_STATE_NOT_RUN = 0,         //!< KERNEL_STATE_NOT_RUN
+  KERNEL_STATE_RUNNING = 1,         //!< KERNEL_STATE_RUNNING
+  kernel_state_reserved = 0x7fffffff//!< kernel_state_reserved
 } kernel_state_t;
 
 typedef struct {
-  osTask_t *curr;                     // Task that is running now
-  osTask_t *next;                     // Task to be run after switch context
+  osThread_t *curr;                     // Task that is running now
+  osThread_t *next;                     // Task to be run after switch context
 } knlRun_t;
 
 typedef struct {
   knlRun_t run;
   uint32_t HZ;                            ///< Frequency system timer
   uint32_t os_period;
-  volatile osTime_t jiffies;
+  volatile uint32_t jiffies;
   uint32_t max_syscall_interrupt_priority;
   kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
@@ -72,15 +88,6 @@ typedef struct {
   uint16_t tslice_ticks[NUM_PRIORITY];    ///< For round-robin only
 #endif
 } knlInfo_t;
-
-typedef struct {
-  uint32_t *stk_start;
-  uint32_t stk_size;
-  const void *func_addr;
-  const void *func_param;
-  uint32_t priority;
-  int32_t option;
-} task_create_attr_t;
 
 /*******************************************************************************
  *  exported variables
@@ -93,15 +100,38 @@ extern knlInfo_t knlInfo;
  ******************************************************************************/
 
 /* Thread */
-void TaskWaitEnter(osTask_t *task, queue_t *wait_que, wait_reason_t wait_reason, osTime_t timeout);
-void TaskWaitComplete(osTask_t *task, uint32_t ret_val);
-void TaskChangeRunningPriority(osTask_t *task, uint32_t new_priority);
-void TaskWaitDelete(queue_t *que);
+osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t *attr);
 
-void TaskCreate(osTask_t *task, const task_create_attr_t *attr);
+/**
+ * @brief       Exit Thread wait state.
+ * @param[out]  thread    thread object.
+ * @param[in]   ret_val   return value.
+ */
+void _ThreadWaitExit(osThread_t *thread, uint32_t ret_val);
+
+/**
+ * @brief
+ * @param task
+ * @param wait_que
+ * @param timeout
+ */
+void _ThreadWaitEnter(osThread_t *task, queue_t *wait_que, uint32_t timeout);
+
+/**
+ * @brief
+ * @param wait_que
+ */
+void _ThreadWaitDelete(queue_t *que);
+
+/**
+ * @brief       Change priority of a thread.
+ * @param[in]   thread    thread object.
+ * @param[in]   priority  new priority value for the thread.
+ */
+void _ThreadSetPriority(osThread_t *thread, int8_t priority);
 
 __STATIC_INLINE
-osTask_t* TaskGetCurrent(void)
+osThread_t *ThreadGetRunning(void)
 {
   return knlInfo.run.curr;
 }
@@ -151,14 +181,14 @@ queue_t* QueueRemoveTail(queue_t *que);
 
 /* Timer */
 /**
- * @fn          void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
+ * @fn          void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
  * @brief
  * @param event
  * @param time
  * @param callback
  * @param arg
  */
-void TimerInsert(timer_t *event, osTime_t time, CBACK callback, void *arg);
+void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
 
 /**
  * @fn          void TimerDelete(timer_t *event)

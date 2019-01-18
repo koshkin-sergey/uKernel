@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -90,7 +90,7 @@ osError_t SemaphoreDelete(osSemaphore_t *sem)
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
 
-  TaskWaitDelete(&sem->wait_queue);
+  _ThreadWaitDelete(&sem->wait_queue);
   sem->id = ID_INVALID;
 
   return TERR_NO_ERR;
@@ -113,7 +113,7 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
   BEGIN_CRITICAL_SECTION
 
   if (!isQueueEmpty(&sem->wait_queue)) {
-    TaskWaitComplete(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)TERR_NO_ERR);
+    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)TERR_NO_ERR);
     END_CRITICAL_SECTION
     return TERR_NO_ERR;
   }
@@ -129,7 +129,7 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
 }
 
 /**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+ * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
  * @param[out]  sem       Pointer to the semaphore structure to be acquired
  * @param[in]   timeout   Timeout value must be equal or greater than 0
@@ -138,7 +138,7 @@ osError_t SemaphoreRelease(osSemaphore_t *sem)
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  */
 static
-osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+osError_t SemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
 {
   if (sem->id != ID_SEMAPHORE)
     return TERR_NOEXS;
@@ -156,7 +156,7 @@ osError_t SemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
     return TERR_TIMEOUT;
   }
 
-  TaskWaitEnter(TaskGetCurrent(), &sem->wait_queue, WAIT_REASON_SEM, timeout);
+  _ThreadWaitEnter(ThreadGetRunning(), &sem->wait_queue, timeout);
 
   END_CRITICAL_SECTION
   return TERR_WAIT;
@@ -239,7 +239,7 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem)
 }
 
 /**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+ * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
  * @param[out]  sem       Pointer to the semaphore structure to be acquired
  * @param[in]   timeout   Timeout value must be equal or greater than 0
@@ -248,7 +248,7 @@ osError_t osSemaphoreRelease(osSemaphore_t *sem)
  *              TERR_TIMEOUT      Timeout expired
  *              TERR_NOEXS        Object is not a semaphore or non-existent
  */
-osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
+osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
 {
   if (sem == NULL)
     return  TERR_WRONG_PARAM;
@@ -263,7 +263,7 @@ osError_t osSemaphoreAcquire(osSemaphore_t *sem, osTime_t timeout)
     osError_t ret_val = (osError_t)svc_2((uint32_t)sem, (uint32_t)timeout, (uint32_t)SemaphoreAcquire);
 
     if (ret_val == TERR_WAIT)
-      return (osError_t)TaskGetCurrent()->wait_info.ret_val;
+      return (osError_t)ThreadGetRunning()->wait_info.ret_val;
 
     return ret_val;
   }

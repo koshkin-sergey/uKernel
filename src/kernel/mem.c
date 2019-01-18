@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -197,7 +197,7 @@ osError_t tn_fmem_delete(TN_FMP *fmp)
 
   BEGIN_CRITICAL_SECTION
 
-  TaskWaitDelete(&fmp->wait_queue);
+  _ThreadWaitDelete(&fmp->wait_queue);
 
   fmp->id = ID_INVALID;   //-- Fixed-size memory pool not exists now
 
@@ -211,7 +211,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 {
   osError_t rc = TERR_NO_ERR;
   void * ptr;
-  osTask_t *task;
+  osThread_t *task;
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
@@ -227,8 +227,8 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
     if (timeout == 0U)
       rc = TERR_TIMEOUT;
     else {
-      task = TaskGetCurrent();
-      TaskWaitEnter(task, &fmp->wait_queue, WAIT_REASON_WFIXMEM, timeout);
+      task = ThreadGetRunning();
+      _ThreadWaitEnter(task, &fmp->wait_queue, timeout);
 
       END_CRITICAL_SECTION
 
@@ -246,7 +246,7 @@ osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
 osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
 {
   queue_t * que;
-  osTask_t * task;
+  osThread_t * task;
 
   if (fmp == NULL || p_data == NULL)
     return  TERR_WRONG_PARAM;
@@ -259,7 +259,7 @@ osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
     que = QueueRemoveHead(&fmp->wait_queue);
     task = GetTaskByQueue(que);
     task->wait_info.fmem.data_elem = p_data;
-    TaskWaitComplete(task, (uint32_t)TERR_NO_ERR);
+    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
   }
   else
     fm_put(fmp,p_data);
