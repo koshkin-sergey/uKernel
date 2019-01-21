@@ -103,8 +103,15 @@ static osEventFlagsId_t EventFlagsNew(const osEventFlagsAttr_t *attr)
 {
   osEventFlags_t *evf;
 
-  if (attr == NULL)
+  if ((attr == NULL)                        ||
+      (attr->cb_mem == NULL)                ||
+      (((uint32_t)attr->cb_mem & 3U) != 0U) ||
+      (attr->cb_size < sizeof(osEventFlags_t)))
+  {
     return (NULL);
+  }
+
+  evf = attr->cb_mem;
 
   /* Initialize control block */
   evf->id = ID_EVENT_FLAGS;
