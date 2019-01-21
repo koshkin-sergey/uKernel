@@ -99,18 +99,22 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
   return pattern;
 }
 
-static
-osError_t EventFlagsNew(osEventFlags_t *evf)
+static osEventFlagsId_t EventFlagsNew(const osEventFlagsAttr_t *attr)
 {
-  if (evf->id == ID_EVENT_FLAGS)
-    return TERR_NO_ERR;
+  osEventFlags_t *evf;
+
+  if (attr == NULL)
+    return (NULL);
+
+  /* Initialize control block */
+  evf->id = ID_EVENT_FLAGS;
+  evf->flags = 0U;
+  evf->name = attr->name;
+  evf->pattern = 0U;
 
   QueueReset(&evf->wait_queue);
 
-  evf->pattern = 0U;
-  evf->id = ID_EVENT_FLAGS;
-
-  return TERR_NO_ERR;
+  return (evf);
 }
 
 static
@@ -218,21 +222,23 @@ uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
  ******************************************************************************/
 
 /**
- * @fn          osError_t osEventFlagsNew(osEventFlags_t *evf)
- * @brief       Creates a new event flags object
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @return      TERR_NO_ERR       The event flags object has been created
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr)
+ * @brief       Create and Initialize an Event Flags object.
+ * @param[in]   attr  event flags attributes.
+ * @return      event flags ID for reference by other functions or NULL in case of error.
  */
-osError_t osEventFlagsNew(osEventFlags_t *evf)
+osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr)
 {
-  if (evf == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osEventFlagsId_t ef_id;
 
-  return (osError_t)svc_1((uint32_t)evf, (uint32_t)EventFlagsNew);
+  if (IsIrqMode() || IsIrqMasked()) {
+    ef_id = NULL;
+  }
+  else {
+    ef_id = (osEventFlagsId_t)svc_1((uint32_t)attr, (uint32_t)EventFlagsNew);
+  }
+
+  return ef_id;
 }
 
 /**

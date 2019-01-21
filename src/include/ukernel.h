@@ -258,6 +258,9 @@ typedef struct winfo_s {
 /// @details Thread ID identifies the thread.
 typedef void *osThreadId_t;
 
+/// @details Event Flags ID identifies the event flags.
+typedef void *osEventFlagsId_t;
+
 /// Entry point of a thread.
 typedef void (*osThreadFunc_t) (void *argument);
 
@@ -294,8 +297,9 @@ typedef struct osEventFlags_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
   uint8_t                       flags;  ///< Object Flags
-  uint8_t                        attr;  ///< Object Attributes
-  queue_t                  wait_queue;
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t                  wait_queue;  ///< Waiting Threads queue
   uint32_t                    pattern;  ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
 
@@ -409,6 +413,14 @@ typedef struct {
   TZ_ModuleId_t            tz_module;   ///< TrustZone module identifier
   uint32_t                  reserved;   ///< reserved (must be 0)
 } osThreadAttr_t;
+
+/// Attributes structure for event flags.
+typedef struct {
+  const char                   *name;   ///< name of the event flags
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                      *cb_mem;    ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+} osEventFlagsAttr_t;
 
 /*******************************************************************************
  *  exported variables
@@ -760,14 +772,12 @@ osError_t osMessageQueueReset(osMessageQueue_t *mq);
  ******************************************************************************/
 
 /**
- * @fn          osError_t osEventFlagsNew(osEventFlags_t *evf)
- * @brief       Creates a new event flags object
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @return      TERR_NO_ERR       The event flags object has been created
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr)
+ * @brief       Create and Initialize an Event Flags object.
+ * @param[in]   attr  event flags attributes.
+ * @return      event flags ID for reference by other functions or NULL in case of error.
  */
-osError_t osEventFlagsNew(osEventFlags_t *evf);
+osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr);
 
 /**
  * @fn          osError_t osEventFlagsDelete(osEventFlags_t *evf)
