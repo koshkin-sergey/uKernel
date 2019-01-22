@@ -79,14 +79,6 @@ void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
   thread->stk = (uint32_t)stk;
 }
 
-static
-void ThreadSwitch(osThread_t *thread)
-{
-  thread->state = ThreadStateRunning;
-  knlInfo.run.next = thread;
-  archSwitchContextRequest();
-}
-
 static osThread_t *ThreadHighestPrioGet(void)
 {
   uint8_t priority;
@@ -98,9 +90,11 @@ static osThread_t *ThreadHighestPrioGet(void)
   return (thread);
 }
 
-static void ThreadBlock(osThread_t *thread)
+static void ThreadSwitch(osThread_t *thread)
 {
-  thread->state = ThreadStateReady;
+  thread->state = ThreadStateRunning;
+  knlInfo.run.next = thread;
+  archSwitchContextRequest();
 }
 
 /**
@@ -118,7 +112,7 @@ static void ThreadDispatch(osThread_t *thread)
   thread_running = ThreadGetRunning();
 
   if (thread->priority > thread_running->priority) {
-    ThreadBlock(thread_running);
+    thread_running->state = ThreadStateReady;
     ThreadSwitch(thread);
   }
 }

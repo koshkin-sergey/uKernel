@@ -38,6 +38,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+#define osEventFlagsLimit     31U    ///< number of Event Flags available per object
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -63,8 +65,8 @@ uint32_t FlagsSet(osEventFlags_t *evf, uint32_t flags)
 {
   uint32_t event_flags;
 
-  evf->pattern |= flags;
-  event_flags = evf->pattern;
+  evf->event_flags |= flags;
+  event_flags = evf->event_flags;
 
   return event_flags;
 }
@@ -75,7 +77,7 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
   uint32_t pattern;
 
   if ((options & osFlagsNoClear) == 0U) {
-    pattern = evf->pattern;
+    pattern = evf->event_flags;
 
     if ((((options & osFlagsWaitAll) != 0U) && ((pattern & flags) != flags)) ||
         (((options & osFlagsWaitAll) == 0U) && ((pattern & flags) == 0U)))
@@ -83,11 +85,11 @@ uint32_t FlagsCheck (osEventFlags_t *evf, uint32_t flags, uint32_t options)
       pattern = 0U;
     }
     else {
-      evf->pattern &= ~flags;
+      evf->event_flags &= ~flags;
     }
   }
   else {
-    pattern = evf->pattern;
+    pattern = evf->event_flags;
 
     if ((((options & osFlagsWaitAll) != 0U) && ((pattern & flags) != flags)) ||
         (((options & osFlagsWaitAll) == 0U) && ((pattern & flags) == 0U)))
@@ -117,35 +119,38 @@ static osEventFlagsId_t EventFlagsNew(const osEventFlagsAttr_t *attr)
   evf->id = ID_EVENT_FLAGS;
   evf->flags = 0U;
   evf->name = attr->name;
-  evf->pattern = 0U;
+  evf->event_flags = 0U;
 
   QueueReset(&evf->wait_queue);
 
   return (evf);
 }
 
-static
-osError_t EventFlagsDelete(osEventFlags_t *evf)
+static const char *EventFlagsGetName(osEventFlagsId_t ef_id)
 {
-  if (evf->id != ID_EVENT_FLAGS)
-    return TERR_NOEXS;
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
 
-  _ThreadWaitDelete(&evf->wait_queue);
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
+    return NULL;
+  }
 
-  evf->id = ID_INVALID;
-
-  return TERR_NO_ERR;
+  return (evf->name);
 }
 
-static
-uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
 {
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
   uint32_t event_flags, pattern;
   queue_t *que;
   osThread_t *task;
 
-  if (evf->id != ID_EVENT_FLAGS)
-    return (uint32_t)TERR_NOEXS;
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
+      (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
+  {
+    return osErrorParameter;
+  }
 
   BEGIN_CRITICAL_SECTION
 
@@ -172,56 +177,94 @@ uint32_t EventFlagsSet(osEventFlags_t *evf, uint32_t flags)
 
   END_CRITICAL_SECTION
 
-  return event_flags;
+  return (event_flags);
 }
 
-static
-uint32_t EventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
+static uint32_t EventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags)
 {
-  uint32_t pattern;
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
+  uint32_t event_flags;
 
-  if (evf->id != ID_EVENT_FLAGS)
-    return (uint32_t)TERR_NOEXS;
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
+      (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
+  {
+    return osErrorParameter;
+  }
 
   BEGIN_CRITICAL_SECTION
 
-  pattern = FlagsCheck(evf, flags, options);
+  event_flags = evf->event_flags;
+  evf->event_flags &= ~flags;
 
-  if (pattern) {
-    END_CRITICAL_SECTION
-    return pattern;
+  END_CRITICAL_SECTION
+
+  return (event_flags);
+}
+
+static uint32_t EventFlagsGet(osEventFlagsId_t ef_id)
+{
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
+
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
+    return 0U;
   }
 
-  if (timeout) {
-    osThread_t *task = ThreadGetRunning();
-    task->wait_info.event.options = options;
-    task->wait_info.event.flags = flags;
-    _ThreadWaitEnter(task, &evf->wait_queue, timeout);
-    END_CRITICAL_SECTION
-    return (uint32_t)TERR_WAIT;
+  return (evf->event_flags);
+}
+
+static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout)
+{
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
+  uint32_t event_flags;
+
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
+      (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
+  {
+    return osErrorParameter;
+  }
+
+  BEGIN_CRITICAL_SECTION
+
+  event_flags = FlagsCheck(evf, flags, options);
+
+  if (event_flags == 0U) {
+    if (timeout != 0U) {
+      osThread_t *task = ThreadGetRunning();
+      task->wait_info.ret_val = (uint32_t)osErrorTimeout;
+      task->wait_info.event.options = options;
+      task->wait_info.event.flags = flags;
+      _ThreadWaitEnter(task, &evf->wait_queue, timeout);
+      event_flags = (uint32_t)osThreadWait;
+    }
+    else {
+      event_flags = (uint32_t)osErrorResource;
+    }
   }
 
   END_CRITICAL_SECTION
 
-  return (uint32_t)TERR_TIMEOUT;
+  return (event_flags);
 }
 
-static
-uint32_t EventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+static osStatus_t EventFlagsDelete(osEventFlagsId_t ef_id)
 {
-  uint32_t pattern;
+  osEventFlags_t *evf = (osEventFlags_t *)ef_id;
 
-  if (evf->id != ID_EVENT_FLAGS)
-    return (uint32_t)TERR_NOEXS;
+  /* Check parameters */
+  if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
+    return osErrorParameter;
+  }
 
-  BEGIN_CRITICAL_SECTION
+  /* Unblock waiting threads */
+  _ThreadWaitDelete(&evf->wait_queue);
 
-  pattern = evf->pattern;
-  evf->pattern &= ~flags;
+  /* Mark object as invalid */
+  evf->id = ID_INVALID;
 
-  END_CRITICAL_SECTION
-
-  return pattern;
+  return (osOK);
 }
 
 /*******************************************************************************
@@ -249,95 +292,136 @@ osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr)
 }
 
 /**
- * @fn          osError_t osEventFlagsDelete(osEventFlags_t *evf)
- * @brief       Deletes the event flags object
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @return      TERR_NO_ERR       The event flags object has been deleted
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          const char *osEventFlagsGetName(osEventFlagsId_t ef_id)
+ * @brief       Get name of an Event Flags object.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osEventFlagsDelete(osEventFlags_t *evf)
+const char *osEventFlagsGetName(osEventFlagsId_t ef_id)
 {
-  if (evf == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  const char *name;
 
-  return (osError_t)svc_1((uint32_t)evf, (uint32_t)EventFlagsDelete);
+  if (IsIrqMode() || IsIrqMasked()) {
+    name = NULL;
+  }
+  else {
+    name = (const char *)svc_1((uint32_t)ef_id, (uint32_t)EventFlagsGetName);
+  }
+
+  return (name);
 }
 
 /**
- * @fn          uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
- * @brief       Sets the event flags
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @param[in]   flags Specifies the flags that shall be set
- * @return      The event flags after setting or an error code if highest bit is set
- *              (refer to osError_t)
+ * @fn          uint32_t osEventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
+ * @brief       Set the specified Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags   specifies the flags that shall be set.
+ * @return      event flags after setting or error code if highest bit set.
  */
-uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
+uint32_t osEventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
 {
-  if (evf == NULL || flags == 0U)
-    return (uint32_t)TERR_WRONG_PARAM;
+  uint32_t event_flags;
 
   if (IsIrqMode() || IsIrqMasked()) {
-    return EventFlagsSet(evf, flags);
+    event_flags = EventFlagsSet(ef_id, flags);
   }
   else {
-    return svc_2((uint32_t)evf, flags, (uint32_t)EventFlagsSet);
+    event_flags = svc_2((uint32_t)ef_id, flags, (uint32_t)EventFlagsSet);
   }
+
+  return (event_flags);
 }
 
 /**
- * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
- * @brief       Suspends the execution of the currently RUNNING task until any
- *              or all event flags in the event object are set. When these event
- *              flags are already set, the function returns instantly.
- * @param[out]  evf       Pointer to osEventFlags_t structure of the event
- * @param[in]   flags     Specifies the flags to wait for
- * @param[in]   options   Specifies flags options (osFlagsXxxx)
- * @param[in]   timeout   Timeout Value or 0 in case of no time-out
- * @return      Event flags before clearing or error code if highest bit set
+ * @fn          uint32_t osEventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags)
+ * @brief       Clear the specified Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags   specifies the flags that shall be cleared.
+ * @return      event flags before clearing or error code if highest bit set.
  */
-uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
+uint32_t osEventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags)
 {
-  if (evf == NULL || flags == 0)
-    return (uint32_t)TERR_WRONG_PARAM;
+  uint32_t event_flags;
 
   if (IsIrqMode() || IsIrqMasked()) {
-    if (timeout != 0U)
-      return (uint32_t)TERR_WRONG_PARAM;
-
-    return EventFlagsWait(evf, flags, options, timeout);
+    event_flags = EventFlagsClear(ef_id, flags);
   }
   else {
-    uint32_t ret_val = svc_4((uint32_t)evf, flags, options, (uint32_t)timeout, (uint32_t)EventFlagsWait);
-
-    if (ret_val == (uint32_t)TERR_WAIT)
-      return ThreadGetRunning()->wait_info.ret_val;
-
-    return ret_val;
+    event_flags = svc_2((uint32_t)ef_id, flags, (uint32_t)EventFlagsClear);
   }
+
+  return (event_flags);
 }
 
 /**
- * @fn          uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
- * @brief       Clears the event flags in an event flags object
- * @param[out]  evf     Pointer to osEventFlags_t structure of the event
- * @param[in]   flags   Specifies the flags that shall be cleared
- * @return      Event flags before clearing or error code if highest bit set
+ * @fn          uint32_t osEventFlagsGet(osEventFlagsId_t ef_id)
+ * @brief       Get the current Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      current event flags or 0 in case of an error.
  */
-uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
+uint32_t osEventFlagsGet(osEventFlagsId_t ef_id)
 {
-  if (evf == NULL || flags == 0)
-    return (uint32_t)TERR_WRONG_PARAM;
+  uint32_t event_flags;
 
   if (IsIrqMode() || IsIrqMasked()) {
-    return EventFlagsClear(evf, flags);
+    event_flags = EventFlagsGet(ef_id);
   }
   else {
-    return svc_2((uint32_t)evf, flags, (uint32_t)EventFlagsClear);
+    event_flags = svc_1((uint32_t)ef_id, (uint32_t)EventFlagsGet);
   }
+
+  return (event_flags);
+}
+
+/**
+ * @fn          uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout)
+ * @brief       Wait for one or more Event Flags to become signaled.
+ * @param[in]   ef_id     event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags     specifies the flags to wait for.
+ * @param[in]   options   specifies flags options (osFlagsXxxx).
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      event flags before clearing or error code if highest bit set.
+ */
+uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout)
+{
+  uint32_t event_flags;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    if (timeout != 0U) {
+      event_flags = osErrorParameter;
+    }
+    else {
+      event_flags = EventFlagsWait(ef_id, flags, options, timeout);
+    }
+  }
+  else {
+    event_flags = svc_4((uint32_t)ef_id, flags, options, timeout, (uint32_t)EventFlagsWait);
+    if (event_flags == osThreadWait) {
+      event_flags = ThreadGetRunning()->wait_info.ret_val;
+    }
+  }
+
+  return (event_flags);
+}
+
+/**
+ * @fn          osStatus_t osEventFlagsDelete(osEventFlagsId_t ef_id)
+ * @brief       Delete an Event Flags object.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osEventFlagsDelete(osEventFlagsId_t ef_id)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)ef_id, (uint32_t)EventFlagsDelete);
+  }
+
+  return (status);
 }
 
 /* ----------------------------- End of file ---------------------------------*/

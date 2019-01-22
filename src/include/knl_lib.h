@@ -58,6 +58,7 @@
 #define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
 
 #define NUM_PRIORITY                (32U)
+#define osThreadWait                (-16)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)

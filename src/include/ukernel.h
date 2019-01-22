@@ -300,7 +300,7 @@ typedef struct osEventFlags_s {
   uint8_t                    reserved;
   const char                    *name;  ///< Object Name
   queue_t                  wait_queue;  ///< Waiting Threads queue
-  uint32_t                    pattern;  ///< Initial value of the eventflag bit pattern
+  uint32_t                event_flags;  ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
 
 /* - Fixed-sized blocks memory pool ------------------------------------------*/
@@ -780,47 +780,57 @@ osError_t osMessageQueueReset(osMessageQueue_t *mq);
 osEventFlagsId_t osEventFlagsNew(const osEventFlagsAttr_t *attr);
 
 /**
- * @fn          osError_t osEventFlagsDelete(osEventFlags_t *evf)
- * @brief       Deletes the event flags object
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @return      TERR_NO_ERR       The event flags object has been deleted
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          const char *osEventFlagsGetName(osEventFlagsId_t ef_id)
+ * @brief       Get name of an Event Flags object.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osEventFlagsDelete(osEventFlags_t *evf);
+const char *osEventFlagsGetName(osEventFlagsId_t ef_id);
 
 /**
- * @fn          uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags)
- * @brief       Sets the event flags
- * @param[out]  evf   Pointer to osEventFlags_t structure of the event
- * @param[in]   flags Specifies the flags that shall be set
- * @return      The event flags after setting or an error code if highest bit is set
- *              (refer to osError_t)
+ * @fn          uint32_t osEventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
+ * @brief       Set the specified Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags   specifies the flags that shall be set.
+ * @return      event flags after setting or error code if highest bit set.
  */
-uint32_t osEventFlagsSet(osEventFlags_t *evf, uint32_t flags);
+uint32_t osEventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags);
 
 /**
- * @fn          uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout)
- * @brief       Suspends the execution of the currently RUNNING task until any
- *              or all event flags in the event object are set. When these event
- *              flags are already set, the function returns instantly.
- * @param[out]  evf       Pointer to osEventFlags_t structure of the event
- * @param[in]   flags     Specifies the flags to wait for
- * @param[in]   options   Specifies flags options (osFlagsXxxx)
- * @param[in]   timeout   Timeout Value or 0 in case of no time-out
- * @return      Event flags before clearing or error code if highest bit set
+ * @fn          uint32_t osEventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags)
+ * @brief       Clear the specified Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags   specifies the flags that shall be cleared.
+ * @return      event flags before clearing or error code if highest bit set.
  */
-uint32_t osEventFlagsWait(osEventFlags_t *evf, uint32_t flags, uint32_t options, uint32_t timeout);
+uint32_t osEventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags);
 
 /**
- * @fn          uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags)
- * @brief       Clears the event flags in an event flags object
- * @param[out]  evf     Pointer to osEventFlags_t structure of the event
- * @param[in]   flags   Specifies the flags that shall be cleared
- * @return      Event flags before clearing or error code if highest bit set
+ * @fn          uint32_t osEventFlagsGet(osEventFlagsId_t ef_id)
+ * @brief       Get the current Event Flags.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      current event flags or 0 in case of an error.
  */
-uint32_t osEventFlagsClear(osEventFlags_t *evf, uint32_t flags);
+uint32_t osEventFlagsGet(osEventFlagsId_t ef_id);
+
+/**
+ * @fn          uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout)
+ * @brief       Wait for one or more Event Flags to become signaled.
+ * @param[in]   ef_id     event flags ID obtained by \ref osEventFlagsNew.
+ * @param[in]   flags     specifies the flags to wait for.
+ * @param[in]   options   specifies flags options (osFlagsXxxx).
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      event flags before clearing or error code if highest bit set.
+ */
+uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout);
+
+/**
+ * @fn          osStatus_t osEventFlagsDelete(osEventFlagsId_t ef_id)
+ * @brief       Delete an Event Flags object.
+ * @param[in]   ef_id   event flags ID obtained by \ref osEventFlagsNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osEventFlagsDelete(osEventFlagsId_t ef_id);
 
 
 /* - tn_mem.c ----------------------------------------------------------------*/
