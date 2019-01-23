@@ -577,7 +577,7 @@ void _ThreadSetPriority(osThread_t *thread, int8_t priority)
 }
 
 /*******************************************************************************
- *  function implementations (scope: module-exported)
+ *  Public API
  ******************************************************************************/
 
 /**

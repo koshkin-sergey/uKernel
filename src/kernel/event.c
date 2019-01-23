@@ -105,6 +105,7 @@ static osEventFlagsId_t EventFlagsNew(const osEventFlagsAttr_t *attr)
 {
   osEventFlags_t *evf;
 
+  /* Check parameters */
   if ((attr == NULL)                        ||
       (attr->cb_mem == NULL)                ||
       (((uint32_t)attr->cb_mem & 3U) != 0U) ||
@@ -232,11 +233,11 @@ static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t 
 
   if (event_flags == 0U) {
     if (timeout != 0U) {
-      osThread_t *task = ThreadGetRunning();
-      task->wait_info.ret_val = (uint32_t)osErrorTimeout;
-      task->wait_info.event.options = options;
-      task->wait_info.event.flags = flags;
-      _ThreadWaitEnter(task, &evf->wait_queue, timeout);
+      osThread_t *thread = ThreadGetRunning();
+      thread->wait_info.ret_val = (uint32_t)osErrorTimeout;
+      thread->wait_info.event.options = options;
+      thread->wait_info.event.flags = flags;
+      _ThreadWaitEnter(thread, &evf->wait_queue, timeout);
       event_flags = (uint32_t)osThreadWait;
     }
     else {
@@ -268,7 +269,7 @@ static osStatus_t EventFlagsDelete(osEventFlagsId_t ef_id)
 }
 
 /*******************************************************************************
- *  function implementations (scope: module-exported)
+ *  Public API
  ******************************************************************************/
 
 /**
@@ -396,7 +397,7 @@ uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t optio
   }
   else {
     event_flags = svc_4((uint32_t)ef_id, flags, options, timeout, (uint32_t)EventFlagsWait);
-    if (event_flags == osThreadWait) {
+    if ((int32_t)event_flags == osThreadWait) {
       event_flags = ThreadGetRunning()->wait_info.ret_val;
     }
   }

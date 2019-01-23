@@ -245,11 +245,9 @@ typedef struct {
  */
 typedef struct winfo_s {
   union {
-    WINFO_RDQUE rdque;
-    WINFO_SDQUE sdque;
     WINFO_RMQUE rmque;
     WINFO_SMQUE smque;
-    WINFO_FMEM fmem;
+    WINFO_FMEM  fmem;
     WINFO_EVENT event;
   };
   uint32_t ret_val;
@@ -261,24 +259,27 @@ typedef void *osThreadId_t;
 /// @details Event Flags ID identifies the event flags.
 typedef void *osEventFlagsId_t;
 
+/// \details Semaphore ID identifies the semaphore.
+typedef void *osSemaphoreId_t;
+
 /// Entry point of a thread.
 typedef void (*osThreadFunc_t) (void *argument);
 
 /* - Task Control Block ------------------------------------------------------*/
 typedef struct osThread_s {
-  uint32_t        stk;            ///< Address of task's top of stack
-  queue_t         task_que;       ///< Queue is used to include task in ready/wait lists
-  queue_t         mutex_que;      ///< List of all mutexes that tack locked
-  void           *stk_mem;        ///< Base address of task's stack space
-  uint32_t        stk_size;       ///< Task's stack size (in bytes)
-  int8_t          base_priority;  ///< Task base priority
-  int8_t          priority;       ///< Task current priority
-  uint8_t         id;             ///< ID for verification(is it a task or another object?)
-  uint8_t         state;          ///< Task state
-  const char     *name;           ///< Object Name
-  wait_info       wait_info;      ///< Wait information
-  timer_t         wait_timer;     ///< Wait timer
-  int32_t         tslice_count;   ///< Time slice counter
+  uint32_t                        stk;  ///< Address of task's top of stack
+  queue_t                    task_que;  ///< Queue is used to include task in ready/wait lists
+  queue_t                   mutex_que;  ///< List of all mutexes that tack locked
+  void                       *stk_mem;  ///< Base address of task's stack space
+  uint32_t                   stk_size;  ///< Task's stack size (in bytes)
+  int8_t                base_priority;  ///< Task base priority
+  int8_t                     priority;  ///< Task current priority
+  uint8_t                          id;  ///< ID for verification(is it a task or another object?)
+  uint8_t                       state;  ///< Task state
+  const char                    *name;  ///< Object Name
+  wait_info                 wait_info;  ///< Wait information
+  timer_t                  wait_timer;  ///< Wait timer
+  int32_t                tslice_count;  ///< Time slice counter
 } osThread_t;
 
 /* - Semaphore ---------------------------------------------------------------*/
@@ -286,10 +287,11 @@ typedef struct osSemaphore_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
   uint8_t                       flags;  ///< Object Flags
-  uint8_t                        attr;  ///< Object Attributes
-  queue_t                  wait_queue;
-  uint32_t                      count;
-  uint32_t                  max_count;
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t                  wait_queue;  ///< Waiting Threads queue
+  uint16_t                      count;  ///< Current number of tokens
+  uint16_t                  max_count;  ///< Maximum number of tokens
 } osSemaphore_t;
 
 /* - Event Flags -------------------------------------------------------------*/
@@ -421,6 +423,14 @@ typedef struct {
   void                      *cb_mem;    ///< memory for control block
   uint32_t                   cb_size;   ///< size of provided memory for control block
 } osEventFlagsAttr_t;
+
+/// Attributes structure for semaphore.
+typedef struct {
+  const char                   *name;   ///< name of the semaphore
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                      *cb_mem;    ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+} osSemaphoreAttr_t;
 
 /*******************************************************************************
  *  exported variables
@@ -613,58 +623,55 @@ osStatus_t osDelayUntil(uint32_t ticks);
  ******************************************************************************/
 
 /**
- * @fn          osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
- * @brief       Creates a semaphore
- * @param[out]  sem             Pointer to the semaphore structure to be created
- * @param[in]   initial_count   Initial number of available tokens
- * @param[in]   max_count       Maximum number of available tokens
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osSemaphoreId_t osSemaphoreNew(uint32_t max_count, uint32_t initial_count, const osSemaphoreAttr_t *attr)
+ * @brief       Create and Initialize a Semaphore object.
+ * @param[in]   max_count       maximum number of available tokens.
+ * @param[in]   initial_count   initial number of available tokens.
+ * @param[in]   attr            semaphore attributes.
+ * @return      semaphore ID for reference by other functions or NULL in case of error.
  */
-osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count);
+osSemaphoreId_t osSemaphoreNew(uint32_t max_count, uint32_t initial_count, const osSemaphoreAttr_t *attr);
 
 /**
- * @fn          osError_t osSemaphoreDelete(osSemaphore_t *sem)
- * @brief       Deletes a semaphore
- * @param[out]  sem   Pointer to the semaphore structure to be deleted
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          const char *osSemaphoreGetName(osSemaphoreId_t semaphore_id)
+ * @brief       Get name of a Semaphore object.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osSemaphoreDelete(osSemaphore_t *sem);
+const char *osSemaphoreGetName(osSemaphoreId_t semaphore_id);
 
 /**
- * @fn          osError_t osSemaphoreRelease(osSemaphore_t *sem)
- * @brief       Release a Semaphore token up to the initial maximum count.
- * @param[out]  sem   Pointer to the semaphore structure to be released
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_OVERFLOW     Semaphore Resource has max_count value
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- */
-osError_t osSemaphoreRelease(osSemaphore_t *sem);
-
-/**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
+ * @fn          osStatus_t osSemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
- * @param[out]  sem       Pointer to the semaphore structure to be acquired
- * @param[in]   timeout   Timeout value must be equal or greater than 0
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_TIMEOUT      Timeout expired
- *              TERR_NOEXS        Object is not a semaphore or non-existent
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @param[in]   timeout       \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout);
+osStatus_t osSemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout);
 
 /**
- * @fn          uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
- * @brief       Returns the number of available tokens of the semaphore object
- * @param[out]  sem   Pointer to the semaphore structure to be acquired
- * @return      Number of tokens available or 0 in case of an error
+ * @fn          osStatus_t osSemaphoreRelease(osSemaphoreId_t semaphore_id)
+ * @brief       Release a Semaphore token that was acquired by osSemaphoreAcquire.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      status code that indicates the execution status of the function.
  */
-uint32_t osSemaphoreGetCount(osSemaphore_t *sem);
+osStatus_t osSemaphoreRelease(osSemaphoreId_t semaphore_id);
+
+/**
+ * @fn          uint32_t osSemaphoreGetCount(osSemaphoreId_t semaphore_id)
+ * @brief       Get current Semaphore token count.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      number of tokens available or 0 in case of an error.
+ */
+uint32_t osSemaphoreGetCount(osSemaphoreId_t semaphore_id);
+
+/**
+ * @fn          osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id)
+ * @brief       Delete a Semaphore object.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id);
 
 
 /*******************************************************************************

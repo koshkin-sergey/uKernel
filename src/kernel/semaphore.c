@@ -38,6 +38,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+#define SemaphoreTokenLimit   65535U ///< maximum number of tokens per semaphore
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -58,234 +60,280 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-/**
- * @fn          osError_t SemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
- * @brief       Creates a semaphore
- * @param[out]  sem             Pointer to the semaphore structure to be created
- * @param[in]   initial_count   Initial number of available tokens
- * @param[in]   max_count       Maximum number of available tokens
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- */
-static
-void SemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
+static osSemaphoreId_t SemaphoreNew(uint32_t max_count, uint32_t initial_count, const osSemaphoreAttr_t *attr)
 {
-  QueueReset(&sem->wait_queue);
+  osSemaphore_t *sem;
 
+  /* Check parameters */
+  if ((attr == NULL)                          ||
+      (attr->cb_mem == NULL)                  ||
+      (((uint32_t)attr->cb_mem & 3U) != 0U)   ||
+      (attr->cb_size < sizeof(osSemaphore_t)) ||
+      (max_count == 0U)                       ||
+      (max_count > SemaphoreTokenLimit)       ||
+      (initial_count > max_count))
+  {
+    return (NULL);
+  }
+
+  sem = attr->cb_mem;
+
+  /* Initialize control block */
+  sem->id         = ID_SEMAPHORE;
+  sem->flags      = 0U;
+  sem->name       = attr->name;
   sem->count      = initial_count;
   sem->max_count  = max_count;
-  sem->id         = ID_SEMAPHORE;
+
+  QueueReset(&sem->wait_queue);
+
+  return (sem);
 }
 
-/**
- * @fn          osError_t SemaphoreDelete(osSemaphore_t *sem)
- * @brief       Deletes a semaphore
- * @param[out]  sem   Pointer to the semaphore structure to be deleted
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- */
-static
-osError_t SemaphoreDelete(osSemaphore_t *sem)
+static const char *SemaphoreGetName(osSemaphoreId_t semaphore_id)
 {
-  if (sem->id != ID_SEMAPHORE)
-    return TERR_NOEXS;
+  osSemaphore_t *sem = semaphore_id;
 
-  _ThreadWaitDelete(&sem->wait_queue);
-  sem->id = ID_INVALID;
+  /* Check parameters */
+  if ((sem == NULL) || (sem->id != ID_SEMAPHORE)) {
+    return NULL;
+  }
 
-  return TERR_NO_ERR;
+  return (sem->name);
 }
 
-/**
- * @fn          osError_t SemaphoreRelease(osSemaphore_t *sem)
- * @brief       Release a Semaphore token up to the initial maximum count.
- * @param[out]  sem   Pointer to the semaphore structure be released
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_OVERFLOW     Semaphore Resource has max_count value
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- */
-static
-osError_t SemaphoreRelease(osSemaphore_t *sem)
+static osStatus_t SemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout)
 {
-  if (sem->id != ID_SEMAPHORE)
-    return TERR_NOEXS;
+  osSemaphore_t *sem = semaphore_id;
+  osStatus_t status;
+  osThread_t *thread;
+
+  /* Check parameters */
+  if ((sem == NULL) || (sem->id != ID_SEMAPHORE)) {
+    return osErrorParameter;
+  }
 
   BEGIN_CRITICAL_SECTION
 
-  if (!isQueueEmpty(&sem->wait_queue)) {
-    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)TERR_NO_ERR);
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
-  }
-
-  if (sem->count < sem->max_count) {
-    sem->count++;
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
-  }
-
-  END_CRITICAL_SECTION
-  return TERR_OVERFLOW;
-}
-
-/**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
- * @brief       Acquire a Semaphore token or timeout if no tokens are available.
- * @param[out]  sem       Pointer to the semaphore structure to be acquired
- * @param[in]   timeout   Timeout value must be equal or greater than 0
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_TIMEOUT      Timeout expired
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- */
-static
-osError_t SemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
-{
-  if (sem->id != ID_SEMAPHORE)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
+  /* Try to acquire token */
   if (sem->count > 0U) {
     sem->count--;
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
+    status = osOK;
   }
-
-  if (timeout == 0U) {
-    END_CRITICAL_SECTION
-    return TERR_TIMEOUT;
+  else {
+    /* No token available */
+    if (timeout != 0U) {
+      thread = ThreadGetRunning();
+      thread->wait_info.ret_val = (uint32_t)osErrorTimeout;
+      _ThreadWaitEnter(thread, &sem->wait_queue, timeout);
+      status = osThreadWait;
+    }
+    else {
+      status = osErrorResource;
+    }
   }
-
-  _ThreadWaitEnter(ThreadGetRunning(), &sem->wait_queue, timeout);
 
   END_CRITICAL_SECTION
-  return TERR_WAIT;
+
+  return (status);
 }
 
-static
-uint32_t SemaphoreGetCount(osSemaphore_t *sem)
+static osStatus_t SemaphoreRelease(osSemaphoreId_t semaphore_id)
 {
-  if (sem->id != ID_SEMAPHORE)
-    return 0U;
+  osSemaphore_t *sem = semaphore_id;
+  osStatus_t status;
 
-  return sem->count;
+  /* Check parameters */
+  if ((sem == NULL) || (sem->id != ID_SEMAPHORE)) {
+    return osErrorParameter;
+  }
+
+  BEGIN_CRITICAL_SECTION
+
+  /* Check if Thread is waiting for a token */
+  if (!isQueueEmpty(&sem->wait_queue)) {
+    /* Wakeup waiting Thread with highest Priority */
+    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK);
+    status = osOK;
+  }
+  else {
+    /* Try to release token */
+    if (sem->count < sem->max_count) {
+      sem->count++;
+      status = osOK;
+    }
+    else {
+      status = osErrorResource;
+    }
+  }
+
+  END_CRITICAL_SECTION
+
+  return (status);
+}
+
+static uint32_t SemaphoreGetCount(osSemaphoreId_t semaphore_id)
+{
+  osSemaphore_t *sem = semaphore_id;
+
+  /* Check parameters */
+  if ((sem == NULL) || (sem->id != ID_SEMAPHORE)) {
+    return 0U;
+  }
+
+  return (sem->count);
+}
+
+static osStatus_t SemaphoreDelete(osSemaphoreId_t semaphore_id)
+{
+  osSemaphore_t *sem = semaphore_id;
+
+  /* Check parameters */
+  if ((sem == NULL) || (sem->id != ID_SEMAPHORE)) {
+    return osErrorParameter;
+  }
+
+  /* Unblock waiting threads */
+  _ThreadWaitDelete(&sem->wait_queue);
+  /* Mark object as invalid */
+  sem->id = ID_INVALID;
+
+  return (osOK);
 }
 
 /*******************************************************************************
- *  function implementations (scope: module-exported)
+ *  Public API
  ******************************************************************************/
 
 /**
- * @fn          osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
- * @brief       Creates a semaphore
- * @param[out]  sem             Pointer to the semaphore structure to be created
- * @param[in]   initial_count   Initial number of available tokens
- * @param[in]   max_count       Maximum number of available tokens
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osSemaphoreId_t osSemaphoreNew(uint32_t max_count, uint32_t initial_count, const osSemaphoreAttr_t *attr)
+ * @brief       Create and Initialize a Semaphore object.
+ * @param[in]   max_count       maximum number of available tokens.
+ * @param[in]   initial_count   initial number of available tokens.
+ * @param[in]   attr            semaphore attributes.
+ * @return      semaphore ID for reference by other functions or NULL in case of error.
  */
-osError_t osSemaphoreNew(osSemaphore_t *sem, uint32_t initial_count, uint32_t max_count)
+osSemaphoreId_t osSemaphoreNew(uint32_t max_count, uint32_t initial_count, const osSemaphoreAttr_t *attr)
 {
-  if (sem == NULL || max_count == 0U || initial_count > max_count)
-    return TERR_WRONG_PARAM;
-  if (sem->id == ID_SEMAPHORE)
-    return TERR_NO_ERR;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osSemaphoreId_t semaphore_id;
 
-  svc_3((uint32_t)sem, initial_count, max_count, (uint32_t)SemaphoreNew);
+  if (IsIrqMode() || IsIrqMasked()) {
+    semaphore_id = NULL;
+  }
+  else {
+    semaphore_id = (osSemaphoreId_t)svc_3(max_count, initial_count, (uint32_t)attr, (uint32_t)SemaphoreNew);
+  }
 
-  return TERR_NO_ERR;
+  return (semaphore_id);
 }
 
 /**
- * @fn          osError_t osSemaphoreDelete(osSemaphore_t *sem)
- * @brief       Deletes a semaphore
- * @param[out]  sem   Pointer to the semaphore structure to be deleted
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          const char *osSemaphoreGetName(osSemaphoreId_t semaphore_id)
+ * @brief       Get name of a Semaphore object.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osSemaphoreDelete(osSemaphore_t *sem)
+const char *osSemaphoreGetName(osSemaphoreId_t semaphore_id)
 {
-  if (sem == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  const char *name;
 
-  return (osError_t)svc_1((uint32_t)sem, (uint32_t)SemaphoreDelete);
+  if (IsIrqMode() || IsIrqMasked()) {
+    name = NULL;
+  }
+  else {
+    name = (const char *)svc_1((uint32_t)semaphore_id, (uint32_t)SemaphoreGetName);
+  }
+
+  return (name);
 }
 
 /**
- * @fn          osError_t osSemaphoreRelease(osSemaphore_t *sem)
- * @brief       Release a Semaphore token up to the initial maximum count.
- * @param[out]  sem   Pointer to the semaphore structure be released
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a semaphore or non-existent
- *              TERR_OVERFLOW     Semaphore Resource has max_count value
- */
-osError_t osSemaphoreRelease(osSemaphore_t *sem)
-{
-  if (sem == NULL)
-    return TERR_WRONG_PARAM;
-
-  if (IsIrqMode() || IsIrqMasked())
-    return SemaphoreRelease(sem);
-  else
-    return (osError_t)svc_1((uint32_t)sem, (uint32_t)SemaphoreRelease);
-}
-
-/**
- * @fn          osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
+ * @fn          osStatus_t osSemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout)
  * @brief       Acquire a Semaphore token or timeout if no tokens are available.
- * @param[out]  sem       Pointer to the semaphore structure to be acquired
- * @param[in]   timeout   Timeout value must be equal or greater than 0
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_TIMEOUT      Timeout expired
- *              TERR_NOEXS        Object is not a semaphore or non-existent
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @param[in]   timeout       \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osSemaphoreAcquire(osSemaphore_t *sem, uint32_t timeout)
+osStatus_t osSemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout)
 {
-  if (sem == NULL)
-    return  TERR_WRONG_PARAM;
+  osStatus_t status;
 
   if (IsIrqMode() || IsIrqMasked()) {
-    if (timeout != 0U)
-      return TERR_WRONG_PARAM;
-
-    return SemaphoreAcquire(sem, timeout);
+    if (timeout != 0U) {
+      status = osErrorParameter;
+    }
+    else {
+      status = SemaphoreAcquire(semaphore_id, timeout);
+    }
   }
   else {
-    osError_t ret_val = (osError_t)svc_2((uint32_t)sem, (uint32_t)timeout, (uint32_t)SemaphoreAcquire);
-
-    if (ret_val == TERR_WAIT)
-      return (osError_t)ThreadGetRunning()->wait_info.ret_val;
-
-    return ret_val;
+    status = (osStatus_t)svc_2((uint32_t)semaphore_id, timeout, (uint32_t)SemaphoreAcquire);
+    if (status == osThreadWait) {
+      status = (osStatus_t)ThreadGetRunning()->wait_info.ret_val;
+    }
   }
+
+  return (status);
 }
 
 /**
- * @fn          uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
- * @brief       Returns the number of available tokens of the semaphore object
- * @param[out]  sem   Pointer to the semaphore structure to be acquired
- * @return      Number of tokens available or 0 in case of an error
+ * @fn          osStatus_t osSemaphoreRelease(osSemaphoreId_t semaphore_id)
+ * @brief       Release a Semaphore token that was acquired by osSemaphoreAcquire.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      status code that indicates the execution status of the function.
  */
-uint32_t osSemaphoreGetCount(osSemaphore_t *sem)
+osStatus_t osSemaphoreRelease(osSemaphoreId_t semaphore_id)
 {
-  if (sem == NULL)
-    return 0U;
+  osStatus_t status;
 
   if (IsIrqMode() || IsIrqMasked()) {
-    return SemaphoreGetCount(sem);
+    status = SemaphoreRelease(semaphore_id);
   }
   else {
-    return svc_1((uint32_t)sem, (uint32_t)SemaphoreGetCount);
+    status = (osStatus_t)svc_1((uint32_t)semaphore_id, (uint32_t)SemaphoreRelease);
   }
+
+  return (status);
+}
+
+/**
+ * @fn          uint32_t osSemaphoreGetCount(osSemaphoreId_t semaphore_id)
+ * @brief       Get current Semaphore token count.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      number of tokens available or 0 in case of an error.
+ */
+uint32_t osSemaphoreGetCount(osSemaphoreId_t semaphore_id)
+{
+  uint32_t count;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    count = SemaphoreGetCount(semaphore_id);
+  }
+  else {
+    count = svc_1((uint32_t)semaphore_id, (uint32_t)SemaphoreGetCount);
+  }
+
+  return (count);
+}
+
+/**
+ * @fn          osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id)
+ * @brief       Delete a Semaphore object.
+ * @param[in]   semaphore_id  semaphore ID obtained by \ref osSemaphoreNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)semaphore_id, (uint32_t)SemaphoreDelete);
+  }
+
+  return (status);
 }
 
 /*------------------------------ End of file ---------------------------------*/

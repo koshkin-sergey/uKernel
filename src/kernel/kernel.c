@@ -217,7 +217,7 @@ void osKernelStart(TN_OPTIONS *opt)
 
   knlInfo.kernel_state = KERNEL_STATE_NOT_RUN;
 
-  for (int i=0; i < NUM_PRIORITY; i++) {
+  for (uint32_t i = 0U; i < NUM_PRIORITY; i++) {
     QueueReset(&knlInfo.ready_list[i]);
 #if defined(ROUND_ROBIN_ENABLE)
     knlInfo.tslice_ticks[i] = NO_TIME_SLICE;
