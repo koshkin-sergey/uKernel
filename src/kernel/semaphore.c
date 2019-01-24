@@ -126,7 +126,7 @@ static osStatus_t SemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeou
       thread = ThreadGetRunning();
       thread->wait_info.ret_val = (uint32_t)osErrorTimeout;
       _ThreadWaitEnter(thread, &sem->wait_queue, timeout);
-      status = osThreadWait;
+      status = (osStatus_t)osThreadWait;
     }
     else {
       status = osErrorResource;

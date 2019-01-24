@@ -133,7 +133,7 @@ static const char *EventFlagsGetName(osEventFlagsId_t ef_id)
 
   /* Check parameters */
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
-    return NULL;
+    return (NULL);
   }
 
   return (evf->name);
@@ -150,7 +150,7 @@ static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
       (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
   {
-    return osErrorParameter;
+    return ((uint32_t)osErrorParameter);
   }
 
   BEGIN_CRITICAL_SECTION
@@ -190,7 +190,7 @@ static uint32_t EventFlagsClear(osEventFlagsId_t ef_id, uint32_t flags)
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
       (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
   {
-    return osErrorParameter;
+    return ((uint32_t)osErrorParameter);
   }
 
   BEGIN_CRITICAL_SECTION
@@ -209,7 +209,7 @@ static uint32_t EventFlagsGet(osEventFlagsId_t ef_id)
 
   /* Check parameters */
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
-    return 0U;
+    return (0U);
   }
 
   return (evf->event_flags);
@@ -224,7 +224,7 @@ static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t 
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
       (flags == 0U) || ((flags & (1UL << osEventFlagsLimit)) != 0U))
   {
-    return osErrorParameter;
+    return ((uint32_t)osErrorParameter);
   }
 
   BEGIN_CRITICAL_SECTION
@@ -256,7 +256,7 @@ static osStatus_t EventFlagsDelete(osEventFlagsId_t ef_id)
 
   /* Check parameters */
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS)) {
-    return osErrorParameter;
+    return (osErrorParameter);
   }
 
   /* Unblock waiting threads */
@@ -389,7 +389,7 @@ uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t optio
 
   if (IsIrqMode() || IsIrqMasked()) {
     if (timeout != 0U) {
-      event_flags = osErrorParameter;
+      event_flags = (uint32_t)osErrorParameter;
     }
     else {
       event_flags = EventFlagsWait(ef_id, flags, options, timeout);

@@ -209,16 +209,6 @@ typedef enum {
   osMsgPriority_reserved  = 0x7fffffff,
 } osMsgPriority_t;
 
-
-typedef struct {
-  void **data_elem;
-} WINFO_RDQUE;
-
-typedef struct {
-  void *data_elem;
-  bool send_to_first;
-} WINFO_SDQUE;
-
 typedef struct {
   void *data_elem;
 } WINFO_FMEM;
@@ -261,6 +251,9 @@ typedef void *osEventFlagsId_t;
 
 /// \details Semaphore ID identifies the semaphore.
 typedef void *osSemaphoreId_t;
+
+/// \details Message Queue ID identifies the message queue.
+typedef void *osMessageQueueId_t;
 
 /// Entry point of a thread.
 typedef void (*osThreadFunc_t) (void *argument);
@@ -420,7 +413,7 @@ typedef struct {
 typedef struct {
   const char                   *name;   ///< name of the event flags
   uint32_t                 attr_bits;   ///< attribute bits
-  void                      *cb_mem;    ///< memory for control block
+  void                       *cb_mem;   ///< memory for control block
   uint32_t                   cb_size;   ///< size of provided memory for control block
 } osEventFlagsAttr_t;
 
@@ -428,9 +421,19 @@ typedef struct {
 typedef struct {
   const char                   *name;   ///< name of the semaphore
   uint32_t                 attr_bits;   ///< attribute bits
-  void                      *cb_mem;    ///< memory for control block
+  void                       *cb_mem;   ///< memory for control block
   uint32_t                   cb_size;   ///< size of provided memory for control block
 } osSemaphoreAttr_t;
+
+/// Attributes structure for message queue.
+typedef struct {
+  const char                   *name;   ///< name of the message queue
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                       *cb_mem;   ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+  void                       *mq_mem;   ///< memory for data storage
+  uint32_t                   mq_size;   ///< size of provided memory for data storage
+} osMessageQueueAttr_t;
 
 /*******************************************************************************
  *  exported variables

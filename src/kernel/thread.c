@@ -260,7 +260,7 @@ osThreadState_t ThreadGetState(osThreadId_t thread_id)
     return (osThreadError);
   }
 
-  return (thread->state);
+  return ((osThreadState_t)thread->state);
 }
 
 static
