@@ -682,99 +682,92 @@ osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id);
  ******************************************************************************/
 
 /**
- * @fn          osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
- * @brief       Creates and initializes a message queue object
- * @param[out]  mq      Pointer to the osMessageQueue_t structure
- * @param[out]  buf     Pointer to buffer for message
- * @param[in]   bufsz   Buffer size in bytes
- * @param[in]   msz     Maximum message size in bytes
- * @return      TERR_NO_ERR       The message queue object has been created
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osMessageQueueId_t osMessageQueueNew(uint32_t msg_count, uint32_t msg_size, const osMessageQueueAttr_t *attr)
+ * @brief       Create and Initialize a Message Queue object.
+ * @param[in]   msg_count   maximum number of messages in queue.
+ * @param[in]   msg_size    maximum message size in bytes.
+ * @param[in]   attr        message queue attributes.
+ * @return      message queue ID for reference by other functions or NULL in case of error.
  */
-osError_t osMessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz);
+osMessageQueueId_t osMessageQueueNew(uint32_t msg_count, uint32_t msg_size, const osMessageQueueAttr_t *attr);
 
 /**
- * @fn          osError_t osMessageQueueDelete(osMessageQueue_t *mq)
- * @brief       Deletes a message queue object
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      TERR_NO_ERR       The message queue object has been deleted
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          const char *osMessageQueueGetName(osMessageQueueId_t mq_id)
+ * @brief       Get name of a Message Queue object.
+ * @param[in]   mq_id   message queue ID obtained by \ref osMessageQueueNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osMessageQueueDelete(osMessageQueue_t *mq);
+const char *osMessageQueueGetName(osMessageQueueId_t mq_id);
 
 /**
- * @fn          osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
- * @brief       Puts the message into the the message queue
- * @param[out]  mq        Pointer to the osMessageQueue_t structure
- * @param[in]   msg       Pointer to buffer with message to put into a queue
- * @param[in]   msg_pri   Message priority
- * @param[in]   timeout   Timeout Value or 0 in case of no time-out
- * @return      TERR_NO_ERR       The message has been put into the queue
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_TIMEOUT      The message could not be put into the queue in the given time
+ * @fn          osStatus_t osMessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout)
+ * @brief       Put a Message into a Queue or timeout if Queue is full.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @param[in]   msg_ptr   pointer to buffer with message to put into a queue.
+ * @param[in]   msg_prio  message priority.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osMessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout);
+osStatus_t osMessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout);
 
 /**
- * @fn          osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
- * @brief       Retrieves a message from the message queue and saves it to the buffer
- * @param[out]  mq        Pointer to the osMessageQueue_t structure
- * @param[out]  msg       Pointer to buffer for message to get from a queue
- * @param[in]   timeout   Timeout Value or 0 in case of no time-out
- * @return      TERR_NO_ERR       The message has been retrieved from the queue
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_TIMEOUT      The message could not be retrieved from the queue in the given time
+ * @fn          osStatus_t osMessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8_t *msg_prio, uint32_t timeout)
+ * @brief       Get a Message from a Queue or timeout if Queue is empty.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @param[out]  msg_ptr   pointer to buffer for message to get from a queue.
+ * @param[out]  msg_prio  pointer to buffer for message priority or NULL.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osMessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout);
+osStatus_t osMessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8_t *msg_prio, uint32_t timeout);
 
 /**
- * @fn          uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq)
- * @brief       Returns the maximum message size in bytes for the message queue
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      Maximum message size in bytes or 0 in case of an error
+ * @fn          uint32_t osMessageQueueGetCapacity(osMessageQueueId_t mq_id)
+ * @brief       Get maximum number of messages in a Message Queue.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      maximum number of messages or 0 in case of an error.
  */
-uint32_t osMessageQueueGetMsgSize(osMessageQueue_t *mq);
+uint32_t osMessageQueueGetCapacity(osMessageQueueId_t mq_id);
 
 /**
- * @fn          uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq)
- * @brief       Returns the maximum number of messages in the message queue
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      Maximum number of messages or 0 in case of an error
+ * @fn          uint32_t osMessageQueueGetMsgSize(osMessageQueueId_t mq_id)
+ * @brief       Get maximum message size in bytes.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      maximum message size in bytes or 0 in case of an error.
  */
-uint32_t osMessageQueueGetCapacity(osMessageQueue_t *mq);
+uint32_t osMessageQueueGetMsgSize(osMessageQueueId_t mq_id);
 
 /**
- * @fn          uint32_t osMessageQueueGetCount(osMessageQueue_t *mq)
- * @brief       Returns the number of queued messages in the message queue
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      Number of queued messages or 0 in case of an error
+ * @fn          uint32_t osMessageQueueGetCount(osMessageQueueId_t mq_id)
+ * @brief       Get number of queued messages in a Message Queue.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      number of queued messages or 0 in case of an error.
  */
-uint32_t osMessageQueueGetCount(osMessageQueue_t *mq);
+uint32_t osMessageQueueGetCount(osMessageQueueId_t mq_id);
 
 /**
- * @fn          uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq)
- * @brief       Returns the number available slots for messages in the message queue
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      Number of available slots for messages or 0 in case of an error
+ * @fn          uint32_t osMessageQueueGetSpace(osMessageQueueId_t mq_id)
+ * @brief       Get number of available slots for messages in a Message Queue.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      number of available slots for messages or 0 in case of an error.
  */
-uint32_t osMessageQueueGetSpace(osMessageQueue_t *mq);
+uint32_t osMessageQueueGetSpace(osMessageQueueId_t mq_id);
 
 /**
- * @fn          osError_t osMessageQueueReset(osMessageQueue_t *mq)
- * @brief       Resets the message queue
- * @param[out]  mq  Pointer to the osMessageQueue_t structure
- * @return      TERR_NO_ERR       The message queue has been reset
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a Message Queue or non-existent
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osStatus_t osMessageQueueReset(osMessageQueueId_t mq_id)
+ * @brief       Reset a Message Queue to initial empty state.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osMessageQueueReset(osMessageQueue_t *mq);
+osStatus_t osMessageQueueReset(osMessageQueueId_t mq_id);
+
+/**
+ * @fn          osStatus_t osMessageQueueDelete(osMessageQueueId_t mq_id)
+ * @brief       Delete a Message Queue object.
+ * @param[in]   mq_id     message queue ID obtained by \ref osMessageQueueNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMessageQueueDelete(osMessageQueueId_t mq_id);
 
 
 /*******************************************************************************
