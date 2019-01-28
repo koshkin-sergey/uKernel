@@ -37,7 +37,7 @@
 #define ID_SEMAPHORE                0x6F
 #define ID_EVENT_FLAGS              0x5E
 #define ID_DATAQUEUE                0x0C
-#define ID_FSMEMORYPOOL             0x26
+#define ID_MEMORYPOOL             0x26
 #define ID_MUTEX                    0x17
 #define ID_ALARM                    0x7A
 #define ID_CYCLIC                   0x2B
@@ -205,5 +205,29 @@ void TimerDelete(timer_t *event);
  * @param[in]   que   Queue of mutexes
  */
 void MutexOwnerRelease(queue_t *que);
+
+/**
+ * @brief       Initialize Memory Pool.
+ * @param[in]   block_count   maximum number of memory blocks in memory pool.
+ * @param[in]   block_size    size of a memory block in bytes.
+ * @param[in]   block_mem     pointer to memory for block storage.
+ * @param[in]   mp_info       memory pool info.
+ */
+void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info);
+
+/**
+ * @brief       Allocate a memory block from a Memory Pool.
+ * @param[in]   mp_info   memory pool info.
+ * @return      address of the allocated memory block or NULL in case of no memory is available.
+ */
+void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info);
+
+/**
+ * @brief       Return an allocated memory block back to a Memory Pool.
+ * @param[in]   mp_info   memory pool info.
+ * @param[in]   block     address of the allocated memory block to be returned to the memory pool.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t _MemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block);
 
 #endif /* _KNL_LIB_H_ */
