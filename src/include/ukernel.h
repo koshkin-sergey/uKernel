@@ -187,28 +187,6 @@ typedef struct timer_event_block {
   void *arg;              /**< Argument to be sent to callback function */
 } timer_t;
 
-/* - Message Queue -----------------------------------------------------------*/
-typedef struct osMessageQueue_s {
-  uint8_t                          id;  ///< Object Identifier
-  uint8_t              reserved_state;  ///< Object State (not used)
-  uint8_t                       flags;  ///< Object Flags
-  uint8_t                        attr;  ///< Object Attributes
-  queue_t                  send_queue;  ///< Message buffer send wait queue
-  queue_t                  recv_queue;  ///< Message buffer receive wait queue
-  uint8_t                        *buf;  ///< Message buffer address
-  uint32_t                   msg_size;  ///< Message size in bytes
-  uint32_t                num_entries;  ///< Capacity of data_fifo(num entries)
-  uint32_t                        cnt;  ///< Number of queued messages
-  uint32_t                       tail;  ///< Next to the last message store address
-  uint32_t                       head;  ///< First message store address
-} osMessageQueue_t;
-
-typedef enum {
-  osMsgPriorityLow        = 0,
-  osMsgPriorityHigh       = 1,
-  osMsgPriority_reserved  = 0x7fffffff,
-} osMsgPriority_t;
-
 typedef struct {
   void *data_elem;
 } WINFO_FMEM;
@@ -297,6 +275,23 @@ typedef struct osEventFlags_s {
   queue_t                  wait_queue;  ///< Waiting Threads queue
   uint32_t                event_flags;  ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
+
+/* - Message Queue -----------------------------------------------------------*/
+typedef struct osMessageQueue_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t                  send_queue;  ///< Message buffer send wait queue
+  queue_t                  recv_queue;  ///< Message buffer receive wait queue
+  uint8_t                        *buf;  ///< Message buffer address
+  uint32_t                   msg_size;  ///< Message size in bytes
+  uint32_t                num_entries;  ///< Capacity of data_fifo(num entries)
+  uint32_t                        cnt;  ///< Number of queued messages
+  uint32_t                       tail;  ///< Next to the last message store address
+  uint32_t                       head;  ///< First message store address
+} osMessageQueue_t;
 
 /* - Fixed-sized blocks memory pool ------------------------------------------*/
 typedef struct _TN_FMP {

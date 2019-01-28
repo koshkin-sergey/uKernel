@@ -153,7 +153,7 @@ static osError_t MessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz
   return TERR_NO_ERR;
 }
 
-const char *MessageQueueGetName(osMessageQueueId_t mq_id)
+static const char *MessageQueueGetName(osMessageQueueId_t mq_id)
 {
   return (NULL);
 }
