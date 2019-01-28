@@ -31,211 +31,447 @@
 #include "knl_lib.h"
 
 /*******************************************************************************
- *  external declarations
- ******************************************************************************/
-
-/*******************************************************************************
- *  defines and macros (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  typedefs and structures (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  global variable definitions  (scope: module-exported)
- ******************************************************************************/
-
-/*******************************************************************************
- *  global variable definitions (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  function prototypes (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-//----------------------------------------------------------------------------
-static void* fm_get(TN_FMP *fmp)
+static osMemoryPoolId_t MemoryPoolNew(uint32_t block_count, uint32_t block_size, const osMemoryPoolAttr_t *attr)
 {
-  void *p_tmp;
+  osMemoryPool_t *mp;
+  void           *mp_mem;
+  uint32_t        mp_size;
 
-  if (fmp->fblkcnt > 0) {
-    p_tmp = fmp->free_list;
-    fmp->free_list = *(void **)fmp->free_list;   //-- ptr - to new free list
-    fmp->fblkcnt--;
-
-    return p_tmp;
+  /* Check parameters */
+  if ((block_count == 0U) || (block_size  == 0U) || ((__CLZ(block_count) + __CLZ(block_size)) < 32U) || (attr == NULL)) {
+    return (NULL);
   }
 
-  return NULL;
+  mp      = attr->cb_mem;
+  mp_mem  = attr->mp_mem;
+  mp_size = attr->mp_size;
+
+  /* Check parameters */
+  if ((mp == NULL) || (((uint32_t)mp & 3U) != 0U) || (attr->cb_size < sizeof(osMemoryPool_t)) ||
+      (mp_mem == NULL) || (((uint32_t)mp_mem & 3U) != 0U) || (mp_size < (block_count * block_size))) {
+    return (NULL);
+  }
+
+  /* Initialize control block */
+  mp->id = ID_MEMORYPOOL;
+  mp->flags = 0U;
+  mp->name = attr->name;
+  QueueReset(&mp->wait_queue);
+  _MemoryPoolInit(block_count, block_size, mp_mem, &mp->info);
+
+  return (mp);
 }
 
-//----------------------------------------------------------------------------
-static int fm_put(TN_FMP *fmp, void *mem)
+static const char *MemoryPoolGetName(osMemoryPoolId_t mp_id)
 {
-  if (fmp->fblkcnt < fmp->num_blocks) {
-    *(void **)mem  = fmp->free_list;   //-- insert block into free block list
-    fmp->free_list = mem;
-    fmp->fblkcnt++;
+  osMemoryPool_t *mp = mp_id;
 
-    return TERR_NO_ERR;
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (NULL);
   }
 
-  return TERR_OVERFLOW;
+  return (mp->name);
 }
 
-/*******************************************************************************
- *  function implementations (scope: module-exported)
- ******************************************************************************/
-
-//----------------------------------------------------------------------------
-//  Structure's field fmp->id_id_fmp have to be set to 0
-//----------------------------------------------------------------------------
-osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size, int num_blocks)
+static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
 {
-  void **p_tmp;
-  unsigned char *p_block;
-  unsigned long i,j;
+  osMemoryPool_t *mp = mp_id;
+  osThread_t     *thread;
+  void           *block;
 
-  if (fmp == NULL)
-    return TERR_WRONG_PARAM;
-  if (fmp->id == ID_FSMEMORYPOOL)
-    return TERR_WRONG_PARAM;
-
-  if (start_addr == NULL || num_blocks < 2 || block_size < sizeof(int)) {
-    fmp->fblkcnt = 0;
-    fmp->num_blocks = 0;
-    fmp->id = ID_INVALID;
-    fmp->free_list = NULL;
-    return TERR_WRONG_PARAM;
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (NULL);
   }
-
-  QueueReset(&fmp->wait_queue);
-
-  //-- Prepare addr/block aligment
-  i = ((unsigned long)start_addr + (TN_ALIG -1)) & (~(TN_ALIG-1));
-  fmp->start_addr  = (void*)i;
-  fmp->block_size = (block_size + (TN_ALIG -1)) & (~(TN_ALIG-1));
-
-  i = (unsigned long)start_addr + block_size * num_blocks;
-  j = (unsigned long)fmp->start_addr + fmp->block_size * num_blocks;
-
-  fmp->num_blocks = num_blocks;
-
-  while (j > i) { //-- Get actual num_blocks
-    j -= fmp->block_size;
-    fmp->num_blocks--;
-  }
-
-  if (fmp->num_blocks < 2) {
-    fmp->fblkcnt    = 0;
-    fmp->num_blocks = 0;
-    fmp->free_list  = NULL;
-    return TERR_WRONG_PARAM;
-  }
-
-  //-- Set blocks ptrs for allocation -------
-  p_tmp = (void **)fmp->start_addr;
-  p_block  = (unsigned char *)fmp->start_addr + fmp->block_size;
-  for (i = 0; i < (fmp->num_blocks - 1); i++) {
-    *p_tmp  = (void *)p_block;  //-- contents of cell = addr of next block
-    p_tmp   = (void **)p_block;
-    p_block += fmp->block_size;
-  }
-  *p_tmp = NULL;          //-- Last memory block first cell contents -  NULL
-
-  fmp->free_list = fmp->start_addr;
-  fmp->fblkcnt   = fmp->num_blocks;
-
-  fmp->id = ID_FSMEMORYPOOL;
-
-  return TERR_NO_ERR;
-}
-
-//----------------------------------------------------------------------------
-osError_t tn_fmem_delete(TN_FMP *fmp)
-{
-  if (fmp == NULL)
-    return TERR_WRONG_PARAM;
-  if (fmp->id != ID_FSMEMORYPOOL)
-    return TERR_NOEXS;
 
   BEGIN_CRITICAL_SECTION
 
-  _ThreadWaitDelete(&fmp->wait_queue);
-
-  fmp->id = ID_INVALID;   //-- Fixed-size memory pool not exists now
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
-}
-
-//----------------------------------------------------------------------------
-osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout)
-{
-  osError_t rc = TERR_NO_ERR;
-  void * ptr;
-  osThread_t *task;
-
-  if (fmp == NULL || p_data == NULL)
-    return  TERR_WRONG_PARAM;
-  if (fmp->id != ID_FSMEMORYPOOL)
-    return TERR_NOEXS;
-
-  BEGIN_CRITICAL_SECTION
-
-  ptr = fm_get(fmp);
-  if (ptr != NULL)  //-- Get memory
-    *p_data = ptr;
-  else {
-    if (timeout == 0U)
-      rc = TERR_TIMEOUT;
+  /* Allocate memory */
+  block = _MemoryPoolAlloc(&mp->info);
+  if (block == NULL) {
+    if (timeout != 0U) {
+      thread = ThreadGetRunning();
+      thread->wait_info.ret_val = 0U;
+      _ThreadWaitEnter(thread, &mp->wait_queue, timeout);
+      block = (void *)osThreadWait;
+    }
     else {
-      task = ThreadGetRunning();
-      _ThreadWaitEnter(task, &fmp->wait_queue, timeout);
-
-      END_CRITICAL_SECTION
-
-      //-- When returns to this point, in the 'data_elem' have to be valid value
-      *p_data = task->wait_info.fmem.data_elem; //-- Return to caller
+      block = NULL;
     }
   }
 
   END_CRITICAL_SECTION
 
-  return rc;
+  return (block);
 }
 
-//----------------------------------------------------------------------------
-osError_t tn_fmem_release(TN_FMP *fmp,void *p_data)
+static osStatus_t MemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
 {
-  queue_t * que;
-  osThread_t * task;
+  osMemoryPool_t *mp = mp_id;
+  osStatus_t      status;
 
-  if (fmp == NULL || p_data == NULL)
-    return  TERR_WRONG_PARAM;
-  if (fmp->id != ID_FSMEMORYPOOL)
-    return TERR_NOEXS;
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (osErrorParameter);
+  }
 
   BEGIN_CRITICAL_SECTION
 
-  if (!isQueueEmpty(&fmp->wait_queue)) {
-    que = QueueRemoveHead(&fmp->wait_queue);
-    task = GetTaskByQueue(que);
-    task->wait_info.fmem.data_elem = p_data;
-    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
+  /* Check if Thread is waiting to allocate memory */
+  if (!isQueueEmpty(&mp->wait_queue)) {
+    /* Wakeup waiting Thread with highest Priority */
+    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
+    status = osOK;
   }
-  else
-    fm_put(fmp,p_data);
+  else {
+    /* Free memory */
+    status = _MemoryPoolFree(&mp->info, block);
+  }
 
   END_CRITICAL_SECTION
 
-  return  TERR_NO_ERR;
+  return (status);
+}
+
+static uint32_t MemoryPoolGetCapacity(osMemoryPoolId_t mp_id)
+{
+  osMemoryPool_t *mp = mp_id;
+
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (0U);
+  }
+
+  return (mp->info.max_blocks);
+}
+
+static uint32_t MemoryPoolGetBlockSize(osMemoryPoolId_t mp_id)
+{
+  osMemoryPool_t *mp = mp_id;
+
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (0U);
+  }
+
+  return (mp->info.block_size);
+}
+
+static uint32_t MemoryPoolGetCount(osMemoryPoolId_t mp_id)
+{
+  osMemoryPool_t *mp = mp_id;
+
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (0U);
+  }
+
+  return (mp->info.used_blocks);
+}
+
+static uint32_t MemoryPoolGetSpace(osMemoryPoolId_t mp_id)
+{
+  osMemoryPool_t *mp = mp_id;
+
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (0U);
+  }
+
+  return (mp->info.max_blocks - mp->info.used_blocks);
+}
+
+static osStatus_t MemoryPoolDelete(osMemoryPoolId_t mp_id)
+{
+  osMemoryPool_t *mp = mp_id;
+
+  /* Check parameters */
+  if ((mp == NULL) || (mp->id != ID_MEMORYPOOL)) {
+    return (osErrorParameter);
+  }
+
+  /* Unblock waiting threads */
+  _ThreadWaitDelete(&mp->wait_queue);
+
+  /* Mark object as invalid */
+  mp->id = ID_INVALID;
+
+  return (osOK);
+}
+
+/*******************************************************************************
+ *  Library functions
+ ******************************************************************************/
+
+/**
+ * @brief       Initialize Memory Pool.
+ * @param[in]   block_count   maximum number of memory blocks in memory pool.
+ * @param[in]   block_size    size of a memory block in bytes.
+ * @param[in]   block_mem     pointer to memory for block storage.
+ * @param[in]   mp_info       memory pool info.
+ */
+void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info)
+{
+  void *mem;
+  void *block;
+
+  // Initialize information structure
+  mp_info->max_blocks  = block_count;
+  mp_info->used_blocks = 0U;
+  mp_info->block_size  = block_size;
+  mp_info->block_base  = block_mem;
+  mp_info->block_free  = block_mem;
+  mp_info->block_lim   = &(((uint8_t *)block_mem)[block_count * block_size]);
+
+  /* Link all free blocks */
+  mem = block_mem;
+  while (--block_count != 0U) {
+    block = &((uint8_t *)mem)[block_size];
+    *((void **)mem) = block;
+    mem = block;
+  }
+  *((void **)mem) = NULL;
+}
+
+/**
+ * @brief       Allocate a memory block from a Memory Pool.
+ * @param[in]   mp_info   memory pool info.
+ * @return      address of the allocated memory block or NULL in case of no memory is available.
+ */
+void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info)
+{
+  void *block;
+
+  if (mp_info == NULL) {
+    return (NULL);
+  }
+
+  block = mp_info->block_free;
+  if (block != NULL) {
+    mp_info->block_free = *((void **)block);
+    mp_info->used_blocks++;
+  }
+
+  return (block);
+}
+
+/**
+ * @brief       Return an allocated memory block back to a Memory Pool.
+ * @param[in]   mp_info   memory pool info.
+ * @param[in]   block     address of the allocated memory block to be returned to the memory pool.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t _MemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block)
+{
+  if ((mp_info == NULL) || (block < mp_info->block_base) || (block >= mp_info->block_lim)) {
+    return (osErrorParameter);
+  }
+
+  *((void **)block) = mp_info->block_free;
+  mp_info->block_free = block;
+  mp_info->used_blocks--;
+
+  return (osOK);
+}
+
+/*******************************************************************************
+ *  Public API
+ ******************************************************************************/
+
+/**
+ * @fn          osMemoryPoolId_t osMemoryPoolNew(uint32_t block_count, uint32_t block_size, const osMemoryPoolAttr_t *attr)
+ * @brief       Create and Initialize a Memory Pool object.
+ * @param[in]   block_count   maximum number of memory blocks in memory pool.
+ * @param[in]   block_size    memory block size in bytes.
+ * @param[in]   attr          memory pool attributes.
+ * @return      memory pool ID for reference by other functions or NULL in case of error.
+ */
+osMemoryPoolId_t osMemoryPoolNew(uint32_t block_count, uint32_t block_size, const osMemoryPoolAttr_t *attr)
+{
+  osMemoryPoolId_t mp_id;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    mp_id = NULL;
+  }
+  else {
+    mp_id = (osMemoryPoolId_t)svc_3(block_count, block_size, (uint32_t)attr, (uint32_t)MemoryPoolNew);
+  }
+
+  return (mp_id);
+}
+
+/**
+ * @fn          const char *osMemoryPoolGetName(osMemoryPoolId_t mp_id)
+ * @brief       Get name of a Memory Pool object.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      name as null-terminated string or NULL in case of an error.
+ */
+const char *osMemoryPoolGetName(osMemoryPoolId_t mp_id)
+{
+  const char *name;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    name = NULL;
+  }
+  else {
+    name = (const char *)svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolGetName);
+  }
+
+  return (name);
+}
+
+/**
+ * @fn          void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
+ * @brief       Allocate a memory block from a Memory Pool.
+ * @param[in]   mp_id     memory pool ID obtained by \ref osMemoryPoolNew.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      address of the allocated memory block or NULL in case of no memory is available.
+ */
+void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
+{
+  void *memory;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    if (timeout != 0U) {
+      memory = NULL;
+    }
+    else {
+      memory = MemoryPoolAlloc(mp_id, timeout);
+    }
+  }
+  else {
+    memory = (void *)svc_2((uint32_t)mp_id, timeout, (uint32_t)MemoryPoolAlloc);
+    if ((int32_t)memory == osThreadWait) {
+      memory = (void *)ThreadGetRunning()->wait_info.ret_val;
+    }
+  }
+
+  return (memory);
+}
+
+/**
+ * @fn          osStatus_t osMemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
+ * @brief       Return an allocated memory block back to a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @param[in]   block   address of the allocated memory block to be returned to the memory pool.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = MemoryPoolFree(mp_id, block);
+  }
+  else {
+    status = (osStatus_t)svc_2((uint32_t)mp_id, (uint32_t)block, (uint32_t)MemoryPoolFree);
+  }
+
+  return (status);
+}
+
+/**
+ * @fn          uint32_t osMemoryPoolGetCapacity(osMemoryPoolId_t mp_id)
+ * @brief       Get maximum number of memory blocks in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      maximum number of memory blocks or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetCapacity(osMemoryPoolId_t mp_id)
+{
+  uint32_t capacity;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    capacity = MemoryPoolGetCapacity(mp_id);
+  }
+  else {
+    capacity = svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolGetCapacity);
+  }
+
+  return (capacity);
+}
+
+/**
+ * @fn          uint32_t osMemoryPoolGetBlockSize(osMemoryPoolId_t mp_id)
+ * @brief       Get memory block size in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      memory block size in bytes or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetBlockSize(osMemoryPoolId_t mp_id)
+{
+  uint32_t block_size;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    block_size = MemoryPoolGetBlockSize(mp_id);
+  }
+  else {
+    block_size = svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolGetBlockSize);
+  }
+
+  return (block_size);
+}
+
+/**
+ * @fn          uint32_t osMemoryPoolGetCount(osMemoryPoolId_t mp_id)
+ * @brief       Get number of memory blocks used in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      number of memory blocks used or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetCount(osMemoryPoolId_t mp_id)
+{
+  uint32_t count;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    count = MemoryPoolGetCount(mp_id);
+  }
+  else {
+    count = svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolGetCount);
+  }
+
+  return (count);
+}
+
+/**
+ * @fn          uint32_t osMemoryPoolGetSpace(osMemoryPoolId_t mp_id)
+ * @brief       Get number of memory blocks available in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      number of memory blocks available or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetSpace(osMemoryPoolId_t mp_id)
+{
+  uint32_t space;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    space = MemoryPoolGetSpace(mp_id);
+  }
+  else {
+    space = svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolGetSpace);
+  }
+
+  return (space);
+}
+
+/**
+ * @fn          osStatus_t osMemoryPoolDelete(osMemoryPoolId_t mp_id)
+ * @brief       Delete a Memory Pool object.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMemoryPoolDelete(osMemoryPoolId_t mp_id)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)mp_id, (uint32_t)MemoryPoolDelete);
+  }
+
+  return (status);
 }
 
 /*------------------------------ End of file ---------------------------------*/
