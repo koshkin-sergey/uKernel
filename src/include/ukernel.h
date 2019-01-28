@@ -187,10 +187,6 @@ typedef struct timer_event_block {
   void *arg;              /**< Argument to be sent to callback function */
 } timer_t;
 
-typedef struct {
-  void *data_elem;
-} WINFO_FMEM;
-
 /*
  * Message buffer receive/send wait (TTW_RMBF, TTW_SMBF)
  */
@@ -215,7 +211,6 @@ typedef struct winfo_s {
   union {
     WINFO_RMQUE rmque;
     WINFO_SMQUE smque;
-    WINFO_FMEM  fmem;
     WINFO_EVENT event;
   };
   uint32_t ret_val;
@@ -232,6 +227,9 @@ typedef void *osSemaphoreId_t;
 
 /// \details Message Queue ID identifies the message queue.
 typedef void *osMessageQueueId_t;
+
+/// \details Memory Pool ID identifies the memory pool.
+typedef void *osMemoryPoolId_t;
 
 /// Entry point of a thread.
 typedef void (*osThreadFunc_t) (void *argument);
@@ -293,19 +291,27 @@ typedef struct osMessageQueue_s {
   uint32_t                       head;  ///< First message store address
 } osMessageQueue_t;
 
-/* - Fixed-sized blocks memory pool ------------------------------------------*/
-typedef struct _TN_FMP {
+/* - Memory Pool definitions   -----------------------------------------------*/
+/// Memory Pool Information
+typedef struct osMemoryPoolInfo_s {
+  uint32_t                 max_blocks;  ///< Maximum number of Blocks
+  uint32_t                used_blocks;  ///< Number of used Blocks
+  uint32_t                 block_size;  ///< Block Size
+  void                    *block_base;  ///< Block Memory Base Address
+  void                     *block_lim;  ///< Block Memory Limit Address
+  void                    *block_free;  ///< First free Block Address
+} osMemoryPoolInfo_t;
+
+/// Memory Pool Control Block
+typedef struct osMemoryPool_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
   uint8_t                       flags;  ///< Object Flags
-  uint8_t                        attr;  ///< Object Attributes
-  queue_t                  wait_queue;
-  unsigned int             block_size;  ///< Actual block size (in bytes)
-  int                      num_blocks;  ///< Capacity (Fixed-sized blocks actual max qty)
-  void                    *start_addr;  ///< Memory pool actual start address
-  void                     *free_list;  ///< Ptr to free block list
-  int                         fblkcnt;  ///< Num of free blocks
-} TN_FMP;
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t                  wait_queue;  ///< Waiting Threads queue
+  osMemoryPoolInfo_t             info;  ///< Memory Pool Info
+} osMemoryPool_t;
 
 
 /* - Mutex -------------------------------------------------------------------*/
@@ -429,6 +435,16 @@ typedef struct {
   void                       *mq_mem;   ///< memory for data storage
   uint32_t                   mq_size;   ///< size of provided memory for data storage
 } osMessageQueueAttr_t;
+
+/// Attributes structure for memory pool.
+typedef struct {
+  const char                   *name;   ///< name of the memory pool
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                      *cb_mem;    ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+  void                      *mp_mem;    ///< memory for data storage
+  uint32_t                   mp_size;   ///< size of provided memory for data storage
+} osMemoryPoolAttr_t;
 
 /*******************************************************************************
  *  exported variables
@@ -831,12 +847,85 @@ uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t optio
 osStatus_t osEventFlagsDelete(osEventFlagsId_t ef_id);
 
 
-/* - tn_mem.c ----------------------------------------------------------------*/
-osError_t tn_fmem_create(TN_FMP *fmp, void *start_addr, unsigned int block_size,
-                   int num_blocks);
-osError_t tn_fmem_delete(TN_FMP *fmp);
-osError_t tn_fmem_get(TN_FMP *fmp, void **p_data, unsigned long timeout);
-osError_t tn_fmem_release(TN_FMP *fmp, void *p_data);
+/*******************************************************************************
+ *  Memory Pool
+ ******************************************************************************/
+
+/**
+ * @fn          osMemoryPoolId_t osMemoryPoolNew(uint32_t block_count, uint32_t block_size, const osMemoryPoolAttr_t *attr)
+ * @brief       Create and Initialize a Memory Pool object.
+ * @param[in]   block_count   maximum number of memory blocks in memory pool.
+ * @param[in]   block_size    memory block size in bytes.
+ * @param[in]   attr          memory pool attributes.
+ * @return      memory pool ID for reference by other functions or NULL in case of error.
+ */
+osMemoryPoolId_t osMemoryPoolNew(uint32_t block_count, uint32_t block_size, const osMemoryPoolAttr_t *attr);
+
+/**
+ * @fn          const char *osMemoryPoolGetName(osMemoryPoolId_t mp_id)
+ * @brief       Get name of a Memory Pool object.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      name as null-terminated string or NULL in case of an error.
+ */
+const char *osMemoryPoolGetName(osMemoryPoolId_t mp_id);
+
+/**
+ * @fn          void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
+ * @brief       Allocate a memory block from a Memory Pool.
+ * @param[in]   mp_id     memory pool ID obtained by \ref osMemoryPoolNew.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      address of the allocated memory block or NULL in case of no memory is available.
+ */
+void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout);
+
+/**
+ * @fn          osStatus_t osMemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
+ * @brief       Return an allocated memory block back to a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @param[in]   block   address of the allocated memory block to be returned to the memory pool.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMemoryPoolFree(osMemoryPoolId_t mp_id, void *block);
+
+/**
+ * @fn          uint32_t osMemoryPoolGetCapacity(osMemoryPoolId_t mp_id)
+ * @brief       Get maximum number of memory blocks in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      maximum number of memory blocks or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetCapacity(osMemoryPoolId_t mp_id);
+
+/**
+ * @fn          uint32_t osMemoryPoolGetBlockSize(osMemoryPoolId_t mp_id)
+ * @brief       Get memory block size in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      memory block size in bytes or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetBlockSize(osMemoryPoolId_t mp_id);
+
+/**
+ * @fn          uint32_t osMemoryPoolGetCount(osMemoryPoolId_t mp_id)
+ * @brief       Get number of memory blocks used in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      number of memory blocks used or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetCount(osMemoryPoolId_t mp_id);
+
+/**
+ * @fn          uint32_t osMemoryPoolGetSpace(osMemoryPoolId_t mp_id)
+ * @brief       Get number of memory blocks available in a Memory Pool.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      number of memory blocks available or 0 in case of an error.
+ */
+uint32_t osMemoryPoolGetSpace(osMemoryPoolId_t mp_id);
+
+/**
+ * @fn          osStatus_t osMemoryPoolDelete(osMemoryPoolId_t mp_id)
+ * @brief       Delete a Memory Pool object.
+ * @param[in]   mp_id   memory pool ID obtained by \ref osMemoryPoolNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMemoryPoolDelete(osMemoryPoolId_t mp_id);
 
 
 /*******************************************************************************
