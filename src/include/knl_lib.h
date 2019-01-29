@@ -56,6 +56,7 @@
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
 #define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
+#define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
 #define NUM_PRIORITY                (32U)
 #define osThreadWait                (-16)

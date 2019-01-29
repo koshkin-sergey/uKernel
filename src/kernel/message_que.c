@@ -59,106 +59,87 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-/*-----------------------------------------------------------------------------*
- * Название : mbf_fifo_write
- * Описание : Записывает данные в циклический буфер
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на данные.
- *            msg_pri - Флаг, указывающий, что необходимо поместить данные
- *                            в начало буфера.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
- *-----------------------------------------------------------------------------*/
-static osError_t mbf_fifo_write(osMessageQueue_t *mbf, const void *msg, osMsgPriority_t msg_pri)
+static void MessagePut(osMessageQueue_t *mq, osMessage_t *msg)
 {
-  int bufsz, msz;
 
-  if (mbf->num_entries == 0)
-    return TERR_OUT_OF_MEM;
+}
 
-  if (mbf->cnt == mbf->num_entries)
-    return TERR_OVERFLOW;  //--  full
+static osMessage_t *MessageGet(osMessageQueue_t *mq)
+{
+  osMessage_t *msg;
 
-  msz = mbf->msg_size;
-  bufsz = mbf->num_entries * msz;
-
-  if (msg_pri == osMsgPriorityHigh) {
-    if (mbf->tail == 0)
-      mbf->tail = bufsz - msz;
-    else
-      mbf->tail -= msz;
-
-    memcpy(&mbf->buf[mbf->tail], msg, msz);
+  if (mq->msg_count != 0U) {
+    mq->msg_count--;
+    msg = GetMessageByQueue(QueueRemoveHead(&mq->msg_queue));
   }
   else {
-    memcpy(&mbf->buf[mbf->head], msg, msz);
-    mbf->head += msz;
-    if (mbf->head >= bufsz)
-      mbf->head = 0;
+    msg = NULL;
   }
 
-  mbf->cnt++;
-
-  return TERR_NO_ERR;
+  return (msg);
 }
 
-/*-----------------------------------------------------------------------------*
- * Название : mbf_fifo_read
- * Описание : Читает данные из буфера сообщений.
- * Параметры: mbf - Дескриптор буфера сообщений.
- *            msg - Указатель на место в памяти куда будут считаны данные.
- * Результат: Возвращает один из вариантов:
- *              TERR_NO_ERR - функция выполнена без ошибок;
- *              TERR_WRONG_PARAM  - некорректно заданы параметры;
- *              TERR_OUT_OF_MEM - Емкость буфера равна нулю.
- *-----------------------------------------------------------------------------*/
-static osError_t mbf_fifo_read(osMessageQueue_t *mbf, void *msg)
+static void MessageRemove(osMessageQueue_t *mq, osMessage_t *msg)
 {
-  int bufsz, msz;
-
-  if (mbf->num_entries == 0)
-    return TERR_OUT_OF_MEM;
-
-  if (mbf->cnt == 0)
-    return TERR_UNDERFLOW; //-- empty
-
-  msz = mbf->msg_size;
-  bufsz = mbf->num_entries * msz;
-
-  memcpy(msg, &mbf->buf[mbf->tail], msz);
-  mbf->cnt--;
-  mbf->tail += msz;
-  if (mbf->tail >= bufsz)
-    mbf->tail = 0;
-
-  return TERR_NO_ERR;
+  /* Remove message from message queue */
+  QueueRemoveEntry(&msg->msg_que);
+  /* Free memory */
+  msg->id = ID_INVALID;
+  _MemoryPoolFree(&mq->mp_info, msg);
 }
 
-static osError_t MessageQueueNew(osMessageQueue_t *mq, void *buf, uint32_t bufsz, uint32_t msz)
+static osMessageQueueId_t MessageQueueNew(uint32_t msg_count, uint32_t msg_size, const osMessageQueueAttr_t *attr)
 {
-  if ( mq->id == ID_MESSAGE_QUEUE)
-    return TERR_WRONG_PARAM;
+  osMessageQueue_t *mq;
+  void             *mq_mem;
+  uint32_t          mq_size;
+  uint32_t          block_size;
+  uint32_t          size;
 
-  QueueReset(&mq->send_queue);
-  QueueReset(&mq->recv_queue);
+  /* Check parameters */
+  if ((msg_count == 0U) || (msg_size  == 0U) || (attr == NULL)) {
+    return (NULL);
+  }
 
-  mq->buf = buf;
-  mq->msg_size = msz;
-  mq->num_entries = bufsz / msz;
-  mq->cnt = mq->head = mq->tail = 0;
+  mq      = attr->cb_mem;
+  mq_mem  = attr->mq_mem;
+  mq_size = attr->mq_size;
+  block_size = ((msg_size + 3U) & ~3UL) + sizeof(osMessage_t);
+
+  /* Check parameters */
+  if (((__CLZ(msg_count) + __CLZ(block_size)) < 32U) ||
+      (mq == NULL) || (((uint32_t)mq & 3U) != 0U) || (attr->cb_size < sizeof(osMessageQueue_t)) ||
+      (mq_mem == NULL) || (((uint32_t)mq_mem & 3U) != 0U) || (mq_size < (msg_count * block_size))) {
+    return (NULL);
+  }
+
+  /* Initialize control block */
   mq->id = ID_MESSAGE_QUEUE;
+  mq->flags = 0U;
+  mq->name = attr->name;
+  mq->msg_size = msg_size;
+  mq->msg_count = 0U;
+  QueueReset(&mq->recv_queue);
+  QueueReset(&mq->send_queue);
+  QueueReset(&mq->msg_queue);
+  _MemoryPoolInit(msg_count, block_size, mq_mem, &mq->mp_info);
 
-  return TERR_NO_ERR;
+  return (mq);
 }
 
 static const char *MessageQueueGetName(osMessageQueueId_t mq_id)
 {
-  return (NULL);
+  osMessageQueue_t *mq = mq_id;
+
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (NULL);
+  }
+
+  return (mq->name);
 }
 
-static osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPriority_t msg_pri, uint32_t timeout)
+static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout)
 {
   osThread_t *task;
 
@@ -196,7 +177,7 @@ static osError_t MessageQueuePut(osMessageQueue_t *mq, const void *msg, osMsgPri
   return TERR_WAIT;
 }
 
-static osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeout)
+static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8_t *msg_prio, uint32_t timeout)
 {
   osError_t rc;
   osThread_t *task;
@@ -235,68 +216,98 @@ static osError_t MessageQueueGet(osMessageQueue_t *mq, void *msg, uint32_t timeo
   return rc;
 }
 
-static uint32_t MessageQueueGetCapacity(osMessageQueue_t *mq)
+static uint32_t MessageQueueGetCapacity(osMessageQueueId_t mq_id)
 {
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return 0U;
+  osMessageQueue_t *mq = mq_id;
 
-  return mq->num_entries;
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (0U);
+  }
+
+  return (mq->mp_info.max_blocks);
 }
 
-static uint32_t MessageQueueGetMsgSize(osMessageQueue_t *mq)
+static uint32_t MessageQueueGetMsgSize(osMessageQueueId_t mq_id)
 {
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return 0U;
+  osMessageQueue_t *mq = mq_id;
 
-  return mq->msg_size;
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (0U);
+  }
+
+  return (mq->msg_size);
 }
 
-static uint32_t MessageQueueGetCount(osMessageQueue_t *mq)
+static uint32_t MessageQueueGetCount(osMessageQueueId_t mq_id)
 {
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return 0U;
+  osMessageQueue_t *mq = mq_id;
 
-  return mq->cnt;
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (0U);
+  }
+
+  return (mq->msg_count);
 }
 
-static uint32_t MessageQueueGetSpace(osMessageQueue_t *mq)
+static uint32_t MessageQueueGetSpace(osMessageQueueId_t mq_id)
 {
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return 0U;
+  osMessageQueue_t *mq = mq_id;
+
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (0U);
+  }
+
+  return (mq->mp_info.max_blocks - mq->msg_count);
+}
+
+static osStatus_t MessageQueueReset(osMessageQueueId_t mq_id)
+{
+  osMessageQueue_t *mq = mq_id;
+  osMessage_t      *msg;
+
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (osErrorParameter);
+  }
 
   BEGIN_CRITICAL_SECTION
 
-  uint32_t ret = mq->num_entries - mq->cnt;
+  /* Remove Messages from Queue */
+  for (;;) {
+    /* Get Message from Queue */
+    msg = MessageGet(mq);
+    if (msg == NULL) {
+      break;
+    }
+    MessageRemove(mq, msg);
+  }
 
   END_CRITICAL_SECTION
 
-  return ret;
+  return (osOK);
 }
 
-static osError_t MessageQueueReset(osMessageQueue_t *mq)
+static osStatus_t MessageQueueDelete(osMessageQueueId_t mq_id)
 {
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return TERR_NOEXS;
+  osMessageQueue_t *mq = mq_id;
 
-  BEGIN_CRITICAL_SECTION
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE)) {
+    return (osErrorParameter);
+  }
 
-  mq->cnt = mq->tail = mq->head = 0;
-
-  END_CRITICAL_SECTION
-
-  return TERR_NO_ERR;
-}
-
-static osError_t MessageQueueDelete(osMessageQueue_t *mq)
-{
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return TERR_NOEXS;
-
+  /* Unblock waiting threads */
   _ThreadWaitDelete(&mq->send_queue);
   _ThreadWaitDelete(&mq->recv_queue);
+
+  /* Mark object as invalid */
   mq->id = ID_INVALID;
 
-  return TERR_NO_ERR;
+  return (osOK);
 }
 
 /*******************************************************************************

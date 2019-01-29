@@ -195,8 +195,8 @@ typedef struct {
 } WINFO_RMQUE;
 
 typedef struct {
-  const void *msg; /* Send message head address */
-  osMsgPriority_t msg_pri;
+  const void *msg;      /* Send message head address */
+  uint32_t    msg_pri;
 } WINFO_SMQUE;
 
 typedef struct {
@@ -234,7 +234,7 @@ typedef void *osMemoryPoolId_t;
 /// Entry point of a thread.
 typedef void (*osThreadFunc_t) (void *argument);
 
-/* - Task Control Block ------------------------------------------------------*/
+/* Thread Control Block */
 typedef struct osThread_s {
   uint32_t                        stk;  ///< Address of task's top of stack
   queue_t                    task_que;  ///< Queue is used to include task in ready/wait lists
@@ -251,7 +251,7 @@ typedef struct osThread_s {
   int32_t                tslice_count;  ///< Time slice counter
 } osThread_t;
 
-/* - Semaphore ---------------------------------------------------------------*/
+/* Semaphore Control Block */
 typedef struct osSemaphore_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
@@ -263,7 +263,7 @@ typedef struct osSemaphore_s {
   uint16_t                  max_count;  ///< Maximum number of tokens
 } osSemaphore_t;
 
-/* - Event Flags -------------------------------------------------------------*/
+/* Event Flags Control Block */
 typedef struct osEventFlags_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
@@ -274,25 +274,9 @@ typedef struct osEventFlags_s {
   uint32_t                event_flags;  ///< Initial value of the eventflag bit pattern
 } osEventFlags_t;
 
-/* - Message Queue -----------------------------------------------------------*/
-typedef struct osMessageQueue_s {
-  uint8_t                          id;  ///< Object Identifier
-  uint8_t              reserved_state;  ///< Object State (not used)
-  uint8_t                       flags;  ///< Object Flags
-  uint8_t                    reserved;
-  const char                    *name;  ///< Object Name
-  queue_t                  send_queue;  ///< Message buffer send wait queue
-  queue_t                  recv_queue;  ///< Message buffer receive wait queue
-  uint8_t                        *buf;  ///< Message buffer address
-  uint32_t                   msg_size;  ///< Message size in bytes
-  uint32_t                num_entries;  ///< Capacity of data_fifo(num entries)
-  uint32_t                        cnt;  ///< Number of queued messages
-  uint32_t                       tail;  ///< Next to the last message store address
-  uint32_t                       head;  ///< First message store address
-} osMessageQueue_t;
-
 /* - Memory Pool definitions   -----------------------------------------------*/
-/// Memory Pool Information
+
+/* Memory Pool Information */
 typedef struct osMemoryPoolInfo_s {
   uint32_t                 max_blocks;  ///< Maximum number of Blocks
   uint32_t                used_blocks;  ///< Number of used Blocks
@@ -302,7 +286,7 @@ typedef struct osMemoryPoolInfo_s {
   void                    *block_free;  ///< First free Block Address
 } osMemoryPoolInfo_t;
 
-/// Memory Pool Control Block
+/* Memory Pool Control Block */
 typedef struct osMemoryPool_s {
   uint8_t                          id;  ///< Object Identifier
   uint8_t              reserved_state;  ///< Object State (not used)
@@ -312,6 +296,32 @@ typedef struct osMemoryPool_s {
   queue_t                  wait_queue;  ///< Waiting Threads queue
   osMemoryPoolInfo_t             info;  ///< Memory Pool Info
 } osMemoryPool_t;
+
+/* - Message Queue definitions   -----------------------------------------------*/
+
+/* Message Control Block */
+typedef struct osMessage_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                    priority;  ///< Message Priority
+  queue_t                     msg_que;  ///< Entry is used to include message in the list
+} osMessage_t;
+
+/* Message Queue Control Block */
+typedef struct osMessageQueue_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t                  send_queue;  ///< Queue of threads waiting to send a message
+  queue_t                  recv_queue;  ///< Queue of threads waiting to receive a message
+  osMemoryPoolInfo_t          mp_info;  ///< Memory Pool Info
+  uint32_t                   msg_size;  ///< Message size in bytes
+  uint32_t                  msg_count;  ///< Number of queued Messages
+  queue_t                   msg_queue;  ///< List of all queued Messages
+} osMessageQueue_t;
 
 
 /* - Mutex -------------------------------------------------------------------*/
