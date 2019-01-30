@@ -187,17 +187,10 @@ typedef struct timer_event_block {
   void *arg;              /**< Argument to be sent to callback function */
 } timer_t;
 
-/*
- * Message buffer receive/send wait (TTW_RMBF, TTW_SMBF)
- */
 typedef struct {
-  void *msg; /* Address that has a received message */
-} WINFO_RMQUE;
-
-typedef struct {
-  const void *msg;      /* Send message head address */
-  uint32_t    msg_pri;
-} WINFO_SMQUE;
+  uint32_t  msg;
+  uint32_t  msg_prio;
+} WINFO_MQUE;
 
 typedef struct {
   uint32_t flags;
@@ -209,8 +202,8 @@ typedef struct {
  */
 typedef struct winfo_s {
   union {
-    WINFO_RMQUE rmque;
-    WINFO_SMQUE smque;
+    WINFO_MQUE  rmque;
+    WINFO_MQUE  smque;
     WINFO_EVENT event;
   };
   uint32_t ret_val;

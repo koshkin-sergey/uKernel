@@ -59,9 +59,29 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static void MessagePut(osMessageQueue_t *mq, osMessage_t *msg)
+static void MessagePut(osMessageQueue_t *mq, osMessage_t *new_msg)
 {
+  queue_t     *que;
+  queue_t     *msg_queue;
+  osMessage_t *msg;
 
+  msg_queue = &mq->msg_queue;
+
+  if (new_msg->priority == 0U) {
+    QueueAddTail(msg_queue, &new_msg->msg_que);
+  }
+  else {
+    for (que = msg_queue->next; que != msg_queue; que = que->next) {
+      msg = GetMessageByQueue(que);
+      if (msg->priority < new_msg->priority) {
+        break;
+      }
+    }
+
+    QueueAddTail(que, &new_msg->msg_que);
+  }
+
+  mq->msg_count++;
 }
 
 static osMessage_t *MessageGet(osMessageQueue_t *mq)
@@ -94,7 +114,6 @@ static osMessageQueueId_t MessageQueueNew(uint32_t msg_count, uint32_t msg_size,
   void             *mq_mem;
   uint32_t          mq_size;
   uint32_t          block_size;
-  uint32_t          size;
 
   /* Check parameters */
   if ((msg_count == 0U) || (msg_size  == 0U) || (attr == NULL)) {
@@ -141,58 +160,89 @@ static const char *MessageQueueGetName(osMessageQueueId_t mq_id)
 
 static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout)
 {
-  osThread_t *task;
+  osMessageQueue_t *mq = mq_id;
+  osMessage_t      *msg;
+  osThread_t       *thread;
+  WINFO_MQUE       *winfo;
+  osStatus_t        status;
 
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return TERR_NOEXS;
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE) || (msg_ptr == NULL)) {
+    return (osErrorParameter);
+  }
 
   BEGIN_CRITICAL_SECTION
 
+  /* Check if Thread is waiting to receive a Message */
   if (!isQueueEmpty(&mq->recv_queue)) {
-    /* There are task(s) in the data queue's wait_receive list */
-    task = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
-    memcpy(task->wait_info.rmque.msg, msg, mq->msg_size);
-    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
+    /* Wakeup waiting Thread with highest Priority */
+    thread = GetTaskByQueue(QueueRemoveHead(&mq->recv_queue));
+    _ThreadWaitExit(thread, (uint32_t)osOK);
+    winfo = &thread->wait_info.rmque;
+    memcpy((void *)winfo->msg, msg_ptr, mq->msg_size);
+    if ((uint8_t *)winfo->msg_prio != NULL) {
+      *((uint8_t *)winfo->msg_prio) = msg_prio;
+    }
+    status = osOK;
   }
-
-  if (mbf_fifo_write(mq, msg, msg_pri) == TERR_NO_ERR) {
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
+  else {
+    /* Try to allocate memory */
+    msg = _MemoryPoolAlloc(&mq->mp_info);
+    if (msg != NULL) {
+      /* Copy Message */
+      memcpy(&msg[1], msg_ptr, mq->msg_size);
+      msg->id = ID_MESSAGE;
+      msg->flags = 0U;
+      msg->priority = msg_prio;
+      /* Put Message into Queue */
+      MessagePut(mq, msg);
+      status = osOK;
+    }
+    else {
+      /* No memory available */
+      if (timeout != 0U) {
+        /* Suspend current Thread */
+        thread = ThreadGetRunning();
+        thread->wait_info.ret_val = osErrorTimeout;
+        winfo = &thread->wait_info.smque;
+        winfo->msg      = (uint32_t)msg_ptr;
+        winfo->msg_prio = (uint32_t)msg_prio;
+        _ThreadWaitEnter(thread, &mq->send_queue, timeout);
+        status = osThreadWait;
+      }
+      else {
+        status = osErrorResource;
+      }
+    }
   }
-
-  /* No free entries in the data queue */
-  if (timeout == 0U) {
-    END_CRITICAL_SECTION
-    return TERR_TIMEOUT;
-  }
-
-  task = ThreadGetRunning();
-  task->wait_info.smque.msg = msg;
-  task->wait_info.smque.msg_pri = msg_pri;
-  _ThreadWaitEnter(task, &mq->send_queue, timeout);
 
   END_CRITICAL_SECTION
-  return TERR_WAIT;
+
+  return (status);
 }
 
 static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8_t *msg_prio, uint32_t timeout)
 {
-  osError_t rc;
-  osThread_t *task;
+  osMessageQueue_t *mq = mq_id;
+  osMessage_t      *msg;
+  osThread_t       *thread;
+  WINFO_MQUE       *winfo;
+  osStatus_t        status;
 
-  if (mq->id != ID_MESSAGE_QUEUE)
-    return TERR_NOEXS;
+  /* Check parameters */
+  if ((mq == NULL) || (mq->id != ID_MESSAGE_QUEUE) || (msg_ptr == NULL)) {
+    return (osErrorParameter);
+  }
 
   BEGIN_CRITICAL_SECTION
 
-  rc = mbf_fifo_read(mq, msg);
+  /* Get Message from Queue */
+  msg = MessageGet(mq);
 
   if (!isQueueEmpty(&mq->send_queue)) {
     task = GetTaskByQueue(QueueRemoveHead(&mq->send_queue));
     if (rc == TERR_NO_ERR)
-      mbf_fifo_write(mq, task->wait_info.smque.msg, task->wait_info.smque.msg_pri);
+      mbf_fifo_write(mq, task->wait_info.smque.msg, task->wait_info.smque.msg_prio);
     else
       memcpy(msg, task->wait_info.smque.msg, mq->msg_size);
     _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
@@ -213,7 +263,8 @@ static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8
   }
 
   END_CRITICAL_SECTION
-  return rc;
+
+  return (status);
 }
 
 static uint32_t MessageQueueGetCapacity(osMessageQueueId_t mq_id)
