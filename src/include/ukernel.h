@@ -307,7 +307,8 @@ typedef struct osMessageQueue_s {
   uint8_t                       flags;  ///< Object Flags
   uint8_t                    reserved;
   const char                    *name;  ///< Object Name
-  queue_t                  wait_queue;  ///< Waiting Threads queue
+  queue_t              wait_put_queue;  ///< Queue of threads waiting to send a message
+  queue_t              wait_get_queue;  ///< Queue of threads waiting to receive a message
   osMemoryPoolInfo_t          mp_info;  ///< Memory Pool Info
   uint32_t                   msg_size;  ///< Message size in bytes
   uint32_t                  msg_count;  ///< Number of queued Messages

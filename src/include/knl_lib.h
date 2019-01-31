@@ -218,6 +218,12 @@ void MutexOwnerRelease(queue_t *que);
 void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info);
 
 /**
+ * @brief       Reset Memory Pool.
+ * @param[in]   mp_info       memory pool info.
+ */
+void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info);
+
+/**
  * @brief       Allocate a memory block from a Memory Pool.
  * @param[in]   mp_info   memory pool info.
  * @return      address of the allocated memory block or NULL in case of no memory is available.
