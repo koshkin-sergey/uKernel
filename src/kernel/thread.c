@@ -85,7 +85,7 @@ static osThread_t *ThreadHighestPrioGet(void)
   osThread_t *thread;
 
   priority = (NUM_PRIORITY - 1U) - __CLZ(knlInfo.ready_to_run_bmp);
-  thread = GetTaskByQueue(knlInfo.ready_list[priority].next);
+  thread = GetThreadByQueue(knlInfo.ready_list[priority].next);
 
   return (thread);
 }
@@ -355,7 +355,7 @@ static osStatus_t ThreadYield(void)
 
   if (!isQueueEmpty(que)) {
     thread_running->state = ThreadStateReady;
-    thread_ready = GetTaskByQueue(info->ready_list[priority].next);
+    thread_ready = GetThreadByQueue(info->ready_list[priority].next);
     ThreadSwitch(thread_ready);
   }
 
@@ -511,7 +511,7 @@ static uint32_t ThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items
  */
 void _ThreadWaitExit(osThread_t *thread, uint32_t ret_val)
 {
-  thread->wait_info.ret_val = ret_val;
+  thread->winfo.ret_val = ret_val;
 
   QueueRemoveEntry(&thread->wait_timer.timer_que);
   ThreadReadyAdd(thread);
@@ -550,7 +550,7 @@ void _ThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 void _ThreadWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
-    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
+    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
   }
 }
 

@@ -37,11 +37,12 @@
 #define ID_SEMAPHORE                0x6F
 #define ID_EVENT_FLAGS              0x5E
 #define ID_DATAQUEUE                0x0C
-#define ID_MEMORYPOOL             0x26
+#define ID_MEMORYPOOL               0x26
 #define ID_MUTEX                    0x17
 #define ID_ALARM                    0x7A
 #define ID_CYCLIC                   0x2B
 #define ID_MESSAGE_QUEUE            0x1C
+#define ID_MESSAGE                  0x1D
 
 /* Thread State definitions */
 #define ThreadStateInactive         ((uint8_t)osThreadInactive)
@@ -52,10 +53,11 @@
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define GetTaskByQueue(que)         container_of(que, osThread_t, task_que)
+#define GetThreadByQueue(que)       container_of(que, osThread_t, task_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
 #define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
+#define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
 #define NUM_PRIORITY                (32U)
 #define osThreadWait                (-16)
@@ -214,6 +216,12 @@ void MutexOwnerRelease(queue_t *que);
  * @param[in]   mp_info       memory pool info.
  */
 void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info);
+
+/**
+ * @brief       Reset Memory Pool.
+ * @param[in]   mp_info       memory pool info.
+ */
+void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info);
 
 /**
  * @brief       Allocate a memory block from a Memory Pool.

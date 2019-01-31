@@ -124,7 +124,7 @@ static osStatus_t SemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeou
     /* No token available */
     if (timeout != 0U) {
       thread = ThreadGetRunning();
-      thread->wait_info.ret_val = (uint32_t)osErrorTimeout;
+      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
       _ThreadWaitEnter(thread, &sem->wait_queue, timeout);
       status = (osStatus_t)osThreadWait;
     }
@@ -153,7 +153,7 @@ static osStatus_t SemaphoreRelease(osSemaphoreId_t semaphore_id)
   /* Check if Thread is waiting for a token */
   if (!isQueueEmpty(&sem->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK);
+    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK);
     status = osOK;
   }
   else {
@@ -269,7 +269,7 @@ osStatus_t osSemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeout)
   else {
     status = (osStatus_t)svc_2((uint32_t)semaphore_id, timeout, (uint32_t)SemaphoreAcquire);
     if (status == osThreadWait) {
-      status = (osStatus_t)ThreadGetRunning()->wait_info.ret_val;
+      status = (osStatus_t)ThreadGetRunning()->winfo.ret_val;
     }
   }
 

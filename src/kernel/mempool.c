@@ -95,7 +95,7 @@ static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
   if (block == NULL) {
     if (timeout != 0U) {
       thread = ThreadGetRunning();
-      thread->wait_info.ret_val = 0U;
+      thread->winfo.ret_val = 0U;
       _ThreadWaitEnter(thread, &mp->wait_queue, timeout);
       block = (void *)osThreadWait;
     }
@@ -124,7 +124,7 @@ static osStatus_t MemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
   /* Check if Thread is waiting to allocate memory */
   if (!isQueueEmpty(&mp->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
+    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
     status = osOK;
   }
   else {
@@ -216,9 +216,6 @@ static osStatus_t MemoryPoolDelete(osMemoryPoolId_t mp_id)
  */
 void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info)
 {
-  void *mem;
-  void *block;
-
   // Initialize information structure
   mp_info->max_blocks  = block_count;
   mp_info->used_blocks = 0U;
@@ -227,10 +224,26 @@ void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem,
   mp_info->block_free  = block_mem;
   mp_info->block_lim   = &(((uint8_t *)block_mem)[block_count * block_size]);
 
+  /* Reset Memory Pool */
+  _MemoryPoolReset(mp_info);
+}
+
+/**
+ * @brief       Reset Memory Pool.
+ * @param[in]   mp_info       memory pool info.
+ */
+void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info)
+{
+  void *mem;
+  void *block;
+  uint32_t block_count;
+
   /* Link all free blocks */
-  mem = block_mem;
+  mem = mp_info->block_base;
+  block_count = mp_info->max_blocks;
+
   while (--block_count != 0U) {
-    block = &((uint8_t *)mem)[block_size];
+    block = &((uint8_t *)mem)[mp_info->block_size];
     *((void **)mem) = block;
     mem = block;
   }
@@ -346,7 +359,7 @@ void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
   else {
     memory = (void *)svc_2((uint32_t)mp_id, timeout, (uint32_t)MemoryPoolAlloc);
     if ((int32_t)memory == osThreadWait) {
-      memory = (void *)ThreadGetRunning()->wait_info.ret_val;
+      memory = (void *)ThreadGetRunning()->winfo.ret_val;
     }
   }
 
