@@ -190,24 +190,23 @@ typedef struct timer_event_block {
 typedef struct {
   uint32_t  msg;
   uint32_t  msg_prio;
-} WINFO_MQUE;
+} winfo_msgque_t;
 
 typedef struct {
   uint32_t flags;
   uint32_t options;
-} WINFO_EVENT;
+} winfo_event_t;
 
 /*
  * Definition of wait information in task control block
  */
 typedef struct winfo_s {
   union {
-    WINFO_MQUE  rmque;
-    WINFO_MQUE  smque;
-    WINFO_EVENT event;
+    winfo_msgque_t  msgque;
+    winfo_event_t   event;
   };
   uint32_t ret_val;
-} wait_info;
+} winfo_t;
 
 /// @details Thread ID identifies the thread.
 typedef void *osThreadId_t;
@@ -239,7 +238,7 @@ typedef struct osThread_s {
   uint8_t                          id;  ///< ID for verification(is it a task or another object?)
   uint8_t                       state;  ///< Task state
   const char                    *name;  ///< Object Name
-  wait_info                 wait_info;  ///< Wait information
+  winfo_t                       winfo;  ///< Wait information
   timer_t                  wait_timer;  ///< Wait timer
   int32_t                tslice_count;  ///< Time slice counter
 } osThread_t;
@@ -308,8 +307,7 @@ typedef struct osMessageQueue_s {
   uint8_t                       flags;  ///< Object Flags
   uint8_t                    reserved;
   const char                    *name;  ///< Object Name
-  queue_t                  send_queue;  ///< Queue of threads waiting to send a message
-  queue_t                  recv_queue;  ///< Queue of threads waiting to receive a message
+  queue_t                  wait_queue;  ///< Waiting Threads queue
   osMemoryPoolInfo_t          mp_info;  ///< Memory Pool Info
   uint32_t                   msg_size;  ///< Message size in bytes
   uint32_t                  msg_count;  ///< Number of queued Messages

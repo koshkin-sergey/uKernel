@@ -95,7 +95,7 @@ static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
   if (block == NULL) {
     if (timeout != 0U) {
       thread = ThreadGetRunning();
-      thread->wait_info.ret_val = 0U;
+      thread->winfo.ret_val = 0U;
       _ThreadWaitEnter(thread, &mp->wait_queue, timeout);
       block = (void *)osThreadWait;
     }
@@ -124,7 +124,7 @@ static osStatus_t MemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
   /* Check if Thread is waiting to allocate memory */
   if (!isQueueEmpty(&mp->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(GetTaskByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
+    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
     status = osOK;
   }
   else {
@@ -346,7 +346,7 @@ void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
   else {
     memory = (void *)svc_2((uint32_t)mp_id, timeout, (uint32_t)MemoryPoolAlloc);
     if ((int32_t)memory == osThreadWait) {
-      memory = (void *)ThreadGetRunning()->wait_info.ret_val;
+      memory = (void *)ThreadGetRunning()->winfo.ret_val;
     }
   }
 

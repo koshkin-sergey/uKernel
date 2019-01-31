@@ -107,7 +107,7 @@ int8_t GetMaxPriority(osMutex_t *mutex, int8_t ref_priority)
   priority = ref_priority;
   curr_que = mutex->wait_que.next;
   while (curr_que != &mutex->wait_que) {
-    task = GetTaskByQueue(curr_que);
+    task = GetThreadByQueue(curr_que);
     if (task->priority > priority) //--  task priority is higher
       priority = task->priority;
 
@@ -158,7 +158,7 @@ void MutexUnLock(osMutex_t *mutex)
   else {
     //--- Now lock the mutex by the first task in the mutex queue
     que = QueueRemoveHead(&mutex->wait_que);
-    mutex->holder = GetTaskByQueue(que);
+    mutex->holder = GetThreadByQueue(que);
     QueueAddTail(&mutex->holder->mutex_que, &mutex->mutex_que);
     mutex->cnt = 1U;
 
@@ -387,7 +387,7 @@ osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
   osError_t ret_val = (osError_t)svc_2((uint32_t)mutex, (uint32_t)timeout, (uint32_t)MutexAcquire);
 
   if (ret_val == TERR_WAIT)
-    return (osError_t)ThreadGetRunning()->wait_info.ret_val;
+    return (osError_t)ThreadGetRunning()->winfo.ret_val;
 
   return ret_val;
 }

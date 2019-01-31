@@ -160,14 +160,14 @@ static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
 
   que = evf->wait_queue.next;
   while (que != &evf->wait_queue) {
-    task = GetTaskByQueue(que);
+    task = GetThreadByQueue(que);
     que = que->next;
 
-    pattern = FlagsCheck(evf, task->wait_info.event.flags, task->wait_info.event.options);
+    pattern = FlagsCheck(evf, task->winfo.event.flags, task->winfo.event.options);
 
     if (pattern) {
-      if (!(task->wait_info.event.options & osFlagsNoClear)) {
-        event_flags = pattern & ~task->wait_info.event.flags;
+      if (!(task->winfo.event.options & osFlagsNoClear)) {
+        event_flags = pattern & ~task->winfo.event.flags;
       }
       else {
         event_flags = pattern;
@@ -218,6 +218,8 @@ static uint32_t EventFlagsGet(osEventFlagsId_t ef_id)
 static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t options, uint32_t timeout)
 {
   osEventFlags_t *evf = (osEventFlags_t *)ef_id;
+  osThread_t *thread;
+  winfo_event_t *winfo;
   uint32_t event_flags;
 
   /* Check parameters */
@@ -233,10 +235,11 @@ static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t 
 
   if (event_flags == 0U) {
     if (timeout != 0U) {
-      osThread_t *thread = ThreadGetRunning();
-      thread->wait_info.ret_val = (uint32_t)osErrorTimeout;
-      thread->wait_info.event.options = options;
-      thread->wait_info.event.flags = flags;
+      thread = ThreadGetRunning();
+      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
+      winfo = &thread->winfo.event;
+      winfo->options = options;
+      winfo->flags = flags;
       _ThreadWaitEnter(thread, &evf->wait_queue, timeout);
       event_flags = (uint32_t)osThreadWait;
     }
@@ -398,7 +401,7 @@ uint32_t osEventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t optio
   else {
     event_flags = svc_4((uint32_t)ef_id, flags, options, timeout, (uint32_t)EventFlagsWait);
     if ((int32_t)event_flags == osThreadWait) {
-      event_flags = ThreadGetRunning()->wait_info.ret_val;
+      event_flags = ThreadGetRunning()->winfo.ret_val;
     }
   }
 
