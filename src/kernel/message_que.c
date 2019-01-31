@@ -239,26 +239,49 @@ static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8
   /* Get Message from Queue */
   msg = MessageGet(mq);
 
-  if (!isQueueEmpty(&mq->send_queue)) {
-    task = GetTaskByQueue(QueueRemoveHead(&mq->send_queue));
-    if (rc == TERR_NO_ERR)
-      mbf_fifo_write(mq, task->wait_info.smque.msg, task->wait_info.smque.msg_prio);
-    else
-      memcpy(msg, task->wait_info.smque.msg, mq->msg_size);
-    _ThreadWaitExit(task, (uint32_t)TERR_NO_ERR);
-    END_CRITICAL_SECTION
-    return TERR_NO_ERR;
+  if (msg != NULL) {
+    /* Copy Message */
+    memcpy(msg_ptr, &msg[1], mq->msg_size);
+    if (msg_prio != NULL) {
+      *msg_prio = msg->priority;
+    }
+    /* Free memory */
+    msg->id = ID_INVALID;
+    _MemoryPoolFree(&mq->mp_info, msg);
+    /* Check if Thread is waiting to send a Message */
+    if (!isQueueEmpty(&mq->send_queue)) {
+      /* Try to allocate memory */
+      msg = _MemoryPoolAlloc(&mq->mp_info);
+      if (msg != NULL) {
+        /* Wakeup waiting Thread with highest Priority */
+        thread = GetTaskByQueue(QueueRemoveHead(&mq->send_queue));
+        _ThreadWaitExit(thread, (uint32_t)osOK);
+        /* Copy Message */
+        winfo = &thread->wait_info.smque;
+        memcpy(&msg[1], (void *)winfo->msg, mq->msg_size);
+        msg->id = ID_MESSAGE;
+        msg->flags = 0U;
+        msg->priority = (uint8_t)winfo->msg_prio;
+        /* Store Message into Queue */
+        MessagePut(mq, msg);
+      }
+    }
+    status = osOK;
   }
-
-  if (rc != TERR_NO_ERR) {
-    if (timeout == 0U) {
-      rc = TERR_TIMEOUT;
+  else {
+    /* No Message available */
+    if (timeout != 0U) {
+      /* Suspend current Thread */
+      thread = ThreadGetRunning();
+      thread->wait_info.ret_val = osErrorTimeout;
+      winfo = &thread->wait_info.rmque;
+      winfo->msg      = (uint32_t)msg_ptr;
+      winfo->msg_prio = (uint32_t)msg_prio;
+      _ThreadWaitEnter(thread, &mq->recv_queue, timeout);
+      status = osThreadWait;
     }
     else {
-      task = ThreadGetRunning();
-      task->wait_info.rmque.msg = msg;
-      _ThreadWaitEnter(task, &mq->recv_queue, timeout);
-      rc = TERR_WAIT;
+      status = osErrorResource;
     }
   }
 
