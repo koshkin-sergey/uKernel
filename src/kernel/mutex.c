@@ -188,11 +188,10 @@ void MutexOwnerRelease(queue_t *que)
 }
 
 /*******************************************************************************
- *  Service Calls
+ *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static
-osError_t MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+static osMutexId_t MutexNew(const osMutexAttr_t *attr)
 {
   if (mutex->id == ID_MUTEX)
     return TERR_NO_ERR;
@@ -214,28 +213,19 @@ osError_t MutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
   return TERR_NO_ERR;
 }
 
-static
-osError_t MutexDelete(osMutex_t *mutex)
+static const char *MutexGetName(osMutexId_t mutex_id)
 {
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  osMutex_t *mutex = mutex_id;
 
-  /* Check if Mutex is locked */
-  if (mutex->cnt != 0U) {
-    /* Unblock waiting tasks */
-    _ThreadWaitDelete(&mutex->wait_que);
-    /* Unlock Mutex */
-    MutexUnLock(mutex);
+  /* Check parameters */
+  if ((mutex == NULL) || (mutex->id != ID_MUTEX)) {
+    return (NULL);
   }
 
-  /* Mutex not exists now */
-  mutex->id = ID_INVALID;
-
-  return TERR_NO_ERR;
+  return (mutex->name);
 }
 
-static
-osError_t MutexAcquire(osMutex_t *mutex, uint32_t timeout)
+static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
 {
   osError_t rc;
 
@@ -289,8 +279,7 @@ osError_t MutexAcquire(osMutex_t *mutex, uint32_t timeout)
   return rc;
 }
 
-static
-osError_t MutexRelease(osMutex_t *mutex)
+static osStatus_t MutexRelease(osMutexId_t mutex_id)
 {
   if (mutex->id != ID_MUTEX)
     return TERR_NOEXS;
@@ -311,121 +300,167 @@ osError_t MutexRelease(osMutex_t *mutex)
   return TERR_NO_ERR;
 }
 
-static
-osThread_t* MutexGetOwner(osMutex_t *mutex)
+static osThreadId_t MutexGetOwner(osMutexId_t mutex_id)
+{
+  osMutex_t *mutex = mutex_id;
+
+  /* Check parameters */
+  if ((mutex == NULL) || (mutex->id != ID_MUTEX)) {
+    return (NULL);
+  }
+
+  if (mutex->cnt == 0U) {
+    return (NULL);
+  }
+
+  return (mutex->holder);
+}
+
+static osStatus_t MutexDelete(osMutexId_t mutex_id)
 {
   if (mutex->id != ID_MUTEX)
-    return NULL;
+    return TERR_NOEXS;
 
-  if (mutex->cnt == 0U)
-    return NULL;
+  /* Check if Mutex is locked */
+  if (mutex->cnt != 0U) {
+    /* Unblock waiting tasks */
+    _ThreadWaitDelete(&mutex->wait_que);
+    /* Unlock Mutex */
+    MutexUnLock(mutex);
+  }
 
-  return mutex->holder;
+  /* Mutex not exists now */
+  mutex->id = ID_INVALID;
+
+  return TERR_NO_ERR;
 }
 
 /*******************************************************************************
- *  function implementations (scope: module-exported)
+ *  Public API
  ******************************************************************************/
 
 /**
- * @fn          osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
- * @brief       Creates and initializes a new mutex object
- * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
- * @param[in]   attr    Sets the mutex object attributes (refer to osMutexAttr_t).
- *                      Default attributes will be used if set to NULL.
- * @return      TERR_NO_ERR       The mutex object has been created
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osMutexId_t osMutexNew(const osMutexAttr_t *attr)
+ * @brief       Create and Initialize a Mutex object.
+ * @param[in]   attr  mutex attributes.
+ * @return      mutex ID for reference by other functions or NULL in case of error.
  */
-osError_t osMutexNew(osMutex_t *mutex, const osMutexAttr_t *attr)
+osMutexId_t osMutexNew(const osMutexAttr_t *attr)
 {
-  if (mutex == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osMutexId_t mutex_id;
 
-  return (osError_t)svc_2((uint32_t)mutex, (uint32_t)attr, (uint32_t)MutexNew);
+  if (IsIrqMode() || IsIrqMasked()) {
+    mutex_id = NULL;
+  }
+  else {
+    mutex_id = (osMutexId_t)svc_1((uint32_t)attr, (uint32_t)MutexNew);
+  }
+
+  return (mutex_id);
 }
 
 /**
- * @fn          osError_t osMutexDelete(osMutex_t *mutex)
- * @brief       Deletes a mutex object
- * @param[out]  mutex   Pointer to osMutex_t structure of the mutex
- * @return      TERR_NO_ERR       The mutex object has been deleted
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          const char *osMutexGetName(osMutexId_t mutex_id)
+ * @brief       Get name of a Mutex object.
+ * @param[in]   mutex_id  mutex ID obtained by \ref osMutexNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osMutexDelete(osMutex_t *mutex)
+const char *osMutexGetName(osMutexId_t mutex_id)
 {
-  if (mutex == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  const char *name;
 
-  return (osError_t)svc_1((uint32_t)mutex, (uint32_t)MutexDelete);
+  if (IsIrqMode() || IsIrqMasked()) {
+    name = NULL;
+  }
+  else {
+    name = (const char *)svc_1((uint32_t)mutex_id, (uint32_t)MutexGetName);
+  }
+
+  return (name);
 }
 
 /**
- * @fn          osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
- * @brief       Waits until a mutex object becomes available
- * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
- * @param[in]   timeout   Timeout Value or 0 in case of no time-out. Specifies
- *                        how long the system waits to acquire the mutex.
- * @return      TERR_NO_ERR       The mutex has been obtained
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_TIMEOUT      The mutex could not be obtained in the given time
- *              TERR_ILUSE        Illegal usage, e.g. trying to acquire already obtained mutex
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osStatus_t osMutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
+ * @brief       Acquire a Mutex or timeout if it is locked.
+ * @param[in]   mutex_id  mutex ID obtained by \ref osMutexNew.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osMutexAcquire(osMutex_t *mutex, uint32_t timeout)
+osStatus_t osMutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
 {
-  if (mutex == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osStatus_t status;
 
-  osError_t ret_val = (osError_t)svc_2((uint32_t)mutex, (uint32_t)timeout, (uint32_t)MutexAcquire);
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_2((uint32_t)mutex_id, timeout, (uint32_t)MutexAcquire);
+    if (status == osThreadWait) {
+      status = (osStatus_t)ThreadGetRunning()->winfo.ret_val;
+    }
+  }
 
-  if (ret_val == TERR_WAIT)
-    return (osError_t)ThreadGetRunning()->winfo.ret_val;
-
-  return ret_val;
+  return (status);
 }
 
 /**
- * @fn          osError_t osMutexRelease(osMutex_t *mutex)
- * @brief       Releases a mutex
- * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
- * @return      TERR_NO_ERR       The mutex has been correctly released
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ILUSE        Illegal usage, e.g. trying to release already free mutex
- *              TERR_ISR          Cannot be called from interrupt service routines
+ * @fn          osStatus_t osMutexRelease(osMutexId_t mutex_id)
+ * @brief       Release a Mutex that was acquired by \ref osMutexAcquire.
+ * @param[in]   mutex_id  mutex ID obtained by \ref osMutexNew.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osMutexRelease(osMutex_t *mutex)
+osStatus_t osMutexRelease(osMutexId_t mutex_id)
 {
-  if (mutex == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osStatus_t status;
 
-  return (osError_t)svc_1((uint32_t)mutex, (uint32_t)MutexRelease);
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)mutex_id, (uint32_t)MutexRelease);
+  }
+
+  return (status);
 }
 
 /**
- * @fn          osThread_t* osMutexGetOwner(osMutex_t *mutex)
- * @brief       Returns the pointer to the task that acquired a mutex. In case
- *              of an error or if the mutex is not blocked by any task, it returns NULL.
- * @param[out]  mutex     Pointer to osMutex_t structure of the mutex
- * @return      Pointer to owner task or NULL when mutex was not acquired
+ * @fn          osThreadId_t osMutexGetOwner(osMutexId_t mutex_id)
+ * @brief       Get Thread which owns a Mutex object.
+ * @param[in]   mutex_id  mutex ID obtained by \ref osMutexNew.
+ * @return      thread ID of owner thread or NULL when mutex was not acquired.
  */
-osThread_t* osMutexGetOwner(osMutex_t *mutex)
+osThreadId_t osMutexGetOwner(osMutexId_t mutex_id)
 {
-  if (mutex == NULL)
-    return NULL;
-  if (IsIrqMode() || IsIrqMasked())
-    return NULL;
+  osThreadId_t thread;
 
-  return (osThread_t *)svc_1((uint32_t)mutex, (uint32_t)MutexGetOwner);
+  if (IsIrqMode() || IsIrqMasked()) {
+    thread = NULL;
+  }
+  else {
+    thread = (osThreadId_t)svc_1((uint32_t)mutex_id, (uint32_t)MutexGetOwner);
+  }
+
+  return (thread);
+}
+
+/**
+ * @fn          osStatus_t osMutexDelete(osMutexId_t mutex_id)
+ * @brief       Delete a Mutex object.
+ * @param[in]   mutex_id  mutex ID obtained by \ref osMutexNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osMutexDelete(osMutexId_t mutex_id)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)mutex_id, (uint32_t)MutexDelete);
+  }
+
+  return (status);
 }
 
 /*------------------------------ End of file ---------------------------------*/
