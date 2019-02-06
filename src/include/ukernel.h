@@ -220,6 +220,9 @@ typedef void *osSemaphoreId_t;
 /// \details Message Queue ID identifies the message queue.
 typedef void *osMessageQueueId_t;
 
+/// \details Data Queue ID identifies the data queue.
+typedef void *osDataQueueId_t;
+
 /// \details Memory Pool ID identifies the memory pool.
 typedef void *osMemoryPoolId_t;
 
@@ -315,6 +318,19 @@ typedef struct osMessageQueue_s {
   queue_t                   msg_queue;  ///< List of all queued Messages
 } osMessageQueue_t;
 
+/* Data Queue Control Block */
+typedef struct osDataQueue_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t              reserved_state;  ///< Object State (not used)
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                    reserved;
+  const char                    *name;  ///< Object Name
+  queue_t              wait_put_queue;  ///< Queue of threads waiting to send a data
+  queue_t              wait_get_queue;  ///< Queue of threads waiting to receive a data
+  uint32_t                  data_size;  ///< Data size in bytes
+  uint32_t                 data_count;  ///< Number of queued Data
+  queue_t                  data_queue;  ///< List of all queued Data
+} osDataQueue_t;
 
 /* - Mutex -------------------------------------------------------------------*/
 
@@ -437,6 +453,16 @@ typedef struct {
   void                       *mq_mem;   ///< memory for data storage
   uint32_t                   mq_size;   ///< size of provided memory for data storage
 } osMessageQueueAttr_t;
+
+/// Attributes structure for data queue.
+typedef struct osDataQueueAttr_s {
+  const char                   *name;   ///< name of the data queue
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                       *cb_mem;   ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+  void                       *dq_mem;   ///< memory for data storage
+  uint32_t                   dq_size;   ///< size of provided memory for data storage
+} osDataQueueAttr_t;
 
 /// Attributes structure for memory pool.
 typedef struct {
@@ -782,6 +808,95 @@ osStatus_t osMessageQueueReset(osMessageQueueId_t mq_id);
  */
 osStatus_t osMessageQueueDelete(osMessageQueueId_t mq_id);
 
+/*******************************************************************************
+ *  Data Queue
+ ******************************************************************************/
+
+/**
+ * @fn          osDataQueueId_t osDataQueueNew(uint32_t data_count, uint32_t data_size, const osDataQueueAttr_t *attr)
+ * @brief       Create and Initialize a Data Queue object.
+ * @param[in]   data_count  maximum number of data in queue.
+ * @param[in]   data_size   maximum data size in bytes.
+ * @param[in]   attr        data queue attributes.
+ * @return      data queue ID for reference by other functions or NULL in case of error.
+ */
+osDataQueueId_t osDataQueueNew(uint32_t data_count, uint32_t data_size, const osDataQueueAttr_t *attr);
+
+/**
+ * @fn          const char *osDataQueueGetName(osDataQueueId_t dq_id)
+ * @brief       Get name of a Data Queue object.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      name as null-terminated string or NULL in case of an error.
+ */
+const char *osDataQueueGetName(osDataQueueId_t dq_id);
+
+/**
+ * @fn          osStatus_t osDataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint32_t timeout)
+ * @brief       Put a Data into a Queue or timeout if Queue is full.
+ * @param[in]   dq_id     data queue ID obtained by \ref osDataQueueNew.
+ * @param[in]   data_ptr  pointer to buffer with data to put into a queue.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint32_t timeout);
+
+/**
+ * @fn          osStatus_t osDataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t timeout)
+ * @brief       Get a Data from a Queue or timeout if Queue is empty.
+ * @param[in]   dq_id     data queue ID obtained by \ref osDataQueueNew.
+ * @param[out]  data_ptr  pointer to buffer for data to get from a queue.
+ * @param[in]   timeout   \ref CMSIS_RTOS_TimeOutValue or 0 in case of no time-out.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t timeout);
+
+/**
+ * @fn          uint32_t osDataQueueGetCapacity(osDataQueueId_t dq_id)
+ * @brief       Get maximum number of data in a Data Queue.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      maximum number of data or 0 in case of an error.
+ */
+uint32_t osDataQueueGetCapacity(osDataQueueId_t dq_id);
+
+/**
+ * @fn          uint32_t osDataQueueGetDataSize(osDataQueueId_t dq_id)
+ * @brief       Get maximum data size in bytes.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      maximum data size in bytes or 0 in case of an error.
+ */
+uint32_t osDataQueueGetDataSize(osDataQueueId_t dq_id);
+
+/**
+ * @fn          uint32_t osDataQueueGetCount(osDataQueueId_t dq_id)
+ * @brief       Get number of queued data in a Data Queue.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      number of queued data or 0 in case of an error.
+ */
+uint32_t osDataQueueGetCount(osDataQueueId_t dq_id);
+
+/**
+ * @fn          uint32_t osDataQueueGetSpace(osDataQueueId_t dq_id)
+ * @brief       Get number of available slots for data in a Data Queue.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      number of available slots for data or 0 in case of an error.
+ */
+uint32_t osDataQueueGetSpace(osDataQueueId_t dq_id);
+
+/**
+ * @fn          osStatus_t osDataQueueReset(osDataQueueId_t dq_id)
+ * @brief       Reset a Data Queue to initial empty state.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDataQueueReset(osDataQueueId_t dq_id);
+
+/**
+ * @fn          osStatus_t osDataQueueDelete(osDataQueueId_t dq_id)
+ * @brief       Delete a Data Queue object.
+ * @param[in]   dq_id   data queue ID obtained by \ref osDataQueueNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osDataQueueDelete(osDataQueueId_t dq_id);
 
 /*******************************************************************************
  *  Event Flags
