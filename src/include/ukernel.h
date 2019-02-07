@@ -327,9 +327,12 @@ typedef struct osDataQueue_s {
   const char                    *name;  ///< Object Name
   queue_t              wait_put_queue;  ///< Queue of threads waiting to send a data
   queue_t              wait_get_queue;  ///< Queue of threads waiting to receive a data
+  uint32_t             max_data_count;  ///< Maximum number of Data
   uint32_t                  data_size;  ///< Data size in bytes
   uint32_t                 data_count;  ///< Number of queued Data
-  queue_t                  data_queue;  ///< List of all queued Data
+  uint32_t                       head;
+  uint32_t                       tail;
+  uint8_t                     *dq_mem;  ///< Data Memory Address
 } osDataQueue_t;
 
 /* - Mutex -------------------------------------------------------------------*/

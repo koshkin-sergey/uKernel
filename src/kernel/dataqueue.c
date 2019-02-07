@@ -116,40 +116,41 @@ static osMessage_t *MessageGet(osMessageQueue_t *mq, void *msg_ptr, uint8_t *msg
 
 static osDataQueueId_t DataQueueNew(uint32_t data_count, uint32_t data_size, const osDataQueueAttr_t *attr)
 {
-  osMessageQueue_t *mq;
-  void             *mq_mem;
-  uint32_t          mq_size;
-  uint32_t          block_size;
+  osDataQueue_t *dq;
+  void          *dq_mem;
+  uint32_t       dq_size;
 
   /* Check parameters */
-  if ((msg_count == 0U) || (msg_size  == 0U) || (attr == NULL)) {
+  if ((data_count == 0U) || (data_size  == 0U) || (attr == NULL)) {
     return (NULL);
   }
 
-  mq      = attr->cb_mem;
-  mq_mem  = attr->mq_mem;
-  mq_size = attr->mq_size;
-  block_size = ((msg_size + 3U) & ~3UL) + sizeof(osMessage_t);
+  dq      = attr->cb_mem;
+  dq_mem  = attr->dq_mem;
+  dq_size = attr->dq_size;
 
   /* Check parameters */
-  if (((__CLZ(msg_count) + __CLZ(block_size)) < 32U) ||
-      (mq == NULL) || (((uint32_t)mq & 3U) != 0U) || (attr->cb_size < sizeof(osMessageQueue_t)) ||
-      (mq_mem == NULL) || (((uint32_t)mq_mem & 3U) != 0U) || (mq_size < (msg_count * block_size))) {
+  if (((__CLZ(data_count) + __CLZ(data_size)) < 32U) ||
+      (dq == NULL) || (((uint32_t)dq & 3U) != 0U) || (attr->cb_size < sizeof(osDataQueue_t)) ||
+      (dq_mem == NULL) || (dq_size < (data_count * data_size))) {
     return (NULL);
   }
 
   /* Initialize control block */
-  mq->id = ID_MESSAGE_QUEUE;
-  mq->flags = 0U;
-  mq->name = attr->name;
-  mq->msg_size = msg_size;
-  mq->msg_count = 0U;
-  QueueReset(&mq->wait_put_queue);
-  QueueReset(&mq->wait_get_queue);
-  QueueReset(&mq->msg_queue);
-  _MemoryPoolInit(msg_count, block_size, mq_mem, &mq->mp_info);
+  dq->id             = ID_DATA_QUEUE;
+  dq->flags          = 0U;
+  dq->name           = attr->name;
+  dq->max_data_count = data_count;
+  dq->data_size      = data_size;
+  dq->data_count     = 0U;
+  dq->head           = 0U;
+  dq->tail           = 0U;
+  dq->dq_mem         = dq_mem;
 
-  return (mq);
+  QueueReset(&dq->wait_put_queue);
+  QueueReset(&dq->wait_get_queue);
+
+  return (dq);
 }
 
 static const char *DataQueueGetName(osDataQueueId_t dq_id)
@@ -284,7 +285,7 @@ static uint32_t DataQueueGetCapacity(osDataQueueId_t dq_id)
     return (0U);
   }
 
-  return (dq->mp_info.max_blocks);
+  return (dq->max_data_count);
 }
 
 static uint32_t DataQueueGetMsgSize(osDataQueueId_t dq_id)
@@ -320,7 +321,7 @@ static uint32_t DataQueueGetSpace(osDataQueueId_t dq_id)
     return (0U);
   }
 
-  return (dq->mp_info.max_blocks - dq->data_count);
+  return (dq->max_data_count - dq->data_count);
 }
 
 static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
@@ -339,9 +340,9 @@ static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
   BEGIN_CRITICAL_SECTION
 
   /* Remove Messages from Queue */
-  dq->msg_count = 0U;
-  QueueReset(&dq->msg_queue);
-  _MemoryPoolReset(&dq->mp_info);
+  dq->data_count = 0U;
+  dq->head       = 0U;
+  dq->tail       = 0U;
 
   /* Check if Threads are waiting to send Messages */
   for (que = dq->wait_put_queue.next; que != &dq->wait_put_queue; que = que->next) {
