@@ -43,6 +43,7 @@
 #define ID_CYCLIC                   0x2B
 #define ID_MESSAGE_QUEUE            0x1C
 #define ID_MESSAGE                  0x1D
+#define ID_DATA_QUEUE               0x1E
 
 /* Thread State definitions */
 #define ThreadStateInactive         ((uint8_t)osThreadInactive)
