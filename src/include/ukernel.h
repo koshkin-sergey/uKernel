@@ -187,12 +187,16 @@ typedef struct timer_event_block {
   void *arg;              /**< Argument to be sent to callback function */
 } timer_t;
 
-typedef struct {
+typedef struct winfo_msgque_s {
   uint32_t  msg;
   uint32_t  msg_prio;
 } winfo_msgque_t;
 
-typedef struct {
+typedef struct winfo_dataque_s {
+  uint32_t  data_ptr;
+} winfo_dataque_t;
+
+typedef struct winfo_event_s {
   uint32_t flags;
   uint32_t options;
 } winfo_event_t;
@@ -203,6 +207,7 @@ typedef struct {
 typedef struct winfo_s {
   union {
     winfo_msgque_t  msgque;
+    winfo_dataque_t dataque;
     winfo_event_t   event;
   };
   uint32_t ret_val;
@@ -330,6 +335,7 @@ typedef struct osDataQueue_s {
   uint32_t             max_data_count;  ///< Maximum number of Data
   uint32_t                  data_size;  ///< Data size in bytes
   uint32_t                 data_count;  ///< Number of queued Data
+  uint32_t                 data_limit;  ///< Data Limit
   uint32_t                       head;
   uint32_t                       tail;
   uint8_t                     *dq_mem;  ///< Data Memory Address

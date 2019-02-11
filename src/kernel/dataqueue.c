@@ -59,80 +59,58 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static osMessage_t *MessagePut(osMessageQueue_t *mq, const void *msg_ptr, uint8_t msg_prio)
+static bool DataPut(osDataQueue_t *dq, const void *data_ptr)
 {
-  queue_t     *que;
-  osMessage_t *msg;
-
-  /* Try to allocate memory */
-  msg = _MemoryPoolAlloc(&mq->mp_info);
-  if (msg != NULL) {
-    /* Copy Message */
-    memcpy(&msg[1], msg_ptr, mq->msg_size);
-    msg->id = ID_MESSAGE;
-    msg->flags = 0U;
-    msg->priority = msg_prio;
-    /* Put Message into Queue */
-    que = &mq->msg_queue;
-    if (msg_prio != 0U) {
-      for (que = que->next; que != &mq->msg_queue; que = que->next) {
-        if (GetMessageByQueue(que)->priority < msg_prio) {
-          break;
-        }
-      }
-    }
-    QueueAddTail(que, &msg->msg_que);
-    mq->msg_count++;
+  if (dq->data_count == dq->max_data_count) {
+    return (false);
   }
 
-  return (msg);
+  memcpy(&dq->dq_mem[dq->head], data_ptr, dq->data_size);
+  dq->head += dq->data_size;
+  if (dq->head >= dq->data_limit) {
+    dq->head = 0U;
+  }
+
+  dq->data_count++;
+
+  return (true);
 }
 
-static osMessage_t *MessageGet(osMessageQueue_t *mq, void *msg_ptr, uint8_t *msg_prio)
+static bool DataGet(osDataQueue_t *dq, void *data_ptr)
 {
-  queue_t     *que;
-  osMessage_t *msg;
-
-  que = &mq->msg_queue;
-
-  if (!isQueueEmpty(que)) {
-    msg = GetMessageByQueue(QueueRemoveHead(que));
-    /* Copy Message */
-    memcpy(msg_ptr, &msg[1], mq->msg_size);
-    if (msg_prio != NULL) {
-      *msg_prio = msg->priority;
-    }
-    /* Free memory */
-    msg->id = ID_INVALID;
-    _MemoryPoolFree(&mq->mp_info, msg);
-    mq->msg_count--;
-  }
-  else {
-    msg = NULL;
+  if (dq->data_count == 0U) {
+    return (false);
   }
 
-  return (msg);
+  memcpy(data_ptr, &dq->dq_mem[dq->tail], dq->data_size);
+  dq->data_count--;
+  dq->tail += dq->data_size;
+  if (dq->tail >= dq->data_limit) {
+    dq->tail = 0U;
+  }
+
+  return (true);
 }
 
 static osDataQueueId_t DataQueueNew(uint32_t data_count, uint32_t data_size, const osDataQueueAttr_t *attr)
 {
   osDataQueue_t *dq;
   void          *dq_mem;
-  uint32_t       dq_size;
+  uint32_t       data_limit;
 
   /* Check parameters */
   if ((data_count == 0U) || (data_size  == 0U) || (attr == NULL)) {
     return (NULL);
   }
 
-  dq      = attr->cb_mem;
-  dq_mem  = attr->dq_mem;
-  dq_size = attr->dq_size;
+  dq         = attr->cb_mem;
+  dq_mem     = attr->dq_mem;
+  data_limit = data_count * data_size;
 
   /* Check parameters */
   if (((__CLZ(data_count) + __CLZ(data_size)) < 32U) ||
       (dq == NULL) || (((uint32_t)dq & 3U) != 0U) || (attr->cb_size < sizeof(osDataQueue_t)) ||
-      (dq_mem == NULL) || (dq_size < (data_count * data_size))) {
+      (dq_mem == NULL) || (attr->dq_size < data_limit)) {
     return (NULL);
   }
 
@@ -143,6 +121,7 @@ static osDataQueueId_t DataQueueNew(uint32_t data_count, uint32_t data_size, con
   dq->max_data_count = data_count;
   dq->data_size      = data_size;
   dq->data_count     = 0U;
+  dq->data_limit     = data_limit;
   dq->head           = 0U;
   dq->tail           = 0U;
   dq->dq_mem         = dq_mem;
@@ -168,9 +147,8 @@ static const char *DataQueueGetName(osDataQueueId_t dq_id)
 static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint32_t timeout)
 {
   osDataQueue_t    *dq = dq_id;
-  osMessage_t      *msg;
   osThread_t       *thread;
-  winfo_msgque_t   *winfo;
+  winfo_dataque_t  *winfo;
   osStatus_t        status;
 
   /* Check parameters */
@@ -180,22 +158,18 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
 
   BEGIN_CRITICAL_SECTION
 
-  /* Check if Thread is waiting to receive a Message */
+  /* Check if Thread is waiting to receive a data */
   if (!isQueueEmpty(&dq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
     thread = GetThreadByQueue(QueueRemoveHead(&dq->wait_get_queue));
     _ThreadWaitExit(thread, (uint32_t)osOK);
-    winfo = &thread->winfo.msgque;
-    memcpy((void *)winfo->msg, data_ptr, dq->msg_size);
-    if ((uint8_t *)winfo->msg_prio != NULL) {
-      *((uint8_t *)winfo->msg_prio) = msg_prio;
-    }
+    winfo = &thread->winfo.dataque;
+    memcpy((void *)winfo->data_ptr, data_ptr, dq->data_size);
     status = osOK;
   }
   else {
-    /* Try to put Message into Queue */
-    msg = MessagePut(dq, data_ptr, msg_prio);
-    if (msg != NULL) {
+    /* Try to put a data into Queue */
+    if (DataPut(dq, data_ptr) != false) {
       status = osOK;
     }
     else {
@@ -204,9 +178,8 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
         /* Suspend current Thread */
         thread = ThreadGetRunning();
         thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-        winfo = &thread->winfo.msgque;
-        winfo->msg      = (uint32_t)data_ptr;
-        winfo->msg_prio = (uint32_t)msg_prio;
+        winfo = &thread->winfo.dataque;
+        winfo->data_ptr = (uint32_t)data_ptr;
         _ThreadWaitEnter(thread, &dq->wait_put_queue, timeout);
         status = osThreadWait;
       }
@@ -224,9 +197,8 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
 static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t timeout)
 {
   osDataQueue_t    *dq = dq_id;
-  osMessage_t      *msg;
   osThread_t       *thread;
-  winfo_msgque_t   *winfo;
+  winfo_dataque_t  *winfo;
   osStatus_t        status;
 
   /* Check parameters */
@@ -236,18 +208,15 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
 
   BEGIN_CRITICAL_SECTION
 
-  /* Get Message from Queue */
-  msg = MessageGet(mq, data_ptr, msg_prio);
-
-  if (msg != NULL) {
-    /* Check if Thread is waiting to send a Message */
-    if (!isQueueEmpty(&mq->wait_put_queue)) {
+  /* Get Data from Queue */
+  if (DataGet(dq, data_ptr) != false) {
+    /* Check if Thread is waiting to send a data */
+    if (!isQueueEmpty(&dq->wait_put_queue)) {
       /* Get waiting Thread with highest Priority */
-      thread = GetThreadByQueue(mq->wait_put_queue.next);
-      winfo = &thread->winfo.msgque;
-      /* Try to put Message into Queue */
-      msg = MessagePut(mq, (const void *)winfo->msg, (uint8_t)winfo->msg_prio);
-      if (msg != NULL) {
+      thread = GetThreadByQueue(dq->wait_put_queue.next);
+      winfo = &thread->winfo.dataque;
+      /* Try to put a data into Queue */
+      if (DataPut(dq, (const void *)winfo->data_ptr) != false) {
         /* Wakeup waiting Thread with highest Priority */
         _ThreadWaitExit(thread, (uint32_t)osOK);
       }
@@ -260,9 +229,8 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
       /* Suspend current Thread */
       thread = ThreadGetRunning();
       thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      winfo = &thread->winfo.msgque;
-      winfo->msg      = (uint32_t)data_ptr;
-      winfo->msg_prio = (uint32_t)msg_prio;
+      winfo = &thread->winfo.dataque;
+      winfo->data_ptr = (uint32_t)data_ptr;
       _ThreadWaitEnter(thread, &dq->wait_get_queue, timeout);
       status = osThreadWait;
     }
@@ -328,9 +296,8 @@ static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
 {
   osDataQueue_t    *dq = dq_id;
   queue_t          *que;
-  osMessage_t      *msg;
   osThread_t       *thread;
-  winfo_msgque_t   *winfo;
+  winfo_dataque_t  *winfo;
 
   /* Check parameters */
   if ((dq == NULL) || (dq->id != ID_DATA_QUEUE)) {
@@ -339,19 +306,18 @@ static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
 
   BEGIN_CRITICAL_SECTION
 
-  /* Remove Messages from Queue */
+  /* Remove data from Queue */
   dq->data_count = 0U;
   dq->head       = 0U;
   dq->tail       = 0U;
 
-  /* Check if Threads are waiting to send Messages */
+  /* Check if Threads are waiting to send a data */
   for (que = dq->wait_put_queue.next; que != &dq->wait_put_queue; que = que->next) {
     /* Get waiting Thread with highest Priority */
     thread = GetThreadByQueue(que);
-    winfo = &thread->winfo.msgque;
-    /* Try to put Message into Queue */
-    msg = MessagePut(dq, (const void *)winfo->msg, (uint8_t)winfo->msg_prio);
-    if (msg == NULL) {
+    winfo = &thread->winfo.dataque;
+    /* Try to put a data into Queue */
+    if (DataPut(dq, (const void *)winfo->data_ptr) == false) {
       break;
     }
     /* Wakeup waiting Thread with highest Priority */
