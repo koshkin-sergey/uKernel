@@ -38,6 +38,8 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+#define osMutexLockLimit              (255U)
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -58,47 +60,7 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static
-void SetPriority(osThread_t *task, uint8_t priority)
-{
-  //-- transitive priority changing
-
-  // if we have a task A that is blocked by the task B and we changed priority
-  // of task A,priority of task B also have to be changed. I.e, if we have
-  // the task A that is waiting for the mutex M1 and we changed priority
-  // of this task, a task B that holds a mutex M1 now, also needs priority's
-  // changing.  Then, if a task B now is waiting for the mutex M2, the same
-  // procedure have to be applied to the task C that hold a mutex M2 now
-  // and so on.
-
-  //-- This function in ver 2.6 is more "lightweight".
-  //-- The code is derived from Vyacheslav Ovsiyenko version
-
-  for (;;) {
-    if (task->priority >= priority)
-      return;
-
-//    if (task->state == TSK_STATE_RUNNABLE) {
-//      TaskChangeRunningPriority(task, priority);
-//      return;
-//    }
-
-    // TODO: поля wait_reason и pwait_que были удалены. Исправить!
-//    if (task->state & TSK_STATE_WAIT) {
-//      if (task->wait_reason == WAIT_REASON_MUTEX_I) {
-//        task->priority = priority;
-//        task = GetMutexByWaitQueque(task->pwait_que)->holder;
-//        continue;
-//      }
-//    }
-
-    task->priority = priority;
-    return;
-  }
-}
-
-static
-int8_t GetMaxPriority(osMutex_t *mutex, int8_t ref_priority)
+static int8_t GetMaxPriority(osMutex_t *mutex, int8_t ref_priority)
 {
   int8_t priority;
   queue_t *curr_que;
@@ -108,44 +70,44 @@ int8_t GetMaxPriority(osMutex_t *mutex, int8_t ref_priority)
   curr_que = mutex->wait_que.next;
   while (curr_que != &mutex->wait_que) {
     task = GetThreadByQueue(curr_que);
-    if (task->priority > priority) //--  task priority is higher
+    if (task->priority > priority) {
       priority = task->priority;
-
+    }
     curr_que = curr_que->next;
   }
 
   return priority;
 }
 
-static
-void MutexUnLock(osMutex_t *mutex)
+static void MutexUnLock(osMutex_t *mutex)
 {
-  queue_t *que;
-  int8_t priority;
-  osThread_t *task;
+  queue_t    *que;
+  int8_t      priority;
+  osThread_t *thread;
 
-  task = mutex->holder;
-  /* Remove Mutex from Task owner list */
+  /* Remove Mutex from Thread owner list */
   QueueRemoveEntry(&mutex->mutex_que);
-  /* Restore owner Task priority */
-  if ((mutex->attr & osMutexPrioInherit) != 0U) {
-    priority = task->base_priority;
 
-    if (!isQueueEmpty(&task->mutex_que)) {
-      que = task->mutex_que.next;
-      while (que != &task->mutex_que) {
+  /* Restore owner Thread priority */
+  if ((mutex->attr & osMutexPrioInherit) != 0U) {
+    thread = mutex->holder;
+    priority = thread->base_priority;
+
+    if (!isQueueEmpty(&thread->mutex_que)) {
+      que = thread->mutex_que.next;
+      while (que != &thread->mutex_que) {
         priority = GetMaxPriority(GetMutexByMutexQueque(que), priority);
         que = que->next;
       }
     }
 
     //-- Restore original priority
-    if (priority != task->priority) {
-      if (task->state == osThreadReady || task->state == osThreadRunning) {
-        _ThreadSetPriority(task, priority);
+    if (priority != thread->priority) {
+      if (thread->state == osThreadReady || thread->state == osThreadRunning) {
+        _ThreadSetPriority(thread, priority);
       }
       else {
-        task->priority = priority;
+        thread->priority = priority;
       }
     }
   }
@@ -193,24 +155,31 @@ void MutexOwnerRelease(queue_t *que)
 
 static osMutexId_t MutexNew(const osMutexAttr_t *attr)
 {
-  if (mutex->id == ID_MUTEX)
-    return TERR_NO_ERR;
+  osMutex_t *mutex;
 
-  if (attr != NULL) {
-    mutex->attr = (uint8_t)attr->attr_bits;
-  }
-  else {
-    mutex->attr = 0U;
+  /* Check parameters */
+  if (attr == NULL) {
+    return (NULL);
   }
 
+  mutex = attr->cb_mem;
+
+  /* Check parameters */
+  if ((mutex == NULL) || (((uint32_t)mutex & 3U) != 0U) || (attr->cb_size < sizeof(osMutex_t))) {
+    return (NULL);
+  }
+
+  /* Initialize control block */
+  mutex->id     = ID_MUTEX;
+  mutex->flags  = 0U;
+  mutex->attr   = (uint8_t)attr->attr_bits;
+  mutex->name   = attr->name;
+  mutex->holder = NULL;
+  mutex->cnt    = 0U;
   QueueReset(&mutex->wait_que);
   QueueReset(&mutex->mutex_que);
 
-  mutex->holder = NULL;
-  mutex->cnt    = 0U;
-  mutex->id     = ID_MUTEX;
-
-  return TERR_NO_ERR;
+  return (mutex);
 }
 
 static const char *MutexGetName(osMutexId_t mutex_id)
@@ -227,33 +196,38 @@ static const char *MutexGetName(osMutexId_t mutex_id)
 
 static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
 {
-  osError_t rc;
+  osMutex_t  *mutex = mutex_id;
+  osThread_t *running_thread;
+  osStatus_t  status;
 
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  /* Check parameters */
+  if ((mutex == NULL) || (mutex->id != ID_MUTEX)) {
+    return (osErrorParameter);
+  }
 
-  osThread_t *task = ThreadGetRunning();
+  running_thread = ThreadGetRunning();
+  if (running_thread == NULL) {
+    return (osError);
+  }
 
   /* Check if Mutex is not locked */
   if (mutex->cnt == 0U) {
     /* Acquire Mutex */
-    mutex->holder = task;
-    QueueAddTail(&task->mutex_que, &mutex->mutex_que);
+    mutex->holder = running_thread;
+    QueueAddTail(&running_thread->mutex_que, &mutex->mutex_que);
     mutex->cnt = 1U;
-    rc = TERR_NO_ERR;
+    status = osOK;
   }
   else {
-    /* Check if running task is the owner */
-    if (task == mutex->holder) {
-      /* Check if Mutex is recursive */
-      if ((mutex->attr & osMutexRecursive) != 0U) {
-        /* Recursive locking enabled */
-        mutex->cnt++;
-        rc = TERR_NO_ERR;
+    /* Check if Mutex is recursive and running Thread is the owner */
+    if (((mutex->attr & osMutexRecursive) != 0U) && (mutex->holder == running_thread)) {
+      /* Try to increment lock counter */
+      if (mutex->cnt == osMutexLockLimit) {
+        status = osErrorResource;
       }
       else {
-        /* Recursive locking not enabled */
-        rc = TERR_ILUSE;
+        mutex->cnt++;
+        status = osOK;
       }
     }
     else {
@@ -262,42 +236,58 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
         /* Check if Priority inheritance protocol is enabled */
         if ((mutex->attr & osMutexPrioInherit) != 0U) {
           /* Raise priority of owner Task if lower than priority of running Task */
-          if (task->priority > mutex->holder->priority) {
-            SetPriority(mutex->holder, task->priority);
+          if (mutex->holder->priority < running_thread->priority) {
+            _ThreadSetPriority(mutex->holder, running_thread->priority);
           }
         }
         /* Suspend current Thread */
-        _ThreadWaitEnter(task, &mutex->wait_que, timeout);
-        rc = TERR_WAIT;
+        running_thread->winfo.ret_val = (uint32_t)osErrorTimeout;
+        _ThreadWaitEnter(running_thread, &mutex->wait_que, timeout);
+        status = osThreadWait;
       }
       else {
-        rc = TERR_TIMEOUT;
+        status = osErrorResource;
       }
     }
   }
 
-  return rc;
+  return (status);
 }
 
 static osStatus_t MutexRelease(osMutexId_t mutex_id)
 {
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  osMutex_t  *mutex = mutex_id;
+  osThread_t *running_thread;
 
-  /* Unlocking is enabled only for the owner and already locked mutex */
-  if (ThreadGetRunning() != mutex->holder)
-    return TERR_ILUSE;
+  /* Check parameters */
+  if ((mutex == NULL) || (mutex->id != ID_MUTEX)) {
+    return (osErrorParameter);
+  }
 
-  if (mutex->cnt == 0U)
-    return TERR_ILUSE;
+  running_thread = ThreadGetRunning();
+  if (running_thread == NULL) {
+    return (osError);
+  }
 
+  /* Check if Mutex is not locked */
+  if (mutex->cnt == 0U) {
+    return (osErrorResource);
+  }
+
+  /* Check if running Thread is not the owner */
+  if (mutex->holder != running_thread) {
+    return (osErrorResource);
+  }
+
+  /* Decrement Lock counter */
   mutex->cnt--;
 
+  /* Check Lock counter */
   if (mutex->cnt == 0) {
     MutexUnLock(mutex);
   }
 
-  return TERR_NO_ERR;
+  return (osOK);
 }
 
 static osThreadId_t MutexGetOwner(osMutexId_t mutex_id)
@@ -318,8 +308,12 @@ static osThreadId_t MutexGetOwner(osMutexId_t mutex_id)
 
 static osStatus_t MutexDelete(osMutexId_t mutex_id)
 {
-  if (mutex->id != ID_MUTEX)
-    return TERR_NOEXS;
+  osMutex_t *mutex = mutex_id;
+
+  /* Check parameters */
+  if ((mutex == NULL) || (mutex->id != ID_MUTEX)) {
+    return (osErrorParameter);
+  }
 
   /* Check if Mutex is locked */
   if (mutex->cnt != 0U) {
@@ -332,7 +326,7 @@ static osStatus_t MutexDelete(osMutexId_t mutex_id)
   /* Mutex not exists now */
   mutex->id = ID_INVALID;
 
-  return TERR_NO_ERR;
+  return (osOK);
 }
 
 /*******************************************************************************
