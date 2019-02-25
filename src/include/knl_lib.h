@@ -111,28 +111,28 @@ osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t 
  * @param[out]  thread    thread object.
  * @param[in]   ret_val   return value.
  */
-void _ThreadWaitExit(osThread_t *thread, uint32_t ret_val);
+void libThreadWaitExit(osThread_t *thread, uint32_t ret_val);
+
+/**
+ * @brief       Enter Thread wait state.
+ * @param[out]  thread    thread object.
+ * @param[out]  wait_que  Pointer to wait queue.
+ * @param[in]   timeout   Timeout
+ */
+void libThreadWaitEnter(osThread_t *task, queue_t *wait_que, uint32_t timeout);
 
 /**
  * @brief
- * @param task
- * @param wait_que
- * @param timeout
- */
-void _ThreadWaitEnter(osThread_t *task, queue_t *wait_que, uint32_t timeout);
-
-/**
- * @brief
  * @param wait_que
  */
-void _ThreadWaitDelete(queue_t *que);
+void libThreadWaitDelete(queue_t *que);
 
 /**
  * @brief       Change priority of a thread.
  * @param[in]   thread    thread object.
  * @param[in]   priority  new priority value for the thread.
  */
-void _ThreadSetPriority(osThread_t *thread, int8_t priority);
+void libThreadSetPriority(osThread_t *thread, int8_t priority);
 
 __STATIC_INLINE
 osThread_t *ThreadGetRunning(void)
@@ -200,14 +200,11 @@ void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
  */
 void TimerDelete(timer_t *event);
 
-/* - Mutex Management --------------------------------------------------------*/
-
 /**
- * @fn          void MutexOwnerRelease(queue_t *que)
  * @brief       Release Mutexes when owner Task terminates.
  * @param[in]   que   Queue of mutexes
  */
-void MutexOwnerRelease(queue_t *que);
+void libMutexOwnerRelease(queue_t *que);
 
 /**
  * @brief       Initialize Memory Pool.
@@ -216,20 +213,20 @@ void MutexOwnerRelease(queue_t *que);
  * @param[in]   block_mem     pointer to memory for block storage.
  * @param[in]   mp_info       memory pool info.
  */
-void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info);
+void libMemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info);
 
 /**
  * @brief       Reset Memory Pool.
  * @param[in]   mp_info       memory pool info.
  */
-void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info);
+void libMemoryPoolReset(osMemoryPoolInfo_t *mp_info);
 
 /**
  * @brief       Allocate a memory block from a Memory Pool.
  * @param[in]   mp_info   memory pool info.
  * @return      address of the allocated memory block or NULL in case of no memory is available.
  */
-void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info);
+void *libMemoryPoolAlloc(osMemoryPoolInfo_t *mp_info);
 
 /**
  * @brief       Return an allocated memory block back to a Memory Pool.
@@ -237,6 +234,6 @@ void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info);
  * @param[in]   block     address of the allocated memory block to be returned to the memory pool.
  * @return      status code that indicates the execution status of the function.
  */
-osStatus_t _MemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block);
+osStatus_t libMemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block);
 
 #endif /* _KNL_LIB_H_ */

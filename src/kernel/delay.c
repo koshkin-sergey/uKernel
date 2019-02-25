@@ -62,7 +62,7 @@ static osStatus_t Delay(uint32_t ticks)
 {
   if (ticks != 0U) {
     BEGIN_CRITICAL_SECTION
-    _ThreadWaitEnter(ThreadGetRunning(), NULL, ticks);
+    libThreadWaitEnter(ThreadGetRunning(), NULL, ticks);
     END_CRITICAL_SECTION
   }
 
@@ -79,7 +79,7 @@ static osStatus_t DelayUntil(uint32_t ticks)
 
   if (ticks != 0U) {
     BEGIN_CRITICAL_SECTION
-    _ThreadWaitEnter(ThreadGetRunning(), NULL, ticks);
+    libThreadWaitEnter(ThreadGetRunning(), NULL, ticks);
     END_CRITICAL_SECTION
   }
 

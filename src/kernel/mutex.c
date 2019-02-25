@@ -101,51 +101,22 @@ static void MutexUnLock(osMutex_t *mutex)
       }
     }
 
-    //-- Restore original priority
-    if (priority != thread->priority) {
-      if (thread->state == osThreadReady || thread->state == osThreadRunning) {
-        _ThreadSetPriority(thread, priority);
-      }
-      else {
-        thread->priority = priority;
-      }
-    }
+    libThreadSetPriority(thread, priority);
   }
 
-  //-- Check for the task(s) that want to lock the mutex
+  /* Check if Thread is waiting for a Mutex */
   if (isQueueEmpty(&mutex->wait_que)) {
     mutex->holder = NULL;
     mutex->cnt = 0U;
   }
   else {
-    //--- Now lock the mutex by the first task in the mutex queue
+    /* Wakeup waiting Thread with highest Priority */
     que = QueueRemoveHead(&mutex->wait_que);
-    mutex->holder = GetThreadByQueue(que);
-    QueueAddTail(&mutex->holder->mutex_que, &mutex->mutex_que);
+    thread = GetThreadByQueue(que);
+    libThreadWaitExit(thread, (uint32_t)osOK);
+    mutex->holder = thread;
     mutex->cnt = 1U;
-
-    _ThreadWaitExit(mutex->holder, (uint32_t)TERR_NO_ERR);
-  }
-}
-
-/*******************************************************************************
- *  Library functions
- ******************************************************************************/
-
-/**
- * @fn          void MutexOwnerRelease(queue_t *que)
- * @brief       Release Mutexes when owner Task terminates.
- * @param[in]   que   Queue of mutexes
- */
-void MutexOwnerRelease(queue_t *que)
-{
-  osMutex_t *mutex;
-
-  while (isQueueEmpty(que) == false) {
-    mutex = GetMutexByMutexQueque(QueueRemoveHead(que));
-    if ((mutex->attr & osMutexRobust) != 0U) {
-      MutexUnLock(mutex);
-    }
+    QueueAddTail(&thread->mutex_que, &mutex->mutex_que);
   }
 }
 
@@ -214,8 +185,8 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
   if (mutex->cnt == 0U) {
     /* Acquire Mutex */
     mutex->holder = running_thread;
-    QueueAddTail(&running_thread->mutex_que, &mutex->mutex_que);
     mutex->cnt = 1U;
+    QueueAddTail(&running_thread->mutex_que, &mutex->mutex_que);
     status = osOK;
   }
   else {
@@ -237,12 +208,12 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
         if ((mutex->attr & osMutexPrioInherit) != 0U) {
           /* Raise priority of owner Task if lower than priority of running Task */
           if (mutex->holder->priority < running_thread->priority) {
-            _ThreadSetPriority(mutex->holder, running_thread->priority);
+            libThreadSetPriority(mutex->holder, running_thread->priority);
           }
         }
         /* Suspend current Thread */
         running_thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-        _ThreadWaitEnter(running_thread, &mutex->wait_que, timeout);
+        libThreadWaitEnter(running_thread, &mutex->wait_que, timeout);
         status = osThreadWait;
       }
       else {
@@ -318,7 +289,7 @@ static osStatus_t MutexDelete(osMutexId_t mutex_id)
   /* Check if Mutex is locked */
   if (mutex->cnt != 0U) {
     /* Unblock waiting tasks */
-    _ThreadWaitDelete(&mutex->wait_que);
+    libThreadWaitDelete(&mutex->wait_que);
     /* Unlock Mutex */
     MutexUnLock(mutex);
   }
@@ -327,6 +298,26 @@ static osStatus_t MutexDelete(osMutexId_t mutex_id)
   mutex->id = ID_INVALID;
 
   return (osOK);
+}
+
+/*******************************************************************************
+ *  Library functions
+ ******************************************************************************/
+
+/**
+ * @brief       Release Mutexes when owner Task terminates.
+ * @param[in]   que   Queue of mutexes
+ */
+void libMutexOwnerRelease(queue_t *que)
+{
+  osMutex_t *mutex;
+
+  while (isQueueEmpty(que) == false) {
+    mutex = GetMutexByMutexQueque(QueueRemoveHead(que));
+    if ((mutex->attr & osMutexRobust) != 0U) {
+      MutexUnLock(mutex);
+    }
+  }
 }
 
 /*******************************************************************************

@@ -195,7 +195,7 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    _ThreadWaitExit(&timer_task, TERR_NO_ERR);
+    libThreadWaitExit(&timer_task, TERR_NO_ERR);
   }
 
   END_CRITICAL_SECTION
