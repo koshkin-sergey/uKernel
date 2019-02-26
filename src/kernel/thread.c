@@ -562,7 +562,7 @@ void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 void libThreadWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
-    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)osErrorResource);
   }
 }
 
