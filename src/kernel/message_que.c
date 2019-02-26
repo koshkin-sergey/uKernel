@@ -65,7 +65,7 @@ static osMessage_t *MessagePut(osMessageQueue_t *mq, const void *msg_ptr, uint8_
   osMessage_t *msg;
 
   /* Try to allocate memory */
-  msg = _MemoryPoolAlloc(&mq->mp_info);
+  msg = libMemoryPoolAlloc(&mq->mp_info);
   if (msg != NULL) {
     /* Copy Message */
     memcpy(&msg[1], msg_ptr, mq->msg_size);
@@ -104,7 +104,7 @@ static osMessage_t *MessageGet(osMessageQueue_t *mq, void *msg_ptr, uint8_t *msg
     }
     /* Free memory */
     msg->id = ID_INVALID;
-    _MemoryPoolFree(&mq->mp_info, msg);
+    libMemoryPoolFree(&mq->mp_info, msg);
     mq->msg_count--;
   }
   else {
@@ -147,7 +147,7 @@ static osMessageQueueId_t MessageQueueNew(uint32_t msg_count, uint32_t msg_size,
   QueueReset(&mq->wait_put_queue);
   QueueReset(&mq->wait_get_queue);
   QueueReset(&mq->msg_queue);
-  _MemoryPoolInit(msg_count, block_size, mq_mem, &mq->mp_info);
+  libMemoryPoolInit(msg_count, block_size, mq_mem, &mq->mp_info);
 
   return (mq);
 }
@@ -183,7 +183,7 @@ static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr,
   if (!isQueueEmpty(&mq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
     thread = GetThreadByQueue(QueueRemoveHead(&mq->wait_get_queue));
-    _ThreadWaitExit(thread, (uint32_t)osOK);
+    libThreadWaitExit(thread, (uint32_t)osOK);
     winfo = &thread->winfo.msgque;
     memcpy((void *)winfo->msg, msg_ptr, mq->msg_size);
     if ((uint8_t *)winfo->msg_prio != NULL) {
@@ -206,7 +206,7 @@ static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr,
         winfo = &thread->winfo.msgque;
         winfo->msg      = (uint32_t)msg_ptr;
         winfo->msg_prio = (uint32_t)msg_prio;
-        _ThreadWaitEnter(thread, &mq->wait_put_queue, timeout);
+        libThreadWaitEnter(thread, &mq->wait_put_queue, timeout);
         status = osThreadWait;
       }
       else {
@@ -248,7 +248,7 @@ static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8
       msg = MessagePut(mq, (const void *)winfo->msg, (uint8_t)winfo->msg_prio);
       if (msg != NULL) {
         /* Wakeup waiting Thread with highest Priority */
-        _ThreadWaitExit(thread, (uint32_t)osOK);
+        libThreadWaitExit(thread, (uint32_t)osOK);
       }
     }
     status = osOK;
@@ -262,7 +262,7 @@ static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8
       winfo = &thread->winfo.msgque;
       winfo->msg      = (uint32_t)msg_ptr;
       winfo->msg_prio = (uint32_t)msg_prio;
-      _ThreadWaitEnter(thread, &mq->wait_get_queue, timeout);
+      libThreadWaitEnter(thread, &mq->wait_get_queue, timeout);
       status = osThreadWait;
     }
     else {
@@ -341,7 +341,7 @@ static osStatus_t MessageQueueReset(osMessageQueueId_t mq_id)
   /* Remove Messages from Queue */
   mq->msg_count = 0U;
   QueueReset(&mq->msg_queue);
-  _MemoryPoolReset(&mq->mp_info);
+  libMemoryPoolReset(&mq->mp_info);
 
   /* Check if Threads are waiting to send Messages */
   for (que = mq->wait_put_queue.next; que != &mq->wait_put_queue; que = que->next) {
@@ -354,7 +354,7 @@ static osStatus_t MessageQueueReset(osMessageQueueId_t mq_id)
       break;
     }
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(thread, (uint32_t)osOK);
+    libThreadWaitExit(thread, (uint32_t)osOK);
   }
 
   END_CRITICAL_SECTION
@@ -372,8 +372,8 @@ static osStatus_t MessageQueueDelete(osMessageQueueId_t mq_id)
   }
 
   /* Unblock waiting threads */
-  _ThreadWaitDelete(&mq->wait_put_queue);
-  _ThreadWaitDelete(&mq->wait_get_queue);
+  libThreadWaitDelete(&mq->wait_put_queue);
+  libThreadWaitDelete(&mq->wait_get_queue);
 
   /* Mark object as invalid */
   mq->id = ID_INVALID;

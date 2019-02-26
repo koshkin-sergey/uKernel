@@ -172,7 +172,7 @@ static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
       else {
         event_flags = pattern;
       }
-      _ThreadWaitExit(task, pattern);
+      libThreadWaitExit(task, pattern);
     }
   }
 
@@ -240,7 +240,7 @@ static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t 
       winfo = &thread->winfo.event;
       winfo->options = options;
       winfo->flags = flags;
-      _ThreadWaitEnter(thread, &evf->wait_queue, timeout);
+      libThreadWaitEnter(thread, &evf->wait_queue, timeout);
       event_flags = (uint32_t)osThreadWait;
     }
     else {
@@ -263,7 +263,7 @@ static osStatus_t EventFlagsDelete(osEventFlagsId_t ef_id)
   }
 
   /* Unblock waiting threads */
-  _ThreadWaitDelete(&evf->wait_queue);
+  libThreadWaitDelete(&evf->wait_queue);
 
   /* Mark object as invalid */
   evf->id = ID_INVALID;

@@ -163,7 +163,7 @@ void ThreadWaitExit_Handler(osThread_t *task)
 {
   BEGIN_CRITICAL_SECTION
 
-  _ThreadWaitExit(task, (uint32_t)TERR_TIMEOUT);
+  libThreadWaitExit(task, (uint32_t)TERR_TIMEOUT);
 
   END_CRITICAL_SECTION
 }
@@ -313,7 +313,10 @@ static osStatus_t ThreadSetPriority(osThreadId_t thread_id, osPriority_t priorit
     return (osErrorResource);
   }
 
-  _ThreadSetPriority(thread, (int8_t)priority);
+  if (thread->base_priority != (int8_t)priority) {
+    thread->base_priority = (int8_t)priority;
+    libThreadSetPriority(thread, (int8_t)priority);
+  }
 
   return (osOK);
 }
@@ -433,7 +436,7 @@ static void ThreadExit(void)
   osThread_t *thread = ThreadGetRunning();
 
   /* Release owned Mutexes */
-  MutexOwnerRelease(&thread->mutex_que);
+  libMutexOwnerRelease(&thread->mutex_que);
 
   ThreadReadyDel(thread);
   ThreadSwitch(ThreadHighestPrioGet());
@@ -474,7 +477,7 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
 
   if (status == osOK) {
     /* Release owned Mutexes */
-    MutexOwnerRelease(&thread->mutex_que);
+    libMutexOwnerRelease(&thread->mutex_que);
 
     if (thread->state == ThreadStateRunning) {
       ThreadSwitch(ThreadHighestPrioGet());
@@ -509,7 +512,7 @@ static uint32_t ThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items
  * @param[out]  thread    thread object.
  * @param[in]   ret_val   return value.
  */
-void _ThreadWaitExit(osThread_t *thread, uint32_t ret_val)
+void libThreadWaitExit(osThread_t *thread, uint32_t ret_val)
 {
   thread->winfo.ret_val = ret_val;
 
@@ -519,25 +522,34 @@ void _ThreadWaitExit(osThread_t *thread, uint32_t ret_val)
 }
 
 /**
- * @brief
- * @param thread
- * @param wait_que
- * @param timeout
+ * @brief       Enter Thread wait state.
+ * @param[out]  thread    thread object.
+ * @param[out]  wait_que  Pointer to wait queue.
+ * @param[in]   timeout   Timeout
  */
-void _ThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
+void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 {
+  queue_t *que;
+
   ThreadReadyDel(thread);
 
   thread->state = ThreadStateBlocked;
 
   /* Add to the wait queue - FIFO */
-  if (wait_que != NULL) {
-    QueueAddTail(wait_que, &thread->task_que);
+  que = wait_que;
+  if (que != NULL) {
+    for (que = que->next; que != wait_que; que = que->next) {
+      if (thread->priority > GetThreadByQueue(que)->priority) {
+        break;
+      }
+    }
+    QueueAddTail(que, &thread->task_que);
   }
 
   /* Add to the timers queue */
-  if (timeout != osWaitForever)
+  if (timeout != osWaitForever) {
     TimerInsert(&thread->wait_timer, knlInfo.jiffies + timeout, (CBACK)ThreadWaitExit_Handler, thread);
+  }
 
   thread = ThreadHighestPrioGet();
   ThreadSwitch(thread);
@@ -547,10 +559,10 @@ void _ThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
  * @brief
  * @param wait_que
  */
-void _ThreadWaitDelete(queue_t *wait_que)
+void libThreadWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
-    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)TERR_DLT);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)osErrorResource);
   }
 }
 
@@ -559,11 +571,9 @@ void _ThreadWaitDelete(queue_t *wait_que)
  * @param[in]   thread    thread object.
  * @param[in]   priority  new priority value for the thread.
  */
-void _ThreadSetPriority(osThread_t *thread, int8_t priority)
+void libThreadSetPriority(osThread_t *thread, int8_t priority)
 {
   if (thread->priority != priority) {
-    thread->base_priority = priority;
-
     if (thread->state == ThreadStateBlocked) {
       thread->priority = priority;
     }

@@ -162,7 +162,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
   if (!isQueueEmpty(&dq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
     thread = GetThreadByQueue(QueueRemoveHead(&dq->wait_get_queue));
-    _ThreadWaitExit(thread, (uint32_t)osOK);
+    libThreadWaitExit(thread, (uint32_t)osOK);
     winfo = &thread->winfo.dataque;
     memcpy((void *)winfo->data_ptr, data_ptr, dq->data_size);
     status = osOK;
@@ -180,7 +180,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
         thread->winfo.ret_val = (uint32_t)osErrorTimeout;
         winfo = &thread->winfo.dataque;
         winfo->data_ptr = (uint32_t)data_ptr;
-        _ThreadWaitEnter(thread, &dq->wait_put_queue, timeout);
+        libThreadWaitEnter(thread, &dq->wait_put_queue, timeout);
         status = osThreadWait;
       }
       else {
@@ -218,7 +218,7 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
       /* Try to put a data into Queue */
       if (DataPut(dq, (const void *)winfo->data_ptr) != false) {
         /* Wakeup waiting Thread with highest Priority */
-        _ThreadWaitExit(thread, (uint32_t)osOK);
+        libThreadWaitExit(thread, (uint32_t)osOK);
       }
     }
     status = osOK;
@@ -231,7 +231,7 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
       thread->winfo.ret_val = (uint32_t)osErrorTimeout;
       winfo = &thread->winfo.dataque;
       winfo->data_ptr = (uint32_t)data_ptr;
-      _ThreadWaitEnter(thread, &dq->wait_get_queue, timeout);
+      libThreadWaitEnter(thread, &dq->wait_get_queue, timeout);
       status = osThreadWait;
     }
     else {
@@ -321,7 +321,7 @@ static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
       break;
     }
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(thread, (uint32_t)osOK);
+    libThreadWaitExit(thread, (uint32_t)osOK);
   }
 
   END_CRITICAL_SECTION
@@ -339,8 +339,8 @@ static osStatus_t DataQueueDelete(osDataQueueId_t dq_id)
   }
 
   /* Unblock waiting threads */
-  _ThreadWaitDelete(&dq->wait_put_queue);
-  _ThreadWaitDelete(&dq->wait_get_queue);
+  libThreadWaitDelete(&dq->wait_put_queue);
+  libThreadWaitDelete(&dq->wait_get_queue);
 
   /* Mark object as invalid */
   dq->id = ID_INVALID;

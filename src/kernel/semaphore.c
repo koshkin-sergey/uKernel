@@ -125,7 +125,7 @@ static osStatus_t SemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeou
     if (timeout != 0U) {
       thread = ThreadGetRunning();
       thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      _ThreadWaitEnter(thread, &sem->wait_queue, timeout);
+      libThreadWaitEnter(thread, &sem->wait_queue, timeout);
       status = (osStatus_t)osThreadWait;
     }
     else {
@@ -153,7 +153,7 @@ static osStatus_t SemaphoreRelease(osSemaphoreId_t semaphore_id)
   /* Check if Thread is waiting for a token */
   if (!isQueueEmpty(&sem->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK);
     status = osOK;
   }
   else {
@@ -194,7 +194,7 @@ static osStatus_t SemaphoreDelete(osSemaphoreId_t semaphore_id)
   }
 
   /* Unblock waiting threads */
-  _ThreadWaitDelete(&sem->wait_queue);
+  libThreadWaitDelete(&sem->wait_queue);
   /* Mark object as invalid */
   sem->id = ID_INVALID;
 

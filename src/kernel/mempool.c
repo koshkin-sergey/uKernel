@@ -60,7 +60,7 @@ static osMemoryPoolId_t MemoryPoolNew(uint32_t block_count, uint32_t block_size,
   mp->flags = 0U;
   mp->name = attr->name;
   QueueReset(&mp->wait_queue);
-  _MemoryPoolInit(block_count, block_size, mp_mem, &mp->info);
+  libMemoryPoolInit(block_count, block_size, mp_mem, &mp->info);
 
   return (mp);
 }
@@ -91,12 +91,12 @@ static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
   BEGIN_CRITICAL_SECTION
 
   /* Allocate memory */
-  block = _MemoryPoolAlloc(&mp->info);
+  block = libMemoryPoolAlloc(&mp->info);
   if (block == NULL) {
     if (timeout != 0U) {
       thread = ThreadGetRunning();
       thread->winfo.ret_val = 0U;
-      _ThreadWaitEnter(thread, &mp->wait_queue, timeout);
+      libThreadWaitEnter(thread, &mp->wait_queue, timeout);
       block = (void *)osThreadWait;
     }
     else {
@@ -124,12 +124,12 @@ static osStatus_t MemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
   /* Check if Thread is waiting to allocate memory */
   if (!isQueueEmpty(&mp->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    _ThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
     status = osOK;
   }
   else {
     /* Free memory */
-    status = _MemoryPoolFree(&mp->info, block);
+    status = libMemoryPoolFree(&mp->info, block);
   }
 
   END_CRITICAL_SECTION
@@ -195,7 +195,7 @@ static osStatus_t MemoryPoolDelete(osMemoryPoolId_t mp_id)
   }
 
   /* Unblock waiting threads */
-  _ThreadWaitDelete(&mp->wait_queue);
+  libThreadWaitDelete(&mp->wait_queue);
 
   /* Mark object as invalid */
   mp->id = ID_INVALID;
@@ -214,7 +214,7 @@ static osStatus_t MemoryPoolDelete(osMemoryPoolId_t mp_id)
  * @param[in]   block_mem     pointer to memory for block storage.
  * @param[in]   mp_info       memory pool info.
  */
-void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info)
+void libMemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem, osMemoryPoolInfo_t *mp_info)
 {
   // Initialize information structure
   mp_info->max_blocks  = block_count;
@@ -225,14 +225,14 @@ void _MemoryPoolInit(uint32_t block_count, uint32_t block_size, void *block_mem,
   mp_info->block_lim   = &(((uint8_t *)block_mem)[block_count * block_size]);
 
   /* Reset Memory Pool */
-  _MemoryPoolReset(mp_info);
+  libMemoryPoolReset(mp_info);
 }
 
 /**
  * @brief       Reset Memory Pool.
  * @param[in]   mp_info       memory pool info.
  */
-void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info)
+void libMemoryPoolReset(osMemoryPoolInfo_t *mp_info)
 {
   void *mem;
   void *block;
@@ -255,7 +255,7 @@ void _MemoryPoolReset(osMemoryPoolInfo_t *mp_info)
  * @param[in]   mp_info   memory pool info.
  * @return      address of the allocated memory block or NULL in case of no memory is available.
  */
-void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info)
+void *libMemoryPoolAlloc(osMemoryPoolInfo_t *mp_info)
 {
   void *block;
 
@@ -278,7 +278,7 @@ void *_MemoryPoolAlloc(osMemoryPoolInfo_t *mp_info)
  * @param[in]   block     address of the allocated memory block to be returned to the memory pool.
  * @return      status code that indicates the execution status of the function.
  */
-osStatus_t _MemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block)
+osStatus_t libMemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block)
 {
   if ((mp_info == NULL) || (block < mp_info->block_base) || (block >= mp_info->block_lim)) {
     return (osErrorParameter);
