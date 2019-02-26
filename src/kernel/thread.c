@@ -163,7 +163,7 @@ void ThreadWaitExit_Handler(osThread_t *task)
 {
   BEGIN_CRITICAL_SECTION
 
-  libThreadWaitExit(task, (uint32_t)TERR_TIMEOUT);
+  libThreadWaitExit(task, (uint32_t)osErrorTimeout);
 
   END_CRITICAL_SECTION
 }
@@ -584,6 +584,12 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
       ThreadDispatch(NULL);
     }
   }
+}
+
+void libThreadSuspend(osThread_t *thread)
+{
+  ThreadReadyAdd(thread);
+  ThreadDispatch(thread);
 }
 
 /*******************************************************************************

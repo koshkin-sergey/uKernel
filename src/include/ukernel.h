@@ -144,20 +144,10 @@ typedef enum {
 
 /// Error code values returned by uKernel functions.
 typedef enum {
-  TERR_TRUE         =  1,
   TERR_NO_ERR       =  0,
-  TERR_OVERFLOW     = -1,         ///< OOV
-  TERR_WCONTEXT     = -2,         ///< Wrong context error
-  TERR_WSTATE       = -3,         ///< Wrong state error
-  TERR_TIMEOUT      = -4,         ///< Polling failure or timeout
   TERR_WRONG_PARAM  = -5,
-  TERR_UNDERFLOW    = -6,
-  TERR_OUT_OF_MEM   = -7,
-  TERR_ILUSE        = -8,         ///< Illegal using
   TERR_NOEXS        = -9,         ///< Non-valid or Non-existent object
-  TERR_DLT          = -10,        ///< Waiting object deleted
   TERR_ISR          = -11,
-  TERR_WAIT         = -12,
   osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osError_t;
 

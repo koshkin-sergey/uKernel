@@ -81,8 +81,7 @@ typedef struct {
 typedef struct {
   knlRun_t run;
   uint32_t HZ;                            ///< Frequency system timer
-  uint32_t os_period;
-  volatile uint32_t jiffies;
+  uint32_t jiffies;
   uint32_t max_syscall_interrupt_priority;
   kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
   uint32_t ready_to_run_bmp;
@@ -133,6 +132,8 @@ void libThreadWaitDelete(queue_t *que);
  * @param[in]   priority  new priority value for the thread.
  */
 void libThreadSetPriority(osThread_t *thread, int8_t priority);
+
+void libThreadSuspend(osThread_t *thread);
 
 __STATIC_INLINE
 osThread_t *ThreadGetRunning(void)

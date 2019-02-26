@@ -164,7 +164,7 @@ void osTimerHandle(void)
 {
   BEGIN_CRITICAL_SECTION
 
-  knlInfo.jiffies += knlInfo.os_period;
+  ++knlInfo.jiffies;
   if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
 
 #if defined(ROUND_ROBIN_ENABLE)
@@ -195,7 +195,7 @@ void osTimerHandle(void)
     }
 #endif  // ROUND_ROBIN_ENABLE
 
-    libThreadWaitExit(&timer_task, TERR_NO_ERR);
+    libThreadSuspend(&timer_task);
   }
 
   END_CRITICAL_SECTION
@@ -225,7 +225,6 @@ void osKernelStart(TN_OPTIONS *opt)
   }
 
   knlInfo.HZ = opt->freq_timer;
-  knlInfo.os_period = 1000/knlInfo.HZ;
   knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
 
   knlInfo.run.curr = NULL;
