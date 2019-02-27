@@ -92,6 +92,11 @@ typedef struct {
 #endif
 } knlInfo_t;
 
+typedef enum {
+  DISPATCH_NO  = 0,
+  DISPATCH_YES = 1,
+} dispatch_t;
+
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
@@ -110,7 +115,7 @@ osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t 
  * @param[out]  thread    thread object.
  * @param[in]   ret_val   return value.
  */
-void libThreadWaitExit(osThread_t *thread, uint32_t ret_val);
+void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch);
 
 /**
  * @brief       Enter Thread wait state.
@@ -118,7 +123,7 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val);
  * @param[out]  wait_que  Pointer to wait queue.
  * @param[in]   timeout   Timeout
  */
-void libThreadWaitEnter(osThread_t *task, queue_t *wait_que, uint32_t timeout);
+void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout);
 
 /**
  * @brief
@@ -134,6 +139,12 @@ void libThreadWaitDelete(queue_t *que);
 void libThreadSetPriority(osThread_t *thread, int8_t priority);
 
 void libThreadSuspend(osThread_t *thread);
+
+/**
+ * @brief       Dispatch specified Thread or Ready Thread with Highest Priority.
+ * @param[in]   thread  thread object or NULL.
+ */
+void libThreadDispatch(osThread_t *thread);
 
 __STATIC_INLINE
 osThread_t *ThreadGetRunning(void)

@@ -66,7 +66,7 @@ void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
   *(--stk) = 0x03030303L;                       //-- R3
   *(--stk) = 0x02020202L;                       //-- R2
   *(--stk) = 0x01010101L;                       //-- R1
-  *(--stk) = (uint32_t)func_param;              //-- R0 - task's function argument
+  *(--stk) = (uint32_t)func_param;              //-- R0 - thread's function argument
   *(--stk) = 0x11111111L;                       //-- R11
   *(--stk) = 0x10101010L;                       //-- R10
   *(--stk) = 0x09090909L;                       //-- R9
@@ -95,26 +95,6 @@ static void ThreadSwitch(osThread_t *thread)
   thread->state = ThreadStateRunning;
   knlInfo.run.next = thread;
   archSwitchContextRequest();
-}
-
-/**
- * @brief       Dispatch specified Thread or Ready Thread with Highest Priority.
- * @param[in]   thread  thread object or NULL.
- */
-static void ThreadDispatch(osThread_t *thread)
-{
-  osThread_t *thread_running;
-
-  if (thread == NULL) {
-    thread = ThreadHighestPrioGet();
-  }
-
-  thread_running = ThreadGetRunning();
-
-  if (thread->priority > thread_running->priority) {
-    thread_running->state = ThreadStateReady;
-    ThreadSwitch(thread);
-  }
 }
 
 /**
@@ -156,14 +136,14 @@ static void ThreadReadyDel(osThread_t *thread)
 
 /**
  * @brief
- * @param[out]  task
+ * @param[out]  thread
  */
 static
-void ThreadWaitExit_Handler(osThread_t *task)
+void ThreadWaitExit_Handler(osThread_t *thread)
 {
   BEGIN_CRITICAL_SECTION
 
-  libThreadWaitExit(task, (uint32_t)osErrorTimeout);
+  libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_YES);
 
   END_CRITICAL_SECTION
 }
@@ -213,7 +193,7 @@ osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t 
   QueueReset(&thread->wait_timer.timer_que);
   QueueReset(&thread->mutex_que);
 
-  /* Fill all task stack space by FILL_STACK_VAL */
+  /* Fill all thread stack space by FILL_STACK_VAL */
   uint32_t *ptr = stack_mem;
   for (uint32_t i = stack_size/sizeof(uint32_t); i != 0U; --i) {
     *ptr++ = FILL_STACK_VALUE;
@@ -222,7 +202,7 @@ osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t 
   ThreadStackInit(func_addr, argument, thread);
 
   ThreadReadyAdd(thread);
-  ThreadDispatch(thread);
+  libThreadDispatch(thread);
 
   return (thread);
 }
@@ -426,7 +406,7 @@ static osStatus_t ThreadResume(osThreadId_t thread_id)
   /* Remove the thread from timer queue */
   QueueRemoveEntry(&thread->wait_timer.timer_que);
   ThreadReadyAdd(thread);
-  ThreadDispatch(thread);
+  libThreadDispatch(thread);
 
   return (osOK);
 }
@@ -483,7 +463,7 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
       ThreadSwitch(ThreadHighestPrioGet());
     }
     else {
-      ThreadDispatch(NULL);
+      libThreadDispatch(NULL);
     }
 
     thread->state = ThreadStateInactive;
@@ -512,13 +492,15 @@ static uint32_t ThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items
  * @param[out]  thread    thread object.
  * @param[in]   ret_val   return value.
  */
-void libThreadWaitExit(osThread_t *thread, uint32_t ret_val)
+void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch)
 {
   thread->winfo.ret_val = ret_val;
 
   QueueRemoveEntry(&thread->wait_timer.timer_que);
   ThreadReadyAdd(thread);
-  ThreadDispatch(thread);
+  if (dispatch != DISPATCH_NO) {
+    libThreadDispatch(thread);
+  }
 }
 
 /**
@@ -562,8 +544,9 @@ void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 void libThreadWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
-    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)osErrorResource);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)osErrorResource, DISPATCH_NO);
   }
+  libThreadDispatch(NULL);
 }
 
 /**
@@ -581,7 +564,6 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
       ThreadReadyDel(thread);
       thread->priority = priority;
       ThreadReadyAdd(thread);
-      ThreadDispatch(NULL);
     }
   }
 }
@@ -589,7 +571,27 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
 void libThreadSuspend(osThread_t *thread)
 {
   ThreadReadyAdd(thread);
-  ThreadDispatch(thread);
+  libThreadDispatch(thread);
+}
+
+/**
+ * @brief       Dispatch specified Thread or Ready Thread with Highest Priority.
+ * @param[in]   thread  thread object or NULL.
+ */
+void libThreadDispatch(osThread_t *thread)
+{
+  osThread_t *thread_running;
+
+  if (thread == NULL) {
+    thread = ThreadHighestPrioGet();
+  }
+
+  thread_running = ThreadGetRunning();
+
+  if (thread->priority > thread_running->priority) {
+    thread_running->state = ThreadStateReady;
+    ThreadSwitch(thread);
+  }
 }
 
 /*******************************************************************************

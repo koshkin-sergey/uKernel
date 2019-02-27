@@ -162,7 +162,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
   if (!isQueueEmpty(&dq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
     thread = GetThreadByQueue(QueueRemoveHead(&dq->wait_get_queue));
-    libThreadWaitExit(thread, (uint32_t)osOK);
+    libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
     winfo = &thread->winfo.dataque;
     memcpy((void *)winfo->data_ptr, data_ptr, dq->data_size);
     status = osOK;
@@ -181,7 +181,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
         winfo = &thread->winfo.dataque;
         winfo->data_ptr = (uint32_t)data_ptr;
         libThreadWaitEnter(thread, &dq->wait_put_queue, timeout);
-        status = osThreadWait;
+        status = (osStatus_t)osThreadWait;
       }
       else {
         status = osErrorResource;
@@ -218,7 +218,7 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
       /* Try to put a data into Queue */
       if (DataPut(dq, (const void *)winfo->data_ptr) != false) {
         /* Wakeup waiting Thread with highest Priority */
-        libThreadWaitExit(thread, (uint32_t)osOK);
+        libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
       }
     }
     status = osOK;
@@ -232,7 +232,7 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
       winfo = &thread->winfo.dataque;
       winfo->data_ptr = (uint32_t)data_ptr;
       libThreadWaitEnter(thread, &dq->wait_get_queue, timeout);
-      status = osThreadWait;
+      status = (osStatus_t)osThreadWait;
     }
     else {
       status = osErrorResource;
@@ -295,7 +295,6 @@ static uint32_t DataQueueGetSpace(osDataQueueId_t dq_id)
 static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
 {
   osDataQueue_t    *dq = dq_id;
-  queue_t          *que;
   osThread_t       *thread;
   winfo_dataque_t  *winfo;
 
@@ -312,16 +311,19 @@ static osStatus_t DataQueueReset(osDataQueueId_t dq_id)
   dq->tail       = 0U;
 
   /* Check if Threads are waiting to send a data */
-  for (que = dq->wait_put_queue.next; que != &dq->wait_put_queue; que = que->next) {
-    /* Get waiting Thread with highest Priority */
-    thread = GetThreadByQueue(que);
-    winfo = &thread->winfo.dataque;
-    /* Try to put a data into Queue */
-    if (DataPut(dq, (const void *)winfo->data_ptr) == false) {
-      break;
-    }
-    /* Wakeup waiting Thread with highest Priority */
-    libThreadWaitExit(thread, (uint32_t)osOK);
+  if (!isQueueEmpty(&dq->wait_put_queue)) {
+    do {
+      /* Get waiting Thread with highest Priority */
+      thread = GetThreadByQueue(dq->wait_put_queue.next);
+      winfo = &thread->winfo.dataque;
+      /* Try to put a data into Queue */
+      if (DataPut(dq, (const void *)winfo->data_ptr) == false) {
+        break;
+      }
+      /* Wakeup waiting Thread with highest Priority */
+      libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_NO);
+    } while(!isQueueEmpty(&dq->wait_put_queue));
+    libThreadDispatch(NULL);
   }
 
   END_CRITICAL_SECTION

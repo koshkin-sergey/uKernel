@@ -124,7 +124,7 @@ static osStatus_t MemoryPoolFree(osMemoryPoolId_t mp_id, void *block)
   /* Check if Thread is waiting to allocate memory */
   if (!isQueueEmpty(&mp->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block);
+    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&mp->wait_queue)), (uint32_t)block, DISPATCH_YES);
     status = osOK;
   }
   else {

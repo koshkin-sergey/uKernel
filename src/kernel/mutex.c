@@ -176,7 +176,7 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
         /* Suspend current Thread */
         running_thread->winfo.ret_val = (uint32_t)osErrorTimeout;
         libThreadWaitEnter(running_thread, &mutex->wait_que, timeout);
-        status = osThreadWait;
+        status = (osStatus_t)osThreadWait;
       }
       else {
         status = osErrorResource;
@@ -230,11 +230,13 @@ static osStatus_t MutexRelease(osMutexId_t mutex_id)
     if (!isQueueEmpty(&mutex->wait_que)) {
       /* Wakeup waiting Thread with highest Priority */
       thread = GetThreadByQueue(QueueRemoveHead(&mutex->wait_que));
-      libThreadWaitExit(thread, (uint32_t)osOK);
+      libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_NO);
       mutex->holder = thread;
       mutex->cnt = 1U;
       QueueAddTail(&thread->mutex_que, &mutex->mutex_que);
     }
+
+    libThreadDispatch(NULL);
   }
 
   return (osOK);
@@ -277,6 +279,8 @@ static osStatus_t MutexDelete(osMutexId_t mutex_id)
 
     /* Unblock waiting threads */
     libThreadWaitDelete(&mutex->wait_que);
+
+    libThreadDispatch(NULL);
   }
 
   /* Mutex not exists now */
@@ -298,7 +302,7 @@ void libMutexOwnerRelease(queue_t *que)
   osMutex_t  *mutex;
   osThread_t *thread;
 
-  while (isQueueEmpty(que) == false) {
+  while (!isQueueEmpty(que)) {
     mutex = GetMutexByMutexQueque(QueueRemoveHead(que));
     if ((mutex->attr & osMutexRobust) != 0U) {
       mutex->holder = NULL;
@@ -307,7 +311,7 @@ void libMutexOwnerRelease(queue_t *que)
       if (!isQueueEmpty(&mutex->wait_que)) {
         /* Wakeup waiting Thread with highest Priority */
         thread = GetThreadByQueue(QueueRemoveHead(&mutex->wait_que));
-        libThreadWaitExit(thread, (uint32_t)osOK);
+        libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_NO);
         mutex->holder = thread;
         mutex->cnt = 1U;
         QueueAddTail(&thread->mutex_que, &mutex->mutex_que);

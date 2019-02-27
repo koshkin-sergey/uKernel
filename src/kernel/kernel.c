@@ -130,7 +130,7 @@ static void TimerTaskFunc(void *par)
 
 static void IdleTaskCreate(void)
 {
-  osThreadAttr_t attr = {
+  static const osThreadAttr_t attr = {
       .name = NULL,
       .attr_bits = 0U,
       .cb_mem = &idle_task,
@@ -145,7 +145,7 @@ static void IdleTaskCreate(void)
 
 static void TimerTaskCreate(void *par)
 {
-  osThreadAttr_t attr = {
+  static const osThreadAttr_t attr = {
       .name = NULL,
       .attr_bits = 0U,
       .cb_mem = &timer_task,
@@ -230,9 +230,9 @@ void osKernelStart(TN_OPTIONS *opt)
   knlInfo.run.curr = NULL;
   knlInfo.run.next = &idle_task;
 
-  /* Create Idle task */
+  /* Create Idle thread */
   IdleTaskCreate();
-  /* Create Timer task */
+  /* Create Timer thread */
   TimerTaskCreate((void *)opt);
 
   SystemIsrInit();

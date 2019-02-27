@@ -192,7 +192,7 @@ typedef struct winfo_event_s {
 } winfo_event_t;
 
 /*
- * Definition of wait information in task control block
+ * Definition of wait information in thread control block
  */
 typedef struct winfo_s {
   union {
@@ -229,14 +229,14 @@ typedef void (*osThreadFunc_t) (void *argument);
 
 /* Thread Control Block */
 typedef struct osThread_s {
-  uint32_t                        stk;  ///< Address of task's top of stack
-  queue_t                    task_que;  ///< Queue is used to include task in ready/wait lists
+  uint32_t                        stk;  ///< Address of thread's top of stack
+  queue_t                    task_que;  ///< Queue is used to include thread in ready/wait lists
   queue_t                   mutex_que;  ///< List of all mutexes that tack locked
-  void                       *stk_mem;  ///< Base address of task's stack space
+  void                       *stk_mem;  ///< Base address of thread's stack space
   uint32_t                   stk_size;  ///< Task's stack size (in bytes)
   int8_t                base_priority;  ///< Task base priority
   int8_t                     priority;  ///< Task current priority
-  uint8_t                          id;  ///< ID for verification(is it a task or another object?)
+  uint8_t                          id;  ///< ID for verification(is it a thread or another object?)
   uint8_t                       state;  ///< Task state
   const char                    *name;  ///< Object Name
   winfo_t                       winfo;  ///< Wait information
@@ -342,8 +342,8 @@ typedef struct osMutex_s {
   uint8_t                        attr;  ///< Object Attributes
   const char                    *name;  ///< Object Name
   queue_t                    wait_que;  ///< List of tasks that wait a mutex
-  queue_t                   mutex_que;  ///< To include in task's locked mutexes list (if any)
-  osThread_t                  *holder;  ///< Current mutex owner(task that locked mutex)
+  queue_t                   mutex_que;  ///< To include in thread's locked mutexes list (if any)
+  osThread_t                  *holder;  ///< Current mutex owner(thread that locked mutex)
   uint32_t                        cnt;  ///< Lock counter
 } osMutex_t;
 

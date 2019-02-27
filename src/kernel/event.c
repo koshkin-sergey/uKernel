@@ -142,9 +142,9 @@ static const char *EventFlagsGetName(osEventFlagsId_t ef_id)
 static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
 {
   osEventFlags_t *evf = (osEventFlags_t *)ef_id;
-  uint32_t event_flags, pattern;
-  queue_t *que;
-  osThread_t *task;
+  uint32_t        event_flags, pattern;
+  queue_t        *que;
+  osThread_t     *thread;
 
   /* Check parameters */
   if ((evf == NULL) || (evf->id != ID_EVENT_FLAGS) ||
@@ -160,21 +160,22 @@ static uint32_t EventFlagsSet(osEventFlagsId_t ef_id, uint32_t flags)
 
   que = evf->wait_queue.next;
   while (que != &evf->wait_queue) {
-    task = GetThreadByQueue(que);
+    thread = GetThreadByQueue(que);
     que = que->next;
 
-    pattern = FlagsCheck(evf, task->winfo.event.flags, task->winfo.event.options);
+    pattern = FlagsCheck(evf, thread->winfo.event.flags, thread->winfo.event.options);
 
     if (pattern) {
-      if (!(task->winfo.event.options & osFlagsNoClear)) {
-        event_flags = pattern & ~task->winfo.event.flags;
+      if (!(thread->winfo.event.options & osFlagsNoClear)) {
+        event_flags = pattern & ~thread->winfo.event.flags;
       }
       else {
         event_flags = pattern;
       }
-      libThreadWaitExit(task, pattern);
+      libThreadWaitExit(thread, pattern, DISPATCH_NO);
     }
   }
+  libThreadDispatch(NULL);
 
   END_CRITICAL_SECTION
 
