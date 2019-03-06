@@ -22,16 +22,14 @@
  *
  * Kernel system routines.
  *
- * The System uses two levels of priorities for the own purpose:
- *   - level 0                    (lowest)  for system idle task
- *   - level 31                   (highest) for system timers task
  */
 
 /*******************************************************************************
  *  includes
  ******************************************************************************/
 
-#include "knl_lib.h"
+#include "string.h"
+#include "os_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -49,17 +47,11 @@
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
-knlInfo_t knlInfo;
+osInfo_t osInfo;
 
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
-
-static osThread_t idle_task;
-static uint64_t idle_task_stack[IDLE_STACK_SIZE/8U] __attribute__((section(".bss.os.thread.stack")));
-
-static osThread_t timer_task;
-static uint64_t timer_task_stack[TIMER_STACK_SIZE/8U] __attribute__((section(".bss.os.thread.stack")));
 
 /*******************************************************************************
  *  function prototypes (scope: module-local)
@@ -71,20 +63,20 @@ static uint64_t timer_task_stack[TIMER_STACK_SIZE/8U] __attribute__((section(".b
 
 __WEAK void osSysTickInit(uint32_t hz)
 {
-  ;
+  (void) hz;
 }
 
 static
 timer_t* GetTimer(void)
 {
   timer_t *timer = NULL;
-  queue_t *timer_queue = &knlInfo.timer_queue;
+  queue_t *timer_queue = &osInfo.timer_queue;
 
   BEGIN_CRITICAL_SECTION
 
   if (!isQueueEmpty(timer_queue)) {
     timer = GetTimerByQueue(timer_queue->next);
-    if (time_after(timer->time, knlInfo.jiffies))
+    if (time_after(timer->time, osInfo.kernel.tick))
       timer = NULL;
     else
       TimerDelete(timer);
@@ -95,29 +87,10 @@ timer_t* GetTimer(void)
   return timer;
 }
 
-/**
- * @brief Idle task function.
- * @param par
- */
-__WEAK __NO_RETURN
-void osIdleTaskFunc(void *par)
-{
-  for (;;) {
-    ;
-  }
-}
-
-__NO_RETURN
-static void TimerTaskFunc(void *par)
+void libTimerThread(void *argument)
 {
   timer_t *timer;
-
-  if (((TN_OPTIONS *)par)->app_init)
-    ((TN_OPTIONS *)par)->app_init();
-
-  osSysTickInit(knlInfo.HZ);
-
-  knlInfo.kernel_state = KERNEL_STATE_RUNNING;
+  (void)   argument;
 
   for (;;) {
     while ((timer = GetTimer()) != NULL) {
@@ -128,77 +101,81 @@ static void TimerTaskFunc(void *par)
   }
 }
 
-static void IdleTaskCreate(void)
-{
-  static const osThreadAttr_t attr = {
-      .name = NULL,
-      .attr_bits = 0U,
-      .cb_mem = &idle_task,
-      .cb_size = sizeof(idle_task),
-      .stack_mem = &idle_task_stack[0],
-      .stack_size = sizeof(idle_task_stack),
-      .priority = osPriorityIdle,
-  };
-
-  ThreadNew((uint32_t)osIdleTaskFunc, NULL, &attr);
-}
-
-static void TimerTaskCreate(void *par)
-{
-  static const osThreadAttr_t attr = {
-      .name = NULL,
-      .attr_bits = 0U,
-      .cb_mem = &timer_task,
-      .cb_size = sizeof(timer_task),
-      .stack_mem = &timer_task_stack[0],
-      .stack_size = sizeof(timer_task_stack),
-      .priority = osPriorityISR,
-  };
-
-  QueueReset(&knlInfo.timer_queue);
-
-  ThreadNew((uint32_t)TimerTaskFunc, par, &attr);
-}
-
 void osTimerHandle(void)
 {
   BEGIN_CRITICAL_SECTION
 
-  ++knlInfo.jiffies;
-  if (knlInfo.kernel_state == KERNEL_STATE_RUNNING) {
-
-#if defined(ROUND_ROBIN_ENABLE)
-    volatile queue_t *curr_que;   //-- Need volatile here only to solve
-    volatile queue_t *pri_queue;  //-- IAR(c) compiler's high optimization mode problem
-    volatile int        priority;
-    osThread_t *task = ThreadGetRunning();
-    uint16_t *tslice_ticks = knlInfo.tslice_ticks;
-
-    //-------  Round -robin (if is used)
-    priority = task->priority;
-
-    if (tslice_ticks[priority] != NO_TIME_SLICE) {
-      task->tslice_count++;
-      if (task->tslice_count > tslice_ticks[priority]) {
-        task->tslice_count = 0;
-
-        pri_queue = &knlInfo.ready_list[priority];
-        //-- If ready queue is not empty and qty  of queue's tasks > 1
-        if (!(isQueueEmpty((queue_t *)pri_queue)) &&
-            pri_queue->next->next != pri_queue) {
-          //-- Remove task from tail and add it to the head of
-          //-- ready queue for current priority
-          curr_que = queue_remove_tail(&knlInfo.ready_list[priority]);
-          queue_add_head(&knlInfo.ready_list[priority],(queue_t *)curr_que);
-        }
-      }
-    }
-#endif  // ROUND_ROBIN_ENABLE
-
-    libThreadSuspend(&timer_task);
+  ++osInfo.kernel.tick;
+  if (osInfo.kernel.state == osKernelRunning) {
+    libThreadSuspend(osInfo.thread.timer);
   }
 
   END_CRITICAL_SECTION
+}
+
+static osStatus_t KernelInitialize(void)
+{
+  if (osInfo.kernel.state == osKernelReady) {
+    return osOK;
+  }
+
+  if (osInfo.kernel.state != osKernelInactive) {
+    return osError;
+  }
+
+  /* Initialize osInfo */
+  memset(&osInfo, 0, sizeof(osInfo));
+
+  for (uint32_t i = 0U; i < NUM_PRIORITY; i++) {
+    QueueReset(&osInfo.ready_list[i]);
+  }
+
+  QueueReset(&osInfo.timer_queue);
+
+  osInfo.kernel.state = osKernelReady;
+
+  return (osOK);
+}
+
+static osStatus_t KernelStart(void)
+{
+  osThread_t *thread;
+  uint32_t sh;
+
+  if (osInfo.kernel.state != osKernelReady) {
+    return osError;
+  }
+
+  /* Thread startup (Idle and Timer Thread) */
+  if (!libThreadStartup()) {
+    return osError;
+  }
+
+  /* Setup SVC and PendSV System Service Calls */
+  sh = SystemIsrInit();
+  osInfo.base_priority = (osConfig.max_api_interrupt_priority << sh) & 0x000000FFU;
+
+  /* Setup RTOS Tick */
+  osSysTickInit(osConfig.tick_freq);
+
+  /* Switch to Ready Thread with highest Priority */
+  thread = libThreadHighestPrioGet();
+  if (thread == NULL) {
+    return osError;
+  }
+  libThreadSwitch(thread);
+
+  if ((osConfig.flags & osConfigPrivilegedMode) != 0U) {
+    // Privileged Thread mode & PSP
+    __set_CONTROL(0x02U);
+  } else {
+    // Unprivileged Thread mode & PSP
+    __set_CONTROL(0x03U);
+  }
+
+  osInfo.kernel.state = osKernelRunning;
+
+  return (osOK);
 }
 
 /*******************************************************************************
@@ -206,72 +183,46 @@ void osTimerHandle(void)
  ******************************************************************************/
 
 /**
- * @brief Initial Kernel system start function, never returns. Typically
- *        called from main().
- * @param opt - Pointer to struct TN_OPTIONS.
+ * @fn          osStatus_t osKernelInitialize(void)
+ * @brief       Initialize the RTOS Kernel.
+ * @return      status code that indicates the execution status of the function.
  */
-__NO_RETURN
-void osKernelStart(TN_OPTIONS *opt)
+osStatus_t osKernelInitialize(void)
 {
-  __disable_irq();
+  osStatus_t status;
 
-  knlInfo.kernel_state = KERNEL_STATE_NOT_RUN;
-
-  for (uint32_t i = 0U; i < NUM_PRIORITY; i++) {
-    QueueReset(&knlInfo.ready_list[i]);
-#if defined(ROUND_ROBIN_ENABLE)
-    knlInfo.tslice_ticks[i] = NO_TIME_SLICE;
-#endif
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_0((uint32_t)KernelInitialize);
   }
 
-  knlInfo.HZ = opt->freq_timer;
-  knlInfo.max_syscall_interrupt_priority = opt->max_syscall_interrupt_priority;
-
-  knlInfo.run.curr = NULL;
-  knlInfo.run.next = &idle_task;
-
-  /* Create Idle thread */
-  IdleTaskCreate();
-  /* Create Timer thread */
-  TimerTaskCreate((void *)opt);
-
-  SystemIsrInit();
-
-  __enable_irq();
-
-  for(;;);
+  return (status);
 }
-
-#if defined(ROUND_ROBIN_ENABLE)
 
 /**
- * @brief   Set time slice ticks value for priority for round-robin scheduling.
- * @param   priority -  Priority of tasks for which time slice value should be
- *                      set. If value is NO_TIME_SLICE there are no round-robin
- *                      scheduling for tasks with priority. NO_TIME_SLICE is
- *                      default value.
- * @return  TERR_NO_ERR on success;
- *          TERR_WRONG_PARAM if given parameters are invalid.
+ * @fn          osStatus_t osKernelStart(void)
+ * @brief       Start the RTOS Kernel scheduler.
+ * @return      status code that indicates the execution status of the function.
  */
-int tn_sys_tslice_ticks(int priority, int value)
+osStatus_t osKernelStart(void)
 {
-  if (priority <= 0 || priority >= NUM_PRIORITY-1 ||
-      value < 0 || value > MAX_TIME_SLICE)
-    return TERR_WRONG_PARAM;
+  osStatus_t status;
 
-  BEGIN_CRITICAL_SECTION
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_0((uint32_t)KernelStart);
+  }
 
-  knlInfo.tslice_ticks[priority] = value;
-
-  END_CRITICAL_SECTION
-  return TERR_NO_ERR;
+  return (status);
 }
-
-#endif  // ROUND_ROBIN_ENABLE
 
 uint32_t osGetTickCount(void)
 {
-  return knlInfo.jiffies;
+  return osInfo.kernel.tick;
 }
 
 /*------------------------------ End of file ---------------------------------*/

@@ -28,7 +28,7 @@
  *  includes
  ******************************************************************************/
 
-#include "knl_lib.h"
+#include "os_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -79,31 +79,13 @@ void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
   thread->stk = (uint32_t)stk;
 }
 
-static osThread_t *ThreadHighestPrioGet(void)
-{
-  uint8_t priority;
-  osThread_t *thread;
-
-  priority = (NUM_PRIORITY - 1U) - __CLZ(knlInfo.ready_to_run_bmp);
-  thread = GetThreadByQueue(knlInfo.ready_list[priority].next);
-
-  return (thread);
-}
-
-static void ThreadSwitch(osThread_t *thread)
-{
-  thread->state = ThreadStateRunning;
-  knlInfo.run.next = thread;
-  archSwitchContextRequest();
-}
-
 /**
  * @brief       Adds thread to the end of ready queue for current priority
  * @param[in]   thread
  */
 static void ThreadReadyAdd(osThread_t *thread)
 {
-  knlInfo_t *info = &knlInfo;
+  osInfo_t *info = &osInfo;
   int8_t priority = thread->priority - 1U;
 
   /* Remove the thread from any queue */
@@ -121,7 +103,7 @@ static void ThreadReadyAdd(osThread_t *thread)
  */
 static void ThreadReadyDel(osThread_t *thread)
 {
-  knlInfo_t *info = &knlInfo;
+  osInfo_t *info = &osInfo;
   int8_t priority = thread->priority - 1U;
   queue_t *que = &info->ready_list[priority];
 
@@ -148,14 +130,14 @@ void ThreadWaitExit_Handler(osThread_t *thread)
   END_CRITICAL_SECTION
 }
 
-osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t *attr)
+static osThreadId_t ThreadNew(osThreadFunc_t func, void *argument, const osThreadAttr_t *attr)
 {
   osThread_t   *thread;
   void         *stack_mem;
   uint32_t      stack_size;
   osPriority_t  priority;
 
-  if ((func_addr == 0U) || (attr == NULL)) {
+  if ((func == NULL) || (attr == NULL)) {
     return (NULL);
   }
 
@@ -199,7 +181,7 @@ osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t 
     *ptr++ = FILL_STACK_VALUE;
   }
 
-  ThreadStackInit(func_addr, argument, thread);
+  ThreadStackInit((uint32_t)func, argument, thread);
 
   ThreadReadyAdd(thread);
   libThreadDispatch(thread);
@@ -327,7 +309,7 @@ static osStatus_t ThreadYield(void)
   queue_t *que;
   osThread_t *thread_running;
   osThread_t *thread_ready;
-  knlInfo_t *info = &knlInfo;
+  osInfo_t *info = &osInfo;
 
   thread_running = ThreadGetRunning();
   priority = thread_running->priority - 1U;
@@ -339,7 +321,7 @@ static osStatus_t ThreadYield(void)
   if (!isQueueEmpty(que)) {
     thread_running->state = ThreadStateReady;
     thread_ready = GetThreadByQueue(info->ready_list[priority].next);
-    ThreadSwitch(thread_ready);
+    libThreadSwitch(thread_ready);
   }
 
   /* Add the running thread to the end of ready queue */
@@ -363,8 +345,8 @@ osStatus_t ThreadSuspend(osThreadId_t thread_id)
     case ThreadStateRunning:
       ThreadReadyDel(thread);
       thread->state = ThreadStateBlocked;
-      thread = ThreadHighestPrioGet();
-      ThreadSwitch(thread);
+      thread = libThreadHighestPrioGet();
+      libThreadSwitch(thread);
       break;
 
     case ThreadStateReady:
@@ -419,7 +401,7 @@ static void ThreadExit(void)
   libMutexOwnerRelease(&thread->mutex_que);
 
   ThreadReadyDel(thread);
-  ThreadSwitch(ThreadHighestPrioGet());
+  libThreadSwitch(libThreadHighestPrioGet());
   thread->state = ThreadStateInactive;
   thread->id = ID_INVALID;
 }
@@ -460,7 +442,7 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
     libMutexOwnerRelease(&thread->mutex_que);
 
     if (thread->state == ThreadStateRunning) {
-      ThreadSwitch(ThreadHighestPrioGet());
+      libThreadSwitch(libThreadHighestPrioGet());
     }
     else {
       libThreadDispatch(NULL);
@@ -486,6 +468,33 @@ static uint32_t ThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items
 /*******************************************************************************
  *  Library functions
  ******************************************************************************/
+
+/**
+ * @brief       Thread startup (Idle and Timer Thread).
+ * @return      true - success, false - failure.
+ */
+bool libThreadStartup(void)
+{
+  bool ret = true;
+
+  /* Create Idle Thread */
+  if (osInfo.thread.idle == NULL) {
+    osInfo.thread.idle = ThreadNew(osIdleThread, NULL, osConfig.idle_thread_attr);
+    if (osInfo.thread.idle == NULL) {
+      ret = false;
+    }
+  }
+
+  /* Create Timer Thread */
+  if (osInfo.thread.timer == NULL) {
+    osInfo.thread.timer = ThreadNew(libTimerThread, NULL, osConfig.timer_thread_attr);
+    if (osInfo.thread.timer == NULL) {
+      ret = false;
+    }
+  }
+
+  return (ret);
+}
 
 /**
  * @brief       Exit Thread wait state.
@@ -530,11 +539,11 @@ void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 
   /* Add to the timers queue */
   if (timeout != osWaitForever) {
-    TimerInsert(&thread->wait_timer, knlInfo.jiffies + timeout, (CBACK)ThreadWaitExit_Handler, thread);
+    TimerInsert(&thread->wait_timer, osInfo.kernel.tick + timeout, (CBACK)ThreadWaitExit_Handler, thread);
   }
 
-  thread = ThreadHighestPrioGet();
-  ThreadSwitch(thread);
+  thread = libThreadHighestPrioGet();
+  libThreadSwitch(thread);
 }
 
 /**
@@ -574,6 +583,28 @@ void libThreadSuspend(osThread_t *thread)
   libThreadDispatch(thread);
 }
 
+osThread_t *libThreadHighestPrioGet(void)
+{
+  int8_t priority;
+  osThread_t *thread;
+
+  if (osInfo.ready_to_run_bmp == 0U) {
+    return (NULL);
+  }
+
+  priority = (NUM_PRIORITY - 1U) - __CLZ(osInfo.ready_to_run_bmp);
+  thread = GetThreadByQueue(osInfo.ready_list[priority].next);
+
+  return (thread);
+}
+
+void libThreadSwitch(osThread_t *thread)
+{
+  thread->state = ThreadStateRunning;
+  osInfo.thread.run.next = thread;
+  archSwitchContextRequest();
+}
+
 /**
  * @brief       Dispatch specified Thread or Ready Thread with Highest Priority.
  * @param[in]   thread  thread object or NULL.
@@ -583,14 +614,18 @@ void libThreadDispatch(osThread_t *thread)
   osThread_t *thread_running;
 
   if (thread == NULL) {
-    thread = ThreadHighestPrioGet();
+    thread = libThreadHighestPrioGet();
   }
 
   thread_running = ThreadGetRunning();
 
-  if (thread->priority > thread_running->priority) {
+  if ((osInfo.kernel.state == osKernelRunning) &&
+      (thread != NULL) &&
+      (thread_running != NULL) &&
+      (thread->priority > thread_running->priority)) {
+    /* Preempt running Thread */
     thread_running->state = ThreadStateReady;
-    ThreadSwitch(thread);
+    libThreadSwitch(thread);
   }
 }
 

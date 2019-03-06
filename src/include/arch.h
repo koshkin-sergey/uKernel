@@ -44,9 +44,6 @@
 /* PendSV bit in the Interrupt Control State Register */
 #define PENDSVSET                     (0x10000000)
 
-#define TIMER_STACK_SIZE              (256U)
-#define IDLE_STACK_SIZE               (256U)
-
 #define TN_ALIG                       sizeof(void*)
 #define FILL_STACK_VALUE              0xFFFFFFFF
 
@@ -86,7 +83,7 @@
        (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
 
 #define BEGIN_CRITICAL_SECTION        uint32_t basepri = __get_BASEPRI(); \
-                                      __set_BASEPRI(knlInfo.max_syscall_interrupt_priority);
+                                      __set_BASEPRI(osInfo.base_priority);
 #define END_CRITICAL_SECTION          __set_BASEPRI(basepri);
 
 #elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) ||       \
@@ -124,6 +121,10 @@
 
 #ifndef __WEAK
   #define __WEAK
+#endif
+
+#ifndef   __USED
+  #define __USED
 #endif
 
 /*******************************************************************************
@@ -167,7 +168,7 @@ bool IsIrqMasked(void)
 }
 
 __STATIC_INLINE
-void SystemIsrInit(void)
+uint32_t SystemIsrInit(void)
 {
 #if !defined(__TARGET_ARCH_6S_M)
   uint32_t sh, prigroup;
@@ -175,6 +176,8 @@ void SystemIsrInit(void)
   NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
 #if defined(__TARGET_ARCH_6S_M)
   NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+
+  return (0U);
 #else
   sh       = 8U - __CLZ(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
   prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
@@ -182,6 +185,8 @@ void SystemIsrInit(void)
     sh = prigroup + 1U;
   }
   NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+
+  return (sh);
 #endif
 }
 

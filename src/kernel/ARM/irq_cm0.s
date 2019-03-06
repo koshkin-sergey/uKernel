@@ -24,9 +24,9 @@
 
 PendSV_Handler  PROC
                 EXPORT    PendSV_Handler
-                IMPORT    knlInfo
+                IMPORT    osInfo
 
-                LDR       R3,=knlInfo         ; in R3 - =run_task
+                LDR       R3,=osInfo         ; in R3 - =run_task
                 LDM       R3!,{R1,R2}         ; in R1 - current run task, in R2 - next run task
                 CMP       R1,R2               ; Check if thread switch is required
                 BEQ       Context_Exit        ; Exit when threads are the same

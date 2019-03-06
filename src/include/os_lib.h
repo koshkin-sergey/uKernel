@@ -63,34 +63,46 @@
 #define NUM_PRIORITY                (32U)
 #define osThreadWait                (-16)
 
+/* OS Configuration flags */
+#define osConfigPrivilegedMode      (1UL<<0)    ///< Threads in Privileged mode
+#define osConfigStackCheck          (1UL<<1)    ///< Stack overrun checking
+#define osConfigStackWatermark      (1UL<<2)    ///< Stack usage Watermark
+
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
-typedef enum {
-  KERNEL_STATE_NOT_RUN = 0,         //!< KERNEL_STATE_NOT_RUN
-  KERNEL_STATE_RUNNING = 1,         //!< KERNEL_STATE_RUNNING
-  kernel_state_reserved = 0x7fffffff//!< kernel_state_reserved
-} kernel_state_t;
+/* OS Runtime Information structure */
+typedef struct osInfo_s {
+  struct {
+    struct {
+      osThread_t                         *curr;   /// Task that is running now
+      osThread_t                         *next;   /// Task to be run after switch context
+    } run;
+    osThread_t                           *idle;
+    osThread_t                          *timer;
+  } thread;
+  struct {
+    osKernelState_t                      state;   ///< State
+    uint32_t                              tick;
+  } kernel;
+  uint32_t                       base_priority;
+  uint32_t                    ready_to_run_bmp;
+  queue_t             ready_list[NUM_PRIORITY];   ///< all ready to run(RUNNABLE) tasks
+  queue_t                          timer_queue;
+} osInfo_t;
 
-typedef struct {
-  osThread_t *curr;                     // Task that is running now
-  osThread_t *next;                     // Task to be run after switch context
-} knlRun_t;
-
-typedef struct {
-  knlRun_t run;
-  uint32_t HZ;                            ///< Frequency system timer
-  uint32_t jiffies;
-  uint32_t max_syscall_interrupt_priority;
-  kernel_state_t kernel_state;            ///< Kernel state -(running/not running)
-  uint32_t ready_to_run_bmp;
-  queue_t ready_list[NUM_PRIORITY];       ///< all ready to run(RUNNABLE) tasks
-  queue_t timer_queue;
-#if defined(ROUND_ROBIN_ENABLE)
-  uint16_t tslice_ticks[NUM_PRIORITY];    ///< For round-robin only
-#endif
-} knlInfo_t;
+/* OS Configuration structure */
+typedef struct osConfig_s {
+  uint32_t                             flags;   ///< OS Configuration Flags
+  uint32_t                         tick_freq;   ///< Kernel Tick Frequency
+  uint32_t                     robin_timeout;   ///< Round Robin Timeout Tick
+  uint32_t        max_api_interrupt_priority;
+  const
+  osThreadAttr_t           *idle_thread_attr;   ///< Idle Thread Attributes
+  const
+  osThreadAttr_t          *timer_thread_attr;   ///< Timer Thread Attributes
+} osConfig_t;
 
 typedef enum {
   DISPATCH_NO  = 0,
@@ -101,14 +113,20 @@ typedef enum {
  *  exported variables
  ******************************************************************************/
 
-extern knlInfo_t knlInfo;
+extern osInfo_t osInfo;                   ///< OS Runtime Information
+extern const osConfig_t osConfig;         ///< OS Configuration
 
 /*******************************************************************************
  *  exported function prototypes
  ******************************************************************************/
 
 /* Thread */
-osThreadId_t ThreadNew(uint32_t func_addr, void *argument, const osThreadAttr_t *attr);
+
+/**
+ * @brief       Thread startup (Idle and Timer Thread).
+ * @return      true - success, false - failure.
+ */
+bool libThreadStartup(void);
 
 /**
  * @brief       Exit Thread wait state.
@@ -140,6 +158,10 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority);
 
 void libThreadSuspend(osThread_t *thread);
 
+osThread_t *libThreadHighestPrioGet(void);
+
+void libThreadSwitch(osThread_t *thread);
+
 /**
  * @brief       Dispatch specified Thread or Ready Thread with Highest Priority.
  * @param[in]   thread  thread object or NULL.
@@ -149,7 +171,7 @@ void libThreadDispatch(osThread_t *thread);
 __STATIC_INLINE
 osThread_t *ThreadGetRunning(void)
 {
-  return knlInfo.run.curr;
+  return osInfo.thread.run.curr;
 }
 
 /* Queue */
@@ -196,6 +218,10 @@ queue_t* QueueRemoveHead(queue_t *que);
 queue_t* QueueRemoveTail(queue_t *que);
 
 /* Timer */
+
+// Timer Library functions
+extern void libTimerThread(void *argument);
+
 /**
  * @fn          void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
  * @brief

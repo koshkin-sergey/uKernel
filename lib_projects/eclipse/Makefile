@@ -56,19 +56,21 @@ ifeq ($(ARCH), $(filter $(ARCH), cortex_m0 cortex_m0plus cortex_m1 cortex_m3 cor
   
   ifeq ($(COMPILER), armcc)
     
+    ARCH_DIR = $(SRC)/kernel/ARM
+    
     ifeq ($(ARCH), cortex_m0)
       CPU := --cpu=cortex-m0
-      ARCH_DIR = $(SRC)/kernel/ARM
+      ARCH_IRQ := $(ARCH_DIR)/irq_cm0.s
     endif
 
     ifeq ($(ARCH), cortex_m3)
       CPU := --cpu=cortex-m3
-      ARCH_DIR = $(SRC)/kernel/ARM
+      ARCH_IRQ := $(ARCH_DIR)/irq_cm3.s
     endif
 
     ifeq ($(ARCH), cortex_m4)
       CPU := --cpu=cortex-m4
-      ARCH_DIR = $(SRC)/kernel/ARM
+      ARCH_IRQ := $(ARCH_DIR)/irq_cm3.s
     endif
 
     CC = armcc
@@ -87,14 +89,14 @@ endif
 BINARY = $(BIN_FOLDER)/ukernel.lib
 
 INC := -I $(SRC)/include \
-       -I $(SRC)/CMSIS/Core/Include \
-       -I $(ARCH_DIR)
+       -I $(SRC)/Config \
+       -I $(SRC)/CMSIS/Core/Include
 
 DIRS := $(SRC)/kernel \
         $(ARCH_DIR)
 
 CFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))
-SFILES := $(foreach dir,$(DIRS),$(wildcard $(dir)/*.s))
+SFILES := $(ARCH_IRQ)
 OBJS := $(patsubst %.c,$(OBJ_FOLDER)/%.o, $(notdir $(CFILES))) $(patsubst %.s,$(OBJ_FOLDER)/%.o,$(notdir $(SFILES)))
 DEPS := $(OBJS:.o=.d)
 

@@ -28,7 +28,7 @@
  *  includes
  ******************************************************************************/
 
-#include "knl_lib.h"
+#include "os_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -71,7 +71,7 @@ static osStatus_t Delay(uint32_t ticks)
 
 static osStatus_t DelayUntil(uint32_t ticks)
 {
-  ticks -= knlInfo.jiffies;
+  ticks -= osInfo.kernel.tick;
 
   if ((ticks == 0U) || (ticks > 0x7FFFFFFFU)) {
     return osErrorParameter;

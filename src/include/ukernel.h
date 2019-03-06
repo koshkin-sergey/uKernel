@@ -73,19 +73,22 @@ extern "C"
 #endif
 #endif
 
+/* Flags options (\ref osEventFlagsWait) */
 #define osFlagsWaitAny                0x00000000U ///< Wait for any flag (default).
 #define osFlagsWaitAll                0x00000001U ///< Wait for all flags.
 #define osFlagsNoClear                0x00000002U ///< Do not clear flags which have been specified to wait for.
+
+/* Thread attributes (attr_bits in \ref osThreadAttr_t) */
+#define osThreadDetached      0x00000000U ///< Thread created in detached mode (default)
+#define osThreadJoinable      0x00000001U ///< Thread created in joinable mode
 
 /* Mutex attributes */
 #define osMutexPrioInherit            (1UL<<0)  ///< Priority inherit protocol.
 #define osMutexRecursive              (1UL<<1)  ///< Recursive mutex.
 #define osMutexRobust                 (1UL<<2)  ///< Robust mutex.
 
+/* Timeout value */
 #define osWaitForever                 (0xFFFFFFFF)
-
-#define NO_TIME_SLICE                 (0)
-#define MAX_TIME_SLICE                (0xFFFE)
 
 #define time_after(a,b)               ((int32_t)(b) - (int32_t)(a) < 0)
 #define time_before(a,b)              time_after(b,a)
@@ -96,6 +99,17 @@ extern "C"
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
+
+/// Kernel state.
+typedef enum {
+  osKernelInactive        =  0,         ///< Inactive.
+  osKernelReady           =  1,         ///< Ready.
+  osKernelRunning         =  2,         ///< Running.
+  osKernelLocked          =  3,         ///< Locked.
+  osKernelSuspended       =  4,         ///< Suspended.
+  osKernelError           = -1,         ///< Error.
+  osKernelReserved        = 0x7FFFFFFFU ///< Prevents enum down-size compiler optimization.
+} osKernelState_t;
 
 /// Status code values returned by CMSIS-RTOS functions.
 typedef enum {
@@ -395,16 +409,6 @@ typedef struct osCyclic_s {
   timer_t                       timer;  ///< Timer event block
 } osCyclic_t;
 
-
-/* - User functions ----------------------------------------------------------*/
-typedef void (*TN_USER_FUNC)(void);
-
-typedef struct {
-  TN_USER_FUNC app_init;
-  uint32_t freq_timer;
-  uint32_t max_syscall_interrupt_priority;
-} TN_OPTIONS;
-
 #ifndef TZ_MODULEID_T
 #define TZ_MODULEID_T
 /// \details Data type that identifies secure software modules called by a process.
@@ -483,19 +487,29 @@ typedef struct {
  ******************************************************************************/
 
 /*******************************************************************************
- *  exported function prototypes
+ *  OS External Functions
  ******************************************************************************/
+
+/* OS Idle Thread */
+extern void osIdleThread(void *argument);
 
 /*******************************************************************************
  *  Kernel Information and Control
  ******************************************************************************/
 
-__NO_RETURN
-void osKernelStart(TN_OPTIONS *opt);
+/**
+ * @fn          osStatus_t osKernelInitialize(void)
+ * @brief       Initialize the RTOS Kernel.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osKernelInitialize(void);
 
-#if defined(ROUND_ROBIN_ENABLE)
-int tn_sys_tslice_ticks(int priority, int value);
-#endif
+/**
+ * @fn          osStatus_t osKernelStart(void)
+ * @brief       Start the RTOS Kernel scheduler.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osKernelStart(void);
 
 /*******************************************************************************
  *  Timer Management

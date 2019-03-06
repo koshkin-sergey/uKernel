@@ -28,7 +28,7 @@
  *  includes
  ******************************************************************************/
 
-#include "knl_lib.h"
+#include "os_lib.h"
 
 /*******************************************************************************
  *  external declarations
@@ -61,14 +61,14 @@
 static
 uint32_t CyclicNextTime(osCyclic_t *cyc)
 {
-  uint32_t time, jiffies;
+  uint32_t time, ticks;
   uint32_t n;
 
   time = cyc->timer.time + cyc->time;
-  jiffies = knlInfo.jiffies;
+  ticks = osInfo.kernel.tick;
 
-  if (time_before_eq(time, jiffies)) {
-    time = jiffies - cyc->timer.time;
+  if (time_before_eq(time, ticks)) {
+    time = ticks - cyc->timer.time;
     n = time / cyc->time;
     n++;
     time = n * cyc->time;
@@ -99,7 +99,7 @@ void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg)
 {
   queue_t *que;
   timer_t *timer;
-  queue_t *timer_queue = &knlInfo.timer_queue;
+  queue_t *timer_queue = &osInfo.timer_queue;
 
   event->callback = callback;
   event->arg  = arg;
@@ -165,7 +165,7 @@ void AlarmStart(osAlarm_t *alarm, uint32_t timeout)
   if (alarm->state == TIMER_START)
     TimerDelete(&alarm->timer);
 
-  TimerInsert(&alarm->timer, knlInfo.jiffies + timeout, (CBACK)AlarmHandler, alarm);
+  TimerInsert(&alarm->timer, osInfo.kernel.tick + timeout, (CBACK)AlarmHandler, alarm);
   alarm->state = TIMER_START;
 }
 
@@ -198,7 +198,7 @@ void CyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, v
   cyc->time     = param->cyc_time;
   cyc->id       = ID_CYCLIC;
 
-  uint32_t time = knlInfo.jiffies + param->cyc_phs;
+  uint32_t time = osInfo.kernel.tick + param->cyc_phs;
 
   if (cyc->attr & CYCLIC_ATTR_START) {
     cyc->state = TIMER_START;
@@ -233,13 +233,13 @@ void CyclicDelete(osCyclic_t *cyc)
 static
 void CyclicStart(osCyclic_t *cyc)
 {
-  uint32_t jiffies = knlInfo.jiffies;
+  uint32_t ticks = osInfo.kernel.tick;
 
   if (cyc->attr & CYCLIC_ATTR_PHS) {
     if (cyc->state == TIMER_STOP) {
       uint32_t time = cyc->timer.time;
 
-      if (time_before_eq(time, jiffies))
+      if (time_before_eq(time, ticks))
         time = CyclicNextTime(cyc);
 
       TimerInsert(&cyc->timer, time, (CBACK)CyclicHandler, cyc);
@@ -249,7 +249,7 @@ void CyclicStart(osCyclic_t *cyc)
     if (cyc->state == TIMER_START)
       TimerDelete(&cyc->timer);
 
-    TimerInsert(&cyc->timer, jiffies + cyc->time, (CBACK)CyclicHandler, cyc);
+    TimerInsert(&cyc->timer, ticks + cyc->time, (CBACK)CyclicHandler, cyc);
   }
 
   cyc->state = TIMER_START;
