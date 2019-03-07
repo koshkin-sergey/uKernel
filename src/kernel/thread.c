@@ -577,10 +577,9 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
   }
 }
 
-void libThreadSuspend(osThread_t *thread)
+void libThreadTimerResume(void)
 {
-  ThreadReadyAdd(thread);
-  libThreadDispatch(thread);
+  ThreadResume(osInfo.thread.timer);
 }
 
 osThread_t *libThreadHighestPrioGet(void)

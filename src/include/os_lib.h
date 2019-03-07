@@ -79,8 +79,8 @@ typedef struct osInfo_s {
       osThread_t                         *curr;   /// Task that is running now
       osThread_t                         *next;   /// Task to be run after switch context
     } run;
-    osThread_t                           *idle;
-    osThread_t                          *timer;
+    osThreadId_t                         *idle;
+    osThreadId_t                        *timer;
   } thread;
   struct {
     osKernelState_t                      state;   ///< State
@@ -156,7 +156,7 @@ void libThreadWaitDelete(queue_t *que);
  */
 void libThreadSetPriority(osThread_t *thread, int8_t priority);
 
-void libThreadSuspend(osThread_t *thread);
+void libThreadTimerResume(void);
 
 osThread_t *libThreadHighestPrioGet(void);
 

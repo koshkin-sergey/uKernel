@@ -47,8 +47,6 @@
  *  global variable definitions  (scope: module-exported)
  ******************************************************************************/
 
-osInfo_t osInfo;
-
 /*******************************************************************************
  *  global variable definitions (scope: module-local)
  ******************************************************************************/
@@ -97,7 +95,7 @@ void libTimerThread(void *argument)
       (*timer->callback)(timer->arg);
     }
 
-    osDelay(osWaitForever);
+    osThreadSuspend(osInfo.thread.timer);
   }
 }
 
@@ -107,7 +105,7 @@ void osTimerHandle(void)
 
   ++osInfo.kernel.tick;
   if (osInfo.kernel.state == osKernelRunning) {
-    libThreadSuspend(osInfo.thread.timer);
+    libThreadTimerResume();
   }
 
   END_CRITICAL_SECTION
