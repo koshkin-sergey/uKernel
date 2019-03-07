@@ -31,6 +31,11 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+/// Kernel Information
+#define osVersionAPI         20010003         ///< API version (2.1.3)
+#define osVersionKernel      10000000         ///< Kernel version (1.0.0)
+#define osKernelId           "uKernel V1.0.0" ///< Kernel identification string
+
 /* Object Identifier definitions */
 #define ID_INVALID                  0x00
 #define ID_THREAD                   0x47

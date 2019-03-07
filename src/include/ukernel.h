@@ -100,6 +100,12 @@ extern "C"
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
+/// Version information.
+typedef struct {
+  uint32_t                       api;   ///< API version (major.minor.rev: mmnnnrrrr dec).
+  uint32_t                    kernel;   ///< Kernel version (major.minor.rev: mmnnnrrrr dec).
+} osVersion_t;
+
 /// Kernel state.
 typedef enum {
   osKernelInactive        =  0,         ///< Inactive.
@@ -505,19 +511,41 @@ extern void osIdleThread(void *argument);
 osStatus_t osKernelInitialize(void);
 
 /**
+ * @fn          osStatus_t osKernelGetInfo(osVersion_t *version, char *id_buf, uint32_t id_size)
+ * @brief       Get RTOS Kernel Information.
+ * @param[out]  version   pointer to buffer for retrieving version information.
+ * @param[out]  id_buf    pointer to buffer for retrieving kernel identification string.
+ * @param[in]   id_size   size of buffer for kernel identification string.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osKernelGetInfo(osVersion_t *version, char *id_buf, uint32_t id_size);
+
+/**
+ * @fn          osKernelState_t osKernelGetState(void)
+ * @brief       Get the current RTOS Kernel state.
+ * @return      current RTOS Kernel state.
+ */
+osKernelState_t osKernelGetState(void);
+
+/**
  * @fn          osStatus_t osKernelStart(void)
  * @brief       Start the RTOS Kernel scheduler.
  * @return      status code that indicates the execution status of the function.
  */
 osStatus_t osKernelStart(void);
 
+/**
+ * @fn          uint32_t osKernelGetTickCount(void)
+ * @brief       Get the RTOS kernel tick count.
+ * @return      RTOS kernel current tick count.
+ */
+uint32_t osKernelGetTickCount(void);
+
 /*******************************************************************************
  *  Timer Management
  ******************************************************************************/
 
 void osTimerHandle(void);
-
-uint32_t osGetTickCount(void);
 
 osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf);
 

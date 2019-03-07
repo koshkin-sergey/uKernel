@@ -135,6 +135,28 @@ static osStatus_t KernelInitialize(void)
   return (osOK);
 }
 
+static osStatus_t KernelGetInfo(osVersion_t *version, char *id_buf, uint32_t id_size)
+{
+  if (version != NULL) {
+    version->api    = osVersionAPI;
+    version->kernel = osVersionKernel;
+  }
+
+  if ((id_buf != NULL) && (id_size != 0U)) {
+    if (id_size > sizeof(osKernelId)) {
+      id_size = sizeof(osKernelId);
+    }
+    memcpy(id_buf, osKernelId, id_size);
+  }
+
+  return (osOK);
+}
+
+static osKernelState_t KernelGetState(void)
+{
+  return (osInfo.kernel.state);
+}
+
 static osStatus_t KernelStart(void)
 {
   osThread_t *thread;
@@ -176,6 +198,11 @@ static osStatus_t KernelStart(void)
   return (osOK);
 }
 
+static uint32_t KernelGetTickCount(void)
+{
+  return (osInfo.kernel.tick);
+}
+
 /*******************************************************************************
  *  function implementations (scope: module-exported)
  ******************************************************************************/
@@ -200,6 +227,47 @@ osStatus_t osKernelInitialize(void)
 }
 
 /**
+ * @fn          osStatus_t osKernelGetInfo(osVersion_t *version, char *id_buf, uint32_t id_size)
+ * @brief       Get RTOS Kernel Information.
+ * @param[out]  version   pointer to buffer for retrieving version information.
+ * @param[out]  id_buf    pointer to buffer for retrieving kernel identification string.
+ * @param[in]   id_size   size of buffer for kernel identification string.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osKernelGetInfo(osVersion_t *version, char *id_buf, uint32_t id_size)
+{
+  osStatus_t status;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = KernelGetInfo(version, id_buf, id_size);
+  }
+  else {
+    status = (osStatus_t)svc_3((uint32_t)version, (uint32_t)id_buf, id_size, (uint32_t)KernelGetInfo);
+  }
+
+  return (status);
+}
+
+/**
+ * @fn          osKernelState_t osKernelGetState(void)
+ * @brief       Get the current RTOS Kernel state.
+ * @return      current RTOS Kernel state.
+ */
+osKernelState_t osKernelGetState(void)
+{
+  osKernelState_t state;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    state = KernelGetState();
+  }
+  else {
+    state = (osKernelState_t)svc_0((uint32_t)KernelGetState);
+  }
+
+  return (state);
+}
+
+/**
  * @fn          osStatus_t osKernelStart(void)
  * @brief       Start the RTOS Kernel scheduler.
  * @return      status code that indicates the execution status of the function.
@@ -218,9 +286,23 @@ osStatus_t osKernelStart(void)
   return (status);
 }
 
-uint32_t osGetTickCount(void)
+/**
+ * @fn          uint32_t osKernelGetTickCount(void)
+ * @brief       Get the RTOS kernel tick count.
+ * @return      RTOS kernel current tick count.
+ */
+uint32_t osKernelGetTickCount(void)
 {
-  return osInfo.kernel.tick;
+  uint32_t count;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    count = KernelGetTickCount();
+  }
+  else {
+    count =  svc_0((uint32_t)KernelGetTickCount);
+  }
+
+  return (count);
 }
 
 /*------------------------------ End of file ---------------------------------*/
