@@ -80,7 +80,6 @@ static const char *MemoryPoolGetName(osMemoryPoolId_t mp_id)
 static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
 {
   osMemoryPool_t *mp = mp_id;
-  osThread_t     *thread;
   void           *block;
 
   /* Check parameters */
@@ -92,15 +91,9 @@ static void *MemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
 
   /* Allocate memory */
   block = libMemoryPoolAlloc(&mp->info);
-  if (block == NULL) {
-    if (timeout != 0U) {
-      thread = ThreadGetRunning();
-      thread->winfo.ret_val = 0U;
-      libThreadWaitEnter(thread, &mp->wait_queue, timeout);
+  if (block == NULL && timeout != 0U) {
+    if (libThreadWaitEnter(ThreadGetRunning(), &mp->wait_queue, timeout)) {
       block = (void *)osThreadWait;
-    }
-    else {
-      block = NULL;
     }
   }
 
@@ -360,6 +353,9 @@ void *osMemoryPoolAlloc(osMemoryPoolId_t mp_id, uint32_t timeout)
     memory = (void *)svc_2((uint32_t)mp_id, timeout, (uint32_t)MemoryPoolAlloc);
     if ((int32_t)memory == osThreadWait) {
       memory = (void *)ThreadGetRunning()->winfo.ret_val;
+      if ((osStatus_t)memory == osErrorTimeout) {
+        memory = NULL;
+      }
     }
   }
 

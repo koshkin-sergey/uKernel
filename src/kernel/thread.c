@@ -386,7 +386,7 @@ static osStatus_t ThreadResume(osThreadId_t thread_id)
   }
 
   /* Wakeup Thread */
-  libThreadWaitExit(thread, osErrorTimeout, DISPATCH_YES);
+  libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_YES);
 
   return (osOK);
 }

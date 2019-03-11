@@ -202,12 +202,15 @@ static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr,
       if (timeout != 0U) {
         /* Suspend current Thread */
         thread = ThreadGetRunning();
-        thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-        winfo = &thread->winfo.msgque;
-        winfo->msg      = (uint32_t)msg_ptr;
-        winfo->msg_prio = (uint32_t)msg_prio;
-        libThreadWaitEnter(thread, &mq->wait_put_queue, timeout);
-        status = (osStatus_t)osThreadWait;
+        if (libThreadWaitEnter(thread, &mq->wait_put_queue, timeout)) {
+          winfo = &thread->winfo.msgque;
+          winfo->msg      = (uint32_t)msg_ptr;
+          winfo->msg_prio = (uint32_t)msg_prio;
+          status = (osStatus_t)osThreadWait;
+        }
+        else {
+          status = osErrorTimeout;
+        }
       }
       else {
         status = osErrorResource;
@@ -258,12 +261,15 @@ static osStatus_t MessageQueueGet(osMessageQueueId_t mq_id, void *msg_ptr, uint8
     if (timeout != 0U) {
       /* Suspend current Thread */
       thread = ThreadGetRunning();
-      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      winfo = &thread->winfo.msgque;
-      winfo->msg      = (uint32_t)msg_ptr;
-      winfo->msg_prio = (uint32_t)msg_prio;
-      libThreadWaitEnter(thread, &mq->wait_get_queue, timeout);
-      status = (osStatus_t)osThreadWait;
+      if (libThreadWaitEnter(thread, &mq->wait_get_queue, timeout)) {
+        winfo = &thread->winfo.msgque;
+        winfo->msg      = (uint32_t)msg_ptr;
+        winfo->msg_prio = (uint32_t)msg_prio;
+        status = (osStatus_t)osThreadWait;
+      }
+      else {
+        status = osErrorTimeout;
+      }
     }
     else {
       status = osErrorResource;

@@ -237,12 +237,15 @@ static uint32_t EventFlagsWait(osEventFlagsId_t ef_id, uint32_t flags, uint32_t 
   if (event_flags == 0U) {
     if (timeout != 0U) {
       thread = ThreadGetRunning();
-      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      winfo = &thread->winfo.event;
-      winfo->options = options;
-      winfo->flags = flags;
-      libThreadWaitEnter(thread, &evf->wait_queue, timeout);
-      event_flags = (uint32_t)osThreadWait;
+      if (libThreadWaitEnter(thread, &evf->wait_queue, timeout)) {
+        winfo = &thread->winfo.event;
+        winfo->options = options;
+        winfo->flags = flags;
+        event_flags = (uint32_t)osThreadWait;
+      }
+      else {
+        event_flags = (uint32_t)osErrorTimeout;
+      }
     }
     else {
       event_flags = (uint32_t)osErrorResource;

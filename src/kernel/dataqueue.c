@@ -148,7 +148,6 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
 {
   osDataQueue_t    *dq = dq_id;
   osThread_t       *thread;
-  winfo_dataque_t  *winfo;
   osStatus_t        status;
 
   /* Check parameters */
@@ -163,8 +162,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
     /* Wakeup waiting Thread with highest Priority */
     thread = GetThreadByQueue(QueueRemoveHead(&dq->wait_get_queue));
     libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
-    winfo = &thread->winfo.dataque;
-    memcpy((void *)winfo->data_ptr, data_ptr, dq->data_size);
+    memcpy((void *)thread->winfo.dataque.data_ptr, data_ptr, dq->data_size);
     status = osOK;
   }
   else {
@@ -177,11 +175,13 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
       if (timeout != 0U) {
         /* Suspend current Thread */
         thread = ThreadGetRunning();
-        thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-        winfo = &thread->winfo.dataque;
-        winfo->data_ptr = (uint32_t)data_ptr;
-        libThreadWaitEnter(thread, &dq->wait_put_queue, timeout);
-        status = (osStatus_t)osThreadWait;
+        if (libThreadWaitEnter(thread, &dq->wait_put_queue, timeout)) {
+          thread->winfo.dataque.data_ptr = (uint32_t)data_ptr;
+          status = (osStatus_t)osThreadWait;
+        }
+        else {
+          status = osErrorTimeout;
+        }
       }
       else {
         status = osErrorResource;
@@ -198,7 +198,6 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
 {
   osDataQueue_t    *dq = dq_id;
   osThread_t       *thread;
-  winfo_dataque_t  *winfo;
   osStatus_t        status;
 
   /* Check parameters */
@@ -214,9 +213,8 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
     if (!isQueueEmpty(&dq->wait_put_queue)) {
       /* Get waiting Thread with highest Priority */
       thread = GetThreadByQueue(dq->wait_put_queue.next);
-      winfo = &thread->winfo.dataque;
       /* Try to put a data into Queue */
-      if (DataPut(dq, (const void *)winfo->data_ptr) != false) {
+      if (DataPut(dq, (const void *)thread->winfo.dataque.data_ptr) != false) {
         /* Wakeup waiting Thread with highest Priority */
         libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
       }
@@ -228,11 +226,13 @@ static osStatus_t DataQueueGet(osDataQueueId_t dq_id, void *data_ptr, uint32_t t
     if (timeout != 0U) {
       /* Suspend current Thread */
       thread = ThreadGetRunning();
-      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      winfo = &thread->winfo.dataque;
-      winfo->data_ptr = (uint32_t)data_ptr;
-      libThreadWaitEnter(thread, &dq->wait_get_queue, timeout);
-      status = (osStatus_t)osThreadWait;
+      if (libThreadWaitEnter(thread, &dq->wait_get_queue, timeout)) {
+        thread->winfo.dataque.data_ptr = (uint32_t)data_ptr;
+        status = (osStatus_t)osThreadWait;
+      }
+      else {
+        status = osErrorTimeout;
+      }
     }
     else {
       status = osErrorResource;

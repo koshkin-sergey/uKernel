@@ -174,9 +174,12 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
           }
         }
         /* Suspend current Thread */
-        running_thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-        libThreadWaitEnter(running_thread, &mutex->wait_que, timeout);
-        status = (osStatus_t)osThreadWait;
+        if (libThreadWaitEnter(running_thread, &mutex->wait_que, timeout)) {
+          status = (osStatus_t)osThreadWait;
+        }
+        else {
+          status = osErrorTimeout;
+        }
       }
       else {
         status = osErrorResource;

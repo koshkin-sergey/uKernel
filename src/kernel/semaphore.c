@@ -124,9 +124,12 @@ static osStatus_t SemaphoreAcquire(osSemaphoreId_t semaphore_id, uint32_t timeou
     /* No token available */
     if (timeout != 0U) {
       thread = ThreadGetRunning();
-      thread->winfo.ret_val = (uint32_t)osErrorTimeout;
-      libThreadWaitEnter(thread, &sem->wait_queue, timeout);
-      status = (osStatus_t)osThreadWait;
+      if (libThreadWaitEnter(thread, &sem->wait_queue, timeout)) {
+        status = (osStatus_t)osThreadWait;
+      }
+      else {
+        status = osErrorTimeout;
+      }
     }
     else {
       status = osErrorResource;
