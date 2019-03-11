@@ -146,7 +146,7 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch
  * @param[out]  wait_que  Pointer to wait queue.
  * @param[in]   timeout   Timeout
  */
-void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout);
+bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout);
 
 /**
  * @brief

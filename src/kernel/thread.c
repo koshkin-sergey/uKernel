@@ -85,7 +85,6 @@ void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
  */
 static void ThreadReadyAdd(osThread_t *thread)
 {
-  osInfo_t *info = &osInfo;
   int8_t priority = thread->priority - 1U;
 
   /* Remove the thread from any queue */
@@ -93,8 +92,8 @@ static void ThreadReadyAdd(osThread_t *thread)
 
   thread->state = ThreadStateReady;
   /* Add the thread to the end of ready queue */
-  QueueAddTail(&info->ready_list[priority], &thread->task_que);
-  info->ready_to_run_bmp |= (1UL << priority);
+  QueueAddTail(&osInfo.ready_list[priority], &thread->task_que);
+  osInfo.ready_to_run_bmp |= (1UL << priority);
 }
 
 /**
@@ -103,16 +102,14 @@ static void ThreadReadyAdd(osThread_t *thread)
  */
 static void ThreadReadyDel(osThread_t *thread)
 {
-  osInfo_t *info = &osInfo;
   int8_t priority = thread->priority - 1U;
-  queue_t *que = &info->ready_list[priority];
 
   /* Remove the thread from ready queue */
   QueueRemoveEntry(&thread->task_que);
 
-  if (isQueueEmpty(que)) {
+  if (isQueueEmpty(&osInfo.ready_list[priority])) {
     /* No ready threads for the current priority */
-    info->ready_to_run_bmp &= ~(1UL << priority);
+    osInfo.ready_to_run_bmp &= ~(1UL << priority);
   }
 }
 
@@ -305,27 +302,24 @@ static osPriority_t ThreadGetPriority(osThreadId_t thread_id)
 
 static osStatus_t ThreadYield(void)
 {
-  int8_t priority;
-  queue_t *que;
+  queue_t    *que;
   osThread_t *thread_running;
-  osThread_t *thread_ready;
-  osInfo_t *info = &osInfo;
 
-  thread_running = ThreadGetRunning();
-  priority = thread_running->priority - 1U;
-  que = &info->ready_list[priority];
+  if (osInfo.kernel.state == osKernelRunning) {
+    thread_running = ThreadGetRunning();
+    que = &osInfo.ready_list[thread_running->priority - 1U];
 
-  /* Remove the running thread from ready queue */
-  QueueRemoveEntry(&thread_running->task_que);
+    /* Remove the running thread from ready queue */
+    QueueRemoveEntry(&thread_running->task_que);
 
-  if (!isQueueEmpty(que)) {
-    thread_running->state = ThreadStateReady;
-    thread_ready = GetThreadByQueue(info->ready_list[priority].next);
-    libThreadSwitch(thread_ready);
+    if (!isQueueEmpty(que)) {
+      thread_running->state = ThreadStateReady;
+      libThreadSwitch(GetThreadByQueue(que->next));
+    }
+
+    /* Add the running thread to the end of ready queue */
+    QueueAddTail(que, &thread_running->task_que);
   }
-
-  /* Add the running thread to the end of ready queue */
-  QueueAddTail(&info->ready_list[priority], &thread_running->task_que);
 
   return (osOK);
 }
@@ -343,10 +337,16 @@ osStatus_t ThreadSuspend(osThreadId_t thread_id)
 
   switch (thread->state) {
     case ThreadStateRunning:
-      ThreadReadyDel(thread);
-      thread->state = ThreadStateBlocked;
-      thread = libThreadHighestPrioGet();
-      libThreadSwitch(thread);
+      if (osInfo.kernel.state != osKernelRunning ||
+          osInfo.ready_to_run_bmp == 0U) {
+        status = osErrorResource;
+      }
+      else {
+        ThreadReadyDel(thread);
+        thread->state = ThreadStateBlocked;
+        thread = libThreadHighestPrioGet();
+        libThreadSwitch(thread);
+      }
       break;
 
     case ThreadStateReady:
@@ -385,17 +385,22 @@ static osStatus_t ThreadResume(osThreadId_t thread_id)
     return (osErrorResource);
   }
 
-  /* Remove the thread from timer queue */
-  QueueRemoveEntry(&thread->wait_timer.timer_que);
-  ThreadReadyAdd(thread);
-  libThreadDispatch(thread);
+  /* Wakeup Thread */
+  libThreadWaitExit(thread, osErrorTimeout, DISPATCH_YES);
 
   return (osOK);
 }
 
 static void ThreadExit(void)
 {
-  osThread_t *thread = ThreadGetRunning();
+  osThread_t *thread;
+
+  if (osInfo.kernel.state != osKernelRunning ||
+      osInfo.ready_to_run_bmp == 0U) {
+    return;
+  }
+
+  thread = ThreadGetRunning();
 
   /* Release owned Mutexes */
   libMutexOwnerRelease(&thread->mutex_que);
@@ -419,6 +424,15 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
   /* Check object state */
   switch (thread->state) {
     case ThreadStateRunning:
+      if (osInfo.kernel.state != osKernelRunning ||
+          osInfo.ready_to_run_bmp == 0U) {
+        status = osErrorResource;
+      }
+      else {
+        ThreadReadyDel(thread);
+      }
+      break;
+
     case ThreadStateReady:
       ThreadReadyDel(thread);
       break;
@@ -518,9 +532,13 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch
  * @param[out]  wait_que  Pointer to wait queue.
  * @param[in]   timeout   Timeout
  */
-void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
+bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 {
   queue_t *que;
+
+  if (osInfo.kernel.state != osKernelRunning) {
+    return (false);
+  }
 
   ThreadReadyDel(thread);
 
@@ -544,6 +562,8 @@ void libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 
   thread = libThreadHighestPrioGet();
   libThreadSwitch(thread);
+
+  return (true);
 }
 
 /**
