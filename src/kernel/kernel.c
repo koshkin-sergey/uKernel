@@ -158,9 +158,90 @@ static osStatus_t KernelStart(void)
   return (osOK);
 }
 
+static int32_t KernelLock(void)
+{
+  int32_t lock;
+
+  switch (osInfo.kernel.state) {
+    case osKernelRunning:
+      osInfo.kernel.state = osKernelLocked;
+      lock = 0;
+      break;
+
+    case osKernelLocked:
+      lock = 1;
+      break;
+
+    default:
+      lock = (int32_t)osError;
+      break;
+  }
+
+  return (lock);
+}
+
+static int32_t KernelUnlock(void)
+{
+  int32_t lock;
+
+  switch (osInfo.kernel.state) {
+    case osKernelRunning:
+      lock = 0;
+      break;
+
+    case osKernelLocked:
+      osInfo.kernel.state = osKernelRunning;
+      lock = 1;
+      break;
+
+    default:
+      lock = (int32_t)osError;
+      break;
+  }
+
+  return (lock);
+}
+
+static int32_t KernelRestoreLock(int32_t lock)
+{
+  int32_t lock_new;
+
+  switch (osInfo.kernel.state) {
+    case osKernelRunning:
+    case osKernelLocked:
+      switch (lock) {
+        case 0:
+          osInfo.kernel.state = osKernelRunning;
+          lock_new = 0;
+          break;
+
+        case 1:
+          osInfo.kernel.state = osKernelLocked;
+          lock_new = 1;
+          break;
+
+        default:
+          lock_new = (int32_t)osError;
+          break;
+      }
+      break;
+
+    default:
+      lock_new = (int32_t)osError;
+      break;
+  }
+
+  return (lock_new);
+}
+
 static uint32_t KernelGetTickCount(void)
 {
   return (osInfo.kernel.tick);
+}
+
+static uint32_t KernelGetTickFreq(void)
+{
+  return (osConfig.tick_freq);
 }
 
 /*******************************************************************************
@@ -247,6 +328,64 @@ osStatus_t osKernelStart(void)
 }
 
 /**
+ * @fn          int32_t osKernelLock(void)
+ * @brief       Lock the RTOS Kernel scheduler.
+ * @return      previous lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelLock(void)
+{
+  int32_t lock;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    lock = (int32_t)osErrorISR;
+  }
+  else {
+    lock = svc_0((uint32_t)KernelLock);
+  }
+
+  return (lock);
+}
+
+/**
+ * @fn          int32_t osKernelUnlock(void)
+ * @brief       Unlock the RTOS Kernel scheduler.
+ * @return      previous lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelUnlock(void)
+{
+  int32_t lock;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    lock = (int32_t)osErrorISR;
+  }
+  else {
+    lock = svc_0((uint32_t)KernelUnlock);
+  }
+
+  return (lock);
+}
+
+/**
+ * @fn          int32_t osKernelRestoreLock(int32_t lock)
+ * @brief       Restore the RTOS Kernel scheduler lock state.
+ * @param[in]   lock  lock state obtained by \ref osKernelLock or \ref osKernelUnlock.
+ * @return      new lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelRestoreLock(int32_t lock)
+{
+  int32_t lock_new;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    lock_new = (int32_t)osErrorISR;
+  }
+  else {
+    lock_new = svc_1((uint32_t)lock, (uint32_t)KernelRestoreLock);
+  }
+
+  return (lock_new);
+}
+
+/**
  * @fn          uint32_t osKernelGetTickCount(void)
  * @brief       Get the RTOS kernel tick count.
  * @return      RTOS kernel current tick count.
@@ -263,6 +402,25 @@ uint32_t osKernelGetTickCount(void)
   }
 
   return (count);
+}
+
+/**
+ * @fn          uint32_t osKernelGetTickFreq(void)
+ * @brief       Get the RTOS kernel tick frequency.
+ * @return      frequency of the kernel tick in hertz, i.e. kernel ticks per second.
+ */
+uint32_t osKernelGetTickFreq(void)
+{
+  uint32_t freq;
+
+  if (IsIrqMode() || IsIrqMasked()) {
+    freq = KernelGetTickFreq();
+  }
+  else {
+    freq = svc_0((uint32_t)KernelGetTickFreq);
+  }
+
+  return (freq);
 }
 
 /*------------------------------ End of file ---------------------------------*/

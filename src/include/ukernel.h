@@ -537,11 +537,40 @@ osKernelState_t osKernelGetState(void);
 osStatus_t osKernelStart(void);
 
 /**
+ * @fn          int32_t osKernelLock(void)
+ * @brief       Lock the RTOS Kernel scheduler.
+ * @return      previous lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelLock(void);
+
+/**
+ * @fn          int32_t osKernelUnlock(void)
+ * @brief       Unlock the RTOS Kernel scheduler.
+ * @return      previous lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelUnlock(void);
+
+/**
+ * @fn          int32_t osKernelRestoreLock(int32_t lock)
+ * @brief       Restore the RTOS Kernel scheduler lock state.
+ * @param[in]   lock  lock state obtained by \ref osKernelLock or \ref osKernelUnlock.
+ * @return      new lock state (1 - locked, 0 - not locked, error code if negative).
+ */
+int32_t osKernelRestoreLock(int32_t lock);
+
+/**
  * @fn          uint32_t osKernelGetTickCount(void)
  * @brief       Get the RTOS kernel tick count.
  * @return      RTOS kernel current tick count.
  */
 uint32_t osKernelGetTickCount(void);
+
+/**
+ * @fn          uint32_t osKernelGetTickFreq(void)
+ * @brief       Get the RTOS kernel tick frequency.
+ * @return      frequency of the kernel tick in hertz, i.e. kernel ticks per second.
+ */
+uint32_t osKernelGetTickFreq(void);
 
 /*******************************************************************************
  *  Timer Management
