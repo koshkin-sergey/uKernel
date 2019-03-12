@@ -32,4 +32,11 @@ void osIdleThread(void *argument)
   }
 }
 
+/* SysTick timer initialization */
+__WEAK
+void osSysTickInit(uint32_t hz)
+{
+  (void) hz;
+}
+
 /* ----------------------------- End of file ---------------------------------*/

@@ -498,6 +498,8 @@ typedef struct {
 
 /* OS Idle Thread */
 extern void osIdleThread(void *argument);
+/* SysTick timer initialization */
+extern void osSysTickInit(uint32_t hz);
 
 /*******************************************************************************
  *  Kernel Information and Control

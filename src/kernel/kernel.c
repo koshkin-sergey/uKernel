@@ -59,46 +59,6 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-__WEAK void osSysTickInit(uint32_t hz)
-{
-  (void) hz;
-}
-
-static
-timer_t* GetTimer(void)
-{
-  timer_t *timer = NULL;
-  queue_t *timer_queue = &osInfo.timer_queue;
-
-  BEGIN_CRITICAL_SECTION
-
-  if (!isQueueEmpty(timer_queue)) {
-    timer = GetTimerByQueue(timer_queue->next);
-    if (time_after(timer->time, osInfo.kernel.tick))
-      timer = NULL;
-    else
-      TimerDelete(timer);
-  }
-
-  END_CRITICAL_SECTION
-
-  return timer;
-}
-
-void libTimerThread(void *argument)
-{
-  timer_t *timer;
-  (void)   argument;
-
-  for (;;) {
-    while ((timer = GetTimer()) != NULL) {
-      (*timer->callback)(timer->arg);
-    }
-
-    osThreadSuspend(osInfo.thread.timer);
-  }
-}
-
 void osTimerHandle(void)
 {
   BEGIN_CRITICAL_SECTION

@@ -224,9 +224,6 @@ queue_t* QueueRemoveTail(queue_t *que);
 
 /* Timer */
 
-// Timer Library functions
-extern void libTimerThread(void *argument);
-
 /**
  * @fn          void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
  * @brief

@@ -54,6 +54,40 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
+static timer_t* GetTimer(void)
+{
+  timer_t *timer = NULL;
+  queue_t *timer_queue = &osInfo.timer_queue;
+
+  BEGIN_CRITICAL_SECTION
+
+  if (!isQueueEmpty(timer_queue)) {
+    timer = GetTimerByQueue(timer_queue->next);
+    if (time_after(timer->time, osInfo.kernel.tick))
+      timer = NULL;
+    else
+      TimerDelete(timer);
+  }
+
+  END_CRITICAL_SECTION
+
+  return timer;
+}
+
+static void TimerThread(void *argument)
+{
+  timer_t *timer;
+  (void)   argument;
+
+  for (;;) {
+    while ((timer = GetTimer()) != NULL) {
+      (*timer->callback)(timer->arg);
+    }
+
+    osThreadSuspend(osInfo.thread.timer);
+  }
+}
+
 static
 void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
 {
@@ -501,7 +535,7 @@ bool libThreadStartup(void)
 
   /* Create Timer Thread */
   if (osInfo.thread.timer == NULL) {
-    osInfo.thread.timer = ThreadNew(libTimerThread, NULL, osConfig.timer_thread_attr);
+    osInfo.thread.timer = ThreadNew(TimerThread, NULL, osConfig.timer_thread_attr);
     if (osInfo.thread.timer == NULL) {
       ret = false;
     }
