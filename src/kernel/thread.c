@@ -200,7 +200,6 @@ static osThreadId_t ThreadNew(osThreadFunc_t func, void *argument, const osThrea
   thread->priority = (int8_t)priority;
   thread->name = attr->name;
   thread->id = ID_THREAD;
-  thread->tslice_count = 0;
 
   QueueReset(&thread->task_que);
   QueueReset(&thread->wait_timer.timer_que);

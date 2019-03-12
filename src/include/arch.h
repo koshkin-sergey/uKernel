@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -31,21 +31,20 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-/* PendSV priority is minimal (0xFF) */
-#define PENDSV_PRIORITY               (0x00FF0000)
+/* following defines should be used for structure members */
+#define __IM                volatile const      /*! Defines 'read only' structure member permissions */
+#define __OM                volatile            /*! Defines 'write only' structure member permissions */
+#define __IOM               volatile            /*! Defines 'read / write' structure member permissions */
 
-#define NVIC_AIR_CTRL                 (*((volatile uint32_t *)0xE000ED0CU))
-/* System Handler Priority Register 2 Address */
-#define NVIC_SYS_PRI2                 (*((volatile uint32_t *)0xE000ED1CU))
-/* System Handler Priority Register 3 Address */
-#define NVIC_SYS_PRI3                 (*((volatile uint32_t *)0xE000ED20U))
-/* Interrupt Control State Register Address */
-#define ICSR                          (*((volatile uint32_t *)0xE000ED04))
+/* Memory mapping of Core Hardware */
+#define SCS_BASE            (0xE000E000UL)          /*!< System Control Space Base Address */
+#define SCB_BASE            (SCS_BASE + 0x0D00UL)   /*!< System Control Block Base Address */
+
+#define SCB                 ((SCB_Type *)SCB_BASE)  /*!< SCB configuration struct */
+
 /* PendSV bit in the Interrupt Control State Register */
-#define PENDSVSET                     (0x10000000)
-
-#define TN_ALIG                       sizeof(void*)
-#define FILL_STACK_VALUE              0xFFFFFFFF
+#define PENDSVSET           (0x10000000U)
+#define FILL_STACK_VALUE    (0xFFFFFFFFU)
 
 #if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
        (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
@@ -131,6 +130,57 @@
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
 
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+/**
+  \brief  Structure type to access the System Control Block (SCB).
+ */
+typedef struct
+{
+  __IM  uint32_t CPUID;                  /*!< Offset: 0x000 (R/ )  CPUID Base Register */
+  __IOM uint32_t ICSR;                   /*!< Offset: 0x004 (R/W)  Interrupt Control and State Register */
+  __IOM uint32_t VTOR;                   /*!< Offset: 0x008 (R/W)  Vector Table Offset Register */
+  __IOM uint32_t AIRCR;                  /*!< Offset: 0x00C (R/W)  Application Interrupt and Reset Control Register */
+  __IOM uint32_t SCR;                    /*!< Offset: 0x010 (R/W)  System Control Register */
+  __IOM uint32_t CCR;                    /*!< Offset: 0x014 (R/W)  Configuration Control Register */
+  __IOM uint8_t  SHP[12U];               /*!< Offset: 0x018 (R/W)  System Handlers Priority Registers (4-7, 8-11, 12-15) */
+  __IOM uint32_t SHCSR;                  /*!< Offset: 0x024 (R/W)  System Handler Control and State Register */
+  __IOM uint32_t CFSR;                   /*!< Offset: 0x028 (R/W)  Configurable Fault Status Register */
+  __IOM uint32_t HFSR;                   /*!< Offset: 0x02C (R/W)  HardFault Status Register */
+  __IOM uint32_t DFSR;                   /*!< Offset: 0x030 (R/W)  Debug Fault Status Register */
+  __IOM uint32_t MMFAR;                  /*!< Offset: 0x034 (R/W)  MemManage Fault Address Register */
+  __IOM uint32_t BFAR;                   /*!< Offset: 0x038 (R/W)  BusFault Address Register */
+  __IOM uint32_t AFSR;                   /*!< Offset: 0x03C (R/W)  Auxiliary Fault Status Register */
+  __IM  uint32_t PFR[2U];                /*!< Offset: 0x040 (R/ )  Processor Feature Register */
+  __IM  uint32_t DFR;                    /*!< Offset: 0x048 (R/ )  Debug Feature Register */
+  __IM  uint32_t ADR;                    /*!< Offset: 0x04C (R/ )  Auxiliary Feature Register */
+  __IM  uint32_t MMFR[4U];               /*!< Offset: 0x050 (R/ )  Memory Model Feature Register */
+  __IM  uint32_t ISAR[5U];               /*!< Offset: 0x060 (R/ )  Instruction Set Attributes Register */
+        uint32_t RESERVED0[5U];
+  __IOM uint32_t CPACR;                  /*!< Offset: 0x088 (R/W)  Coprocessor Access Control Register */
+} SCB_Type;
+
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) || \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+/**
+  \brief  Structure type to access the System Control Block (SCB).
+ */
+typedef struct
+{
+  __IM  uint32_t CPUID;                  /*!< Offset: 0x000 (R/ )  CPUID Base Register */
+  __IOM uint32_t ICSR;                   /*!< Offset: 0x004 (R/W)  Interrupt Control and State Register */
+        uint32_t RESERVED0;
+  __IOM uint32_t AIRCR;                  /*!< Offset: 0x00C (R/W)  Application Interrupt and Reset Control Register */
+  __IOM uint32_t SCR;                    /*!< Offset: 0x010 (R/W)  System Control Register */
+  __IOM uint32_t CCR;                    /*!< Offset: 0x014 (R/W)  Configuration Control Register */
+        uint32_t RESERVED1;
+  __IOM uint32_t SHP[2U];                /*!< Offset: 0x01C (R/W)  System Handlers Priority Registers. [0] is RESERVED */
+  __IOM uint32_t SHCSR;                  /*!< Offset: 0x024 (R/W)  System Handler Control and State Register */
+} SCB_Type;
+
+#endif
+
 /*******************************************************************************
  *  exported variables
  ******************************************************************************/
@@ -170,30 +220,34 @@ bool IsIrqMasked(void)
 __STATIC_INLINE
 uint32_t SystemIsrInit(void)
 {
-#if !defined(__TARGET_ARCH_6S_M)
-  uint32_t sh, prigroup;
-#endif
-  NVIC_SYS_PRI3 |= PENDSV_PRIORITY;
-#if defined(__TARGET_ARCH_6S_M)
-  NVIC_SYS_PRI2 |= (NVIC_SYS_PRI3<<(8+1)) & 0xFC000000U;
+#if   ((defined(__ARM_ARCH_7M__)      && (__ARM_ARCH_7M__      != 0)) ||       \
+       (defined(__ARM_ARCH_7EM__)     && (__ARM_ARCH_7EM__     != 0)) ||       \
+       (defined(__ARM_ARCH_8M_MAIN__) && (__ARM_ARCH_8M_MAIN__ != 0)))
+  uint32_t p, n;
 
-  return (0U);
-#else
-  sh       = 8U - __CLZ(~((NVIC_SYS_PRI3 << 8) & 0xFF000000U));
-  prigroup = ((NVIC_AIR_CTRL >> 8) & 0x07U);
-  if (prigroup >= sh) {
-    sh = prigroup + 1U;
+  SCB->SHP[10] = 0xFFU;
+  n = 32U - (uint32_t)__CLZ(~(SCB->SHP[10] | 0xFFFFFF00U));
+  p = ((SCB->AIRCR >> 8) & 0x07U);
+  if (p >= n) {
+    n = p + 1U;
   }
-  NVIC_SYS_PRI2 = ((0xFEFFFFFFU << sh) & 0xFF000000U) | (NVIC_SYS_PRI2 & 0x00FFFFFFU);
+  SCB->SHP[7] = (uint8_t)(0xFEU << n);
+  return (n);
+#elif ((defined(__ARM_ARCH_6M__)      && (__ARM_ARCH_6M__      != 0)) || \
+       (defined(__ARM_ARCH_8M_BASE__) && (__ARM_ARCH_8M_BASE__ != 0)))
+  uint32_t n;
 
-  return (sh);
+  SCB->SHP[1] |= 0x00FF0000U;
+  n = SCB->SHP[1];
+  SCB->SHP[0] |= (n << (8+1)) & 0xFC000000U;
+  return (0U);
 #endif
 }
 
 __STATIC_INLINE
 void archSwitchContextRequest(void)
 {
-  ICSR = PENDSVSET;
+  SCB->ICSR = PENDSVSET;
 }
 
 __STATIC_FORCEINLINE

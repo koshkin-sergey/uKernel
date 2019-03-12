@@ -261,7 +261,6 @@ typedef struct osThread_s {
   const char                    *name;  ///< Object Name
   winfo_t                       winfo;  ///< Wait information
   timer_t                  wait_timer;  ///< Wait timer
-  int32_t                tslice_count;  ///< Time slice counter
 } osThread_t;
 
 /* Semaphore Control Block */
