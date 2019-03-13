@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2011-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -37,6 +37,11 @@
 /*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
+
+/* Timer State definitions */
+#define osTimerInactive      0x00U   ///< Timer Inactive
+#define osTimerStopped       0x01U   ///< Timer Stopped
+#define osTimerRunning       0x02U   ///< Timer Running
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -118,7 +123,7 @@ void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg)
  * @fn          void TimerDelete(timer_t *event)
  * @brief
  */
-void TimerDelete(timer_t *event)
+void TimerRemove(timer_t *event)
 {
   QueueRemoveEntry(&event->timer_que);
 }
@@ -135,7 +140,7 @@ void AlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
   alarm->exinf    = exinf;
   alarm->handler  = handler;
   alarm->state    = TIMER_STOP;
-  alarm->id       = ID_ALARM;
+  alarm->id       = ID_TIMER;
 }
 
 /**
@@ -146,7 +151,7 @@ static
 void AlarmDelete(osAlarm_t *alarm)
 {
   if (alarm->state == TIMER_START) {
-    TimerDelete(&alarm->timer);
+    TimerRemove(&alarm->timer);
     alarm->state = TIMER_STOP;
   }
 
@@ -163,7 +168,7 @@ static
 void AlarmStart(osAlarm_t *alarm, uint32_t timeout)
 {
   if (alarm->state == TIMER_START)
-    TimerDelete(&alarm->timer);
+    TimerRemove(&alarm->timer);
 
   TimerInsert(&alarm->timer, osInfo.kernel.tick + timeout, (CBACK)AlarmHandler, alarm);
   alarm->state = TIMER_START;
@@ -177,7 +182,7 @@ static
 void AlarmStop(osAlarm_t *alarm)
 {
   if (alarm->state == TIMER_START) {
-    TimerDelete(&alarm->timer);
+    TimerRemove(&alarm->timer);
     alarm->state = TIMER_STOP;
   }
 }
@@ -218,7 +223,7 @@ static
 void CyclicDelete(osCyclic_t *cyc)
 {
   if (cyc->state == TIMER_START) {
-    TimerDelete(&cyc->timer);
+    TimerRemove(&cyc->timer);
     cyc->state = TIMER_STOP;
   }
 
@@ -247,7 +252,7 @@ void CyclicStart(osCyclic_t *cyc)
   }
   else {
     if (cyc->state == TIMER_START)
-      TimerDelete(&cyc->timer);
+      TimerRemove(&cyc->timer);
 
     TimerInsert(&cyc->timer, ticks + cyc->time, (CBACK)CyclicHandler, cyc);
   }
@@ -263,193 +268,193 @@ static
 void CyclicStop(osCyclic_t *cyc)
 {
   if (cyc->state == TIMER_START) {
-    TimerDelete(&cyc->timer);
+    TimerRemove(&cyc->timer);
     cyc->state = TIMER_STOP;
   }
 }
 
 /*******************************************************************************
- *  function implementations (scope: module-exported)
+ *  Service Calls
+ ******************************************************************************/
+
+static osTimerId_t TimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
+{
+
+}
+
+static const char *TimerGetName(osTimerId_t timer_id)
+{
+  osTimer_t *timer = timer_id;
+
+  /* Check parameters */
+  if ((timer == NULL) || (timer->id != ID_TIMER)) {
+    return (NULL);
+  }
+
+  return (timer->name);
+}
+
+static osStatus_t TimerStart(osTimerId_t timer_id, uint32_t ticks)
+{
+
+}
+
+static osStatus_t TimerStop(osTimerId_t timer_id)
+{
+
+}
+
+static uint32_t TimerIsRunning(osTimerId_t timer_id)
+{
+  osTimer_t *timer = timer_id;
+  uint32_t   is_running;
+
+  /* Check parameters */
+  if ((timer == NULL) || (timer->id != ID_TIMER)) {
+    return (0U);
+  }
+
+  if (timer->state == osTimerRunning) {
+    is_running = 1U;
+  }
+  else {
+    is_running = 0;
+  }
+
+  return (is_running);
+}
+
+static osStatus_t TimerDelete(osTimerId_t timer_id)
+{
+
+}
+
+/*******************************************************************************
+ *  Public API
  ******************************************************************************/
 
 /**
- * @fn          osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
- * @param[out]  alarm
- * @param[in]   handler
- * @param[in]   exinf
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
+ * @brief       Create and Initialize a timer.
+ * @param[in]   func      function pointer to callback function.
+ * @param[in]   type      \ref osTimerOnce for one-shot or \ref osTimerPeriodic for periodic behavior.
+ * @param[in]   argument  argument to the timer callback function.
+ * @param[in]   attr      timer attributes; NULL: default values.
+ * @return      timer ID for reference by other functions or NULL in case of error.
  */
-osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
+osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id == ID_ALARM || handler == NULL)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osTimerId_t timer_id;
 
-  svc_3((uint32_t)alarm, (uint32_t)handler, (uint32_t)exinf, (uint32_t)AlarmCreate);
+  if (IsIrqMode() || IsIrqMasked()) {
+    timer_id = NULL;
+  }
+  else {
+    timer_id = (osTimerId_t)svc_4((uint32_t)func, (uint32_t)type, (uint32_t)argument, (uint32_t)attr, (uint32_t)TimerNew);
+  }
 
-  return TERR_NO_ERR;
+  return (timer_id);
 }
 
 /**
- * @fn          osError_t osAlarmDelete(osAlarm_t *alarm)
- * @param[out]  alarm
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          const char *osTimerGetName(osTimerId_t timer_id)
+ * @brief       Get name of a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      name as null-terminated string or NULL in case of an error.
  */
-osError_t osAlarmDelete(osAlarm_t *alarm)
+const char *osTimerGetName(osTimerId_t timer_id)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != ID_ALARM)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  const char *name;
 
-  svc_1((uint32_t)alarm, (uint32_t)AlarmDelete);
+  if (IsIrqMode() || IsIrqMasked()) {
+    name = NULL;
+  }
+  else {
+    name = svc_1((uint32_t)timer_id, (uint32_t)TimerGetName);
+  }
 
-  return TERR_NO_ERR;
+  return (name);
 }
 
 /**
- * @fn          osError_t osAlarmStart(osAlarm_t *alarm, uint32_t time)
- * @param[out]  alarm
- * @param[in]   time
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osStatus_t osTimerStart(osTimerId_t timer_id, uint32_t ticks)
+ * @brief       Start or restart a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @param[in]   ticks     \ref CMSIS_RTOS_TimeOutValue "time ticks" value of the timer.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osAlarmStart(osAlarm_t *alarm, uint32_t timeout)
+osStatus_t osTimerStart(osTimerId_t timer_id, uint32_t ticks)
 {
-  if (alarm == NULL || timeout == 0)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != ID_ALARM)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osStatus_t status;
 
-  svc_2((uint32_t)alarm, (uint32_t)timeout, (uint32_t)AlarmStart);
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_2((uint32_t)timer_id, ticks, (uint32_t)TimerStart);
+  }
 
-  return TERR_NO_ERR;
+  return (status);
 }
 
 /**
- * @fn          osError_t osAlarmStop(osAlarm_t *alarm)
- * @param[out]  alarm
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osStatus_t osTimerStop(osTimerId_t timer_id)
+ * @brief       Stop a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osAlarmStop(osAlarm_t *alarm)
+osStatus_t osTimerStop(osTimerId_t timer_id)
 {
-  if (alarm == NULL)
-    return TERR_WRONG_PARAM;
-  if (alarm->id != ID_ALARM)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osStatus_t status;
 
-  svc_1((uint32_t)alarm, (uint32_t)AlarmStop);
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)timer_id, (uint32_t)TimerStop);
+  }
 
-  return TERR_NO_ERR;
+  return (status);
 }
 
 /**
- * @fn          osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
- * @param[out]  cyc
- * @param[in]   handler
- * @param[in]   param
- * @param[in]   exinf
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          uint32_t osTimerIsRunning(osTimerId_t timer_id)
+ * @brief       Check if a timer is running.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      0 not running or an error occurred, 1 running.
  */
-osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
+uint32_t osTimerIsRunning(osTimerId_t timer_id)
 {
-  if (cyc == NULL || handler == NULL || param->cyc_time == 0)
-    return TERR_WRONG_PARAM;
-  if (cyc->id == ID_CYCLIC)
-    return TERR_WRONG_PARAM;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  uint32_t is_running;
 
-  svc_4((uint32_t)cyc, (uint32_t)handler, (uint32_t)param, (uint32_t)exinf, (uint32_t)CyclicCreate);
+  if (IsIrqMode() || IsIrqMasked()) {
+    is_running = 0U;
+  }
+  else {
+    is_running = svc_1((uint32_t)timer_id, (uint32_t)TimerIsRunning);
+  }
 
-  return TERR_NO_ERR;
+  return (is_running);
 }
 
 /**
- * @fn          osError_t osCyclicDelete(osCyclic_t *cyc)
- * @param[out]  cyc
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
+ * @fn          osStatus_t osTimerDelete(osTimerId_t timer_id)
+ * @brief       Delete a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      status code that indicates the execution status of the function.
  */
-osError_t osCyclicDelete(osCyclic_t *cyc)
+osStatus_t osTimerDelete(osTimerId_t timer_id)
 {
-  if (cyc == NULL)
-    return TERR_WRONG_PARAM;
-  if (cyc->id != ID_CYCLIC)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
+  osStatus_t status;
 
-  svc_1((uint32_t)cyc, (uint32_t)CyclicDelete);
+  if (IsIrqMode() || IsIrqMasked()) {
+    status = osErrorISR;
+  }
+  else {
+    status = (osStatus_t)svc_1((uint32_t)timer_id, (uint32_t)TimerRemove);
+  }
 
-  return TERR_NO_ERR;
-}
-
-/**
- * @fn          osError_t osCyclicStart(osCyclic_t *cyc)
- * @param[out]  cyc
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
- */
-osError_t osCyclicStart(osCyclic_t *cyc)
-{
-  if (cyc == NULL)
-    return TERR_WRONG_PARAM;
-  if (cyc->id != ID_CYCLIC)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
-
-  svc_1((uint32_t)cyc, (uint32_t)CyclicStart);
-
-  return TERR_NO_ERR;
-}
-
-/**
- * @fn          osError_t osCyclicStop(osCyclic_t *cyc)
- * @param[out]  cyc
- * @return      TERR_NO_ERR       Normal completion
- *              TERR_WRONG_PARAM  Input parameter(s) has a wrong value
- *              TERR_NOEXS        Object is not a task or non-existent
- *              TERR_ISR          The function cannot be called from interrupt service routines
- */
-osError_t osCyclicStop(osCyclic_t *cyc)
-{
-  if (cyc == NULL)
-    return TERR_WRONG_PARAM;
-  if (cyc->id != ID_CYCLIC)
-    return TERR_NOEXS;
-  if (IsIrqMode() || IsIrqMasked())
-    return TERR_ISR;
-
-  svc_1((uint32_t)cyc, (uint32_t)CyclicStop);
-
-  return TERR_NO_ERR;
+  return (status);
 }
 
 /*------------------------------ End of file ---------------------------------*/

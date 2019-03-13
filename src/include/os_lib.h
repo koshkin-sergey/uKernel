@@ -41,11 +41,9 @@
 #define ID_THREAD                   0x47
 #define ID_SEMAPHORE                0x6F
 #define ID_EVENT_FLAGS              0x5E
-#define ID_DATAQUEUE                0x0C
 #define ID_MEMORYPOOL               0x26
 #define ID_MUTEX                    0x17
-#define ID_ALARM                    0x7A
-#define ID_CYCLIC                   0x2B
+#define ID_TIMER                    0x7A
 #define ID_MESSAGE_QUEUE            0x1C
 #define ID_MESSAGE                  0x1D
 #define ID_DATA_QUEUE               0x1E
@@ -238,7 +236,7 @@ void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
  * @fn          void TimerDelete(timer_t *event)
  * @brief
  */
-void TimerDelete(timer_t *event);
+void TimerRemove(timer_t *event);
 
 /**
  * @brief       Release Mutexes when owner Task terminates.

@@ -162,15 +162,6 @@ typedef enum {
   osPriorityReserved      = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osPriority_t;
 
-/// Error code values returned by uKernel functions.
-typedef enum {
-  TERR_NO_ERR       =  0,
-  TERR_WRONG_PARAM  = -5,
-  TERR_NOEXS        = -9,         ///< Non-valid or Non-existent object
-  TERR_ISR          = -11,
-  osErrorReserved   = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
-} osError_t;
-
 /// Thread state.
 typedef enum {
   osThreadInactive        =  0,         ///< Inactive.
@@ -182,19 +173,35 @@ typedef enum {
   osThreadReserved        = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
 } osThreadState_t;
 
-typedef void (*CBACK)(void *);
+/// Timer type.
+typedef enum {
+  osTimerOnce               = 0,          ///< One-shot timer.
+  osTimerPeriodic           = 1           ///< Repeating timer.
+} osTimerType_t;
 
-/* - Circular double-linked list queue - for internal using ------------------*/
+/// Entry point of a thread.
+typedef void (*osThreadFunc_t)(void *argument);
+
+/// Timer callback function.
+typedef void (*osTimerFunc_t)(void *argument);
+
+/* Circular double-linked list queue */
 typedef struct queue_s {
   struct queue_s *next;
   struct queue_s *prev;
 } queue_t;
 
-typedef struct timer_event_block {
-  queue_t timer_que;      /**< Timer event queue */
-  uint32_t time;          /**< Event time */
-  CBACK callback;         /**< Callback function */
-  void *arg;              /**< Argument to be sent to callback function */
+/* Timer Function Information */
+typedef struct osTimerFinfo_s {
+  osTimerFunc_t                  func;  ///< Function Pointer
+  void                           *arg;  ///< Function Argument
+} osTimerFinfo_t;
+
+/* Timer Event Control Block */
+typedef struct timer_s {
+  queue_t                   timer_que;  ///< Timer event queue
+  uint32_t                       time;  ///< Event time
+  osTimerFinfo_t                finfo;  ///< Timer Function Info
 } timer_t;
 
 typedef struct winfo_msgque_s {
@@ -226,6 +233,9 @@ typedef struct winfo_s {
 /// @details Thread ID identifies the thread.
 typedef void *osThreadId_t;
 
+/// \details Timer ID identifies the timer.
+typedef void *osTimerId_t;
+
 /// @details Event Flags ID identifies the event flags.
 typedef void *osEventFlagsId_t;
 
@@ -243,9 +253,6 @@ typedef void *osDataQueueId_t;
 
 /// \details Memory Pool ID identifies the memory pool.
 typedef void *osMemoryPoolId_t;
-
-/// Entry point of a thread.
-typedef void (*osThreadFunc_t) (void *argument);
 
 /* Thread Control Block */
 typedef struct osThread_s {
@@ -366,6 +373,16 @@ typedef struct osMutex_s {
   uint32_t                        cnt;  ///< Lock counter
 } osMutex_t;
 
+/* Timer Control Block */
+typedef struct osTimer_s {
+  uint8_t                          id;  ///< Object Identifier
+  uint8_t                       state;  ///< Object State
+  uint8_t                       flags;  ///< Object Flags
+  uint8_t                        type;  ///< Timer Type (Periodic/One-shot)
+  const char                    *name;  ///< Object Name
+  timer_t                       timer;  ///< Timer event block
+  uint32_t                       load;  ///< Timer Load value
+} osTimer_t;
 
 /* - Alarm Timer -------------------------------------------------------------*/
 
@@ -424,14 +441,22 @@ typedef uint32_t TZ_ModuleId_t;
 typedef struct {
   const char                   *name;   ///< name of the thread
   uint32_t                 attr_bits;   ///< attribute bits
-  void                      *cb_mem;    ///< memory for control block
+  void                       *cb_mem;   ///< memory for control block
   uint32_t                   cb_size;   ///< size of provided memory for control block
-  void                   *stack_mem;    ///< memory for stack
+  void                    *stack_mem;   ///< memory for stack
   uint32_t                stack_size;   ///< size of stack
   osPriority_t              priority;   ///< initial thread priority (default: osPriorityNormal)
   TZ_ModuleId_t            tz_module;   ///< TrustZone module identifier
   uint32_t                  reserved;   ///< reserved (must be 0)
 } osThreadAttr_t;
+
+/// Attributes structure for timer.
+typedef struct {
+  const char                   *name;   ///< name of the timer
+  uint32_t                 attr_bits;   ///< attribute bits
+  void                       *cb_mem;   ///< memory for control block
+  uint32_t                   cb_size;   ///< size of provided memory for control block
+} osTimerAttr_t;
 
 /// Attributes structure for event flags.
 typedef struct {
@@ -481,9 +506,9 @@ typedef struct osDataQueueAttr_s {
 typedef struct {
   const char                   *name;   ///< name of the memory pool
   uint32_t                 attr_bits;   ///< attribute bits
-  void                      *cb_mem;    ///< memory for control block
+  void                       *cb_mem;   ///< memory for control block
   uint32_t                   cb_size;   ///< size of provided memory for control block
-  void                      *mp_mem;    ///< memory for data storage
+  void                       *mp_mem;   ///< memory for data storage
   uint32_t                   mp_size;   ///< size of provided memory for data storage
 } osMemoryPoolAttr_t;
 
@@ -577,21 +602,6 @@ uint32_t osKernelGetTickFreq(void);
 
 void osTimerHandle(void);
 
-osError_t osAlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf);
-
-osError_t osAlarmDelete(osAlarm_t *alarm);
-
-osError_t osAlarmStart(osAlarm_t *alarm, uint32_t timeout);
-
-osError_t osAlarmStop(osAlarm_t *alarm);
-
-osError_t osCyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf);
-
-osError_t osCyclicDelete(osCyclic_t *cyc);
-
-osError_t osCyclicStart(osCyclic_t *cyc);
-
-osError_t osCyclicStop(osCyclic_t *cyc);
 
 /*******************************************************************************
  *  Thread Management
