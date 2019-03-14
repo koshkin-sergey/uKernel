@@ -5,10 +5,9 @@ uKernel was born as a thorough review and re-implementation of TNKernel v2.7.
 
 Currently it is available for the following architectures:
 
-- ARM Cortex-M cores: Cortex-M0/M0+/M1/M3/M4 *(supported toolchains: ARM Compiler 4/5)*
-- ARM 7/9 cores *(supported toolchains: ARM Compiler 4/5)*
+- ARM Cortex-M cores: Cortex-M0/M0+/M1/M3/M4 *(supported toolchains: ARM Compiler 4/5/6, IAR, GCC)*
 
-The current version of uKernel includes semaphores, mutexes, data queues, event flags, fixed-sized memory pools and program timers.
+The current version of uKernel includes semaphores, mutexes, data queues, message queues, event flags, fixed-sized memory pools and program timers.
 The system functions calls in the interrupts are supported.
 
 ## License
