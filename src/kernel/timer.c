@@ -91,7 +91,7 @@ static void TimerHandler(void *argument)
     timer->state = osTimerStopped;
   }
   else {
-    libTimerInsert(&timer->event, TimerNextTime(timer), TimerHandler, timer);
+    svc_4((uint32_t)&timer->event, (uint32_t)TimerNextTime(timer), (uint32_t)TimerHandler, (uint32_t)timer, (uint32_t)libTimerInsert);
   }
 
   finfo->func(finfo->arg);
@@ -234,8 +234,11 @@ void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg
 {
   queue_t *que;
   event_t *timer;
-  queue_t *timer_queue = &osInfo.timer_queue;
+  queue_t *timer_queue;
 
+  BEGIN_CRITICAL_SECTION
+
+  timer_queue = &osInfo.timer_queue;
   event->finfo.func = func;
   event->finfo.arg  = arg;
   event->time = time;
@@ -248,6 +251,8 @@ void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg
   }
 
   QueueAddTail(que, &event->timer_que);
+
+  END_CRITICAL_SECTION
 }
 
 /**
@@ -256,7 +261,11 @@ void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg
  */
 void libTimerRemove(event_t *event)
 {
+  BEGIN_CRITICAL_SECTION
+
   QueueRemoveEntry(&event->timer_que);
+
+  END_CRITICAL_SECTION
 }
 
 /*******************************************************************************

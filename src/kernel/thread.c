@@ -60,7 +60,7 @@ static void TimerThread(void *argument)
   (void)   argument;
 
   for (;;) {
-    while ((timer = GetTimer()) != NULL) {
+    while ((timer = (event_t *)svc_0((uint32_t)GetTimer)) != NULL) {
       (*timer->finfo.func)(timer->finfo.arg);
     }
 
@@ -127,20 +127,9 @@ static void ThreadReadyDel(osThread_t *thread)
   }
 }
 
-/**
- * @brief
- * @param[out]  thread
- */
-static
-void ThreadWaitExit_Handler(void *argument)
+static void ThreadWaitExit_Handler(void *argument)
 {
-  osThread_t *thread = (osThread_t *)argument;
-
-  BEGIN_CRITICAL_SECTION
-
-  libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_YES);
-
-  END_CRITICAL_SECTION
+  svc_3((uint32_t)argument, (uint32_t)osErrorTimeout, (uint32_t)DISPATCH_YES, (uint32_t)libThreadWaitExit);
 }
 
 /*******************************************************************************
@@ -495,6 +484,9 @@ static uint32_t ThreadGetCount(void)
 
 static uint32_t ThreadEnumerate(osThreadId_t *thread_array, uint32_t array_items)
 {
+  (void)thread_array;
+  (void)array_items;
+
   return (0U);
 }
 
@@ -536,6 +528,8 @@ bool libThreadStartup(void)
  */
 void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch)
 {
+  BEGIN_CRITICAL_SECTION
+
   thread->winfo.ret_val = ret_val;
 
   QueueRemoveEntry(&thread->wait_timer.timer_que);
@@ -543,6 +537,8 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch
   if (dispatch != DISPATCH_NO) {
     libThreadDispatch(thread);
   }
+
+  END_CRITICAL_SECTION
 }
 
 /**
