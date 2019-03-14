@@ -63,214 +63,38 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-static
-uint32_t CyclicNextTime(osCyclic_t *cyc)
+static uint32_t TimerNextTime(osTimer_t *timer)
 {
   uint32_t time, ticks;
   uint32_t n;
 
-  time = cyc->timer.time + cyc->time;
+  time = timer->event.time + timer->load;
   ticks = osInfo.kernel.tick;
 
   if (time_before_eq(time, ticks)) {
-    time = ticks - cyc->timer.time;
-    n = time / cyc->time;
+    time = ticks - timer->event.time;
+    n = time / timer->load;
     n++;
-    time = n * cyc->time;
-    time = cyc->timer.time + time;
+    time = n * timer->load;
+    time = timer->event.time + time;
   }
 
-  return time;
+  return (time);
 }
 
-static
-void AlarmHandler(osAlarm_t *alarm)
+static void TimerHandler(void *argument)
 {
-  if (alarm == NULL)
-    return;
+  osTimer_t      *timer = (osTimer_t *)argument;
+  osTimerFinfo_t *finfo = &timer->finfo;
 
-  alarm->state = TIMER_STOP;
-  alarm->handler(alarm->exinf);
-}
-
-static
-void CyclicHandler(osCyclic_t *cyc)
-{
-  TimerInsert(&cyc->timer, CyclicNextTime(cyc), (CBACK)CyclicHandler, cyc);
-  cyc->handler(cyc->exinf);
-}
-
-void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg)
-{
-  queue_t *que;
-  timer_t *timer;
-  queue_t *timer_queue = &osInfo.timer_queue;
-
-  event->callback = callback;
-  event->arg  = arg;
-  event->time = time;
-
-  for (que = timer_queue->next; que != timer_queue; que = que->next) {
-    timer = GetTimerByQueue(que);
-    if (time_before(event->time, timer->time))
-      break;
-  }
-
-  QueueAddTail(que, &event->timer_que);
-}
-
-/**
- * @fn          void TimerDelete(timer_t *event)
- * @brief
- */
-void TimerRemove(timer_t *event)
-{
-  QueueRemoveEntry(&event->timer_que);
-}
-
-/**
- * @fn          void AlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
- * @param[out]  alarm
- * @param[in]   handler
- * @param[in]   exinf
- */
-static
-void AlarmCreate(osAlarm_t *alarm, CBACK handler, void *exinf)
-{
-  alarm->exinf    = exinf;
-  alarm->handler  = handler;
-  alarm->state    = TIMER_STOP;
-  alarm->id       = ID_TIMER;
-}
-
-/**
- * @fn          void AlarmDelete(osAlarm_t *alarm)
- * @param[out]  alarm
- */
-static
-void AlarmDelete(osAlarm_t *alarm)
-{
-  if (alarm->state == TIMER_START) {
-    TimerRemove(&alarm->timer);
-    alarm->state = TIMER_STOP;
-  }
-
-  alarm->handler = NULL;
-  alarm->id = ID_INVALID;
-}
-
-/**
- * @fn          void AlarmStart(osAlarm_t *alarm, uint32_t time)
- * @param[out]  alarm
- * @param[in]   time
- */
-static
-void AlarmStart(osAlarm_t *alarm, uint32_t timeout)
-{
-  if (alarm->state == TIMER_START)
-    TimerRemove(&alarm->timer);
-
-  TimerInsert(&alarm->timer, osInfo.kernel.tick + timeout, (CBACK)AlarmHandler, alarm);
-  alarm->state = TIMER_START;
-}
-
-/**
- * @fn          void AlarmStop(osAlarm_t *alarm)
- * @param[out]  alarm
- */
-static
-void AlarmStop(osAlarm_t *alarm)
-{
-  if (alarm->state == TIMER_START) {
-    TimerRemove(&alarm->timer);
-    alarm->state = TIMER_STOP;
-  }
-}
-
-/**
- * @fn          void CyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
- * @param[out]  cyc
- * @param[in]   handler
- * @param[in]   param
- * @param[in]   exinf
- */
-static
-void CyclicCreate(osCyclic_t *cyc, CBACK handler, const cyclic_param_t *param, void *exinf)
-{
-  cyc->exinf    = exinf;
-  cyc->attr     = param->cyc_attr;
-  cyc->handler  = handler;
-  cyc->time     = param->cyc_time;
-  cyc->id       = ID_CYCLIC;
-
-  uint32_t time = osInfo.kernel.tick + param->cyc_phs;
-
-  if (cyc->attr & CYCLIC_ATTR_START) {
-    cyc->state = TIMER_START;
-    TimerInsert(&cyc->timer, time, (CBACK)CyclicHandler, cyc);
+  if (timer->type == osTimerOnce) {
+    timer->state = osTimerStopped;
   }
   else {
-    cyc->state = TIMER_STOP;
-    cyc->timer.time = time;
-  }
-}
-
-/**
- * @fn          void CyclicDelete(osCyclic_t *cyc)
- * @param[out]  cyc
- */
-static
-void CyclicDelete(osCyclic_t *cyc)
-{
-  if (cyc->state == TIMER_START) {
-    TimerRemove(&cyc->timer);
-    cyc->state = TIMER_STOP;
+    libTimerInsert(&timer->event, TimerNextTime(timer), TimerHandler, timer);
   }
 
-  cyc->handler = NULL;
-  cyc->id = ID_INVALID;
-}
-
-/**
- * @fn          void CyclicStart(osCyclic_t *cyc)
- * @param[out]  cyc
- */
-static
-void CyclicStart(osCyclic_t *cyc)
-{
-  uint32_t ticks = osInfo.kernel.tick;
-
-  if (cyc->attr & CYCLIC_ATTR_PHS) {
-    if (cyc->state == TIMER_STOP) {
-      uint32_t time = cyc->timer.time;
-
-      if (time_before_eq(time, ticks))
-        time = CyclicNextTime(cyc);
-
-      TimerInsert(&cyc->timer, time, (CBACK)CyclicHandler, cyc);
-    }
-  }
-  else {
-    if (cyc->state == TIMER_START)
-      TimerRemove(&cyc->timer);
-
-    TimerInsert(&cyc->timer, ticks + cyc->time, (CBACK)CyclicHandler, cyc);
-  }
-
-  cyc->state = TIMER_START;
-}
-
-/**
- * @fn          void CyclicStop(osCyclic_t *cyc)
- * @param[out]  cyc
- */
-static
-void CyclicStop(osCyclic_t *cyc)
-{
-  if (cyc->state == TIMER_START) {
-    TimerRemove(&cyc->timer);
-    cyc->state = TIMER_STOP;
-  }
+  finfo->func(finfo->arg);
 }
 
 /*******************************************************************************
@@ -279,7 +103,31 @@ void CyclicStop(osCyclic_t *cyc)
 
 static osTimerId_t TimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
 {
+  osTimer_t *timer;
 
+  /* Check parameters */
+  if ((func == NULL) || (attr == NULL) || ((type != osTimerOnce) && (type != osTimerPeriodic))) {
+    return NULL;
+  }
+
+  timer = attr->cb_mem;
+
+  /* Check parameters */
+  if ((timer == NULL) || (((uint32_t)timer & 3U) != 0U) || (attr->cb_size < sizeof(osTimer_t))) {
+    return (NULL);
+  }
+
+  /* Initialize control block */
+  timer->id         = ID_TIMER;
+  timer->state      = osTimerStopped;
+  timer->flags      = 0U;
+  timer->type       = (uint8_t)type;
+  timer->name       = attr->name;
+  timer->load       = 0U;
+  timer->finfo.func = func;
+  timer->finfo.arg  = argument;
+
+  return (timer);
 }
 
 static const char *TimerGetName(osTimerId_t timer_id)
@@ -296,12 +144,45 @@ static const char *TimerGetName(osTimerId_t timer_id)
 
 static osStatus_t TimerStart(osTimerId_t timer_id, uint32_t ticks)
 {
+  osTimer_t *timer = timer_id;
 
+  /* Check parameters */
+  if ((timer == NULL) || (timer->id != ID_TIMER) || (ticks == 0U)) {
+    return (osErrorParameter);
+  }
+
+  if (timer->state == osTimerRunning) {
+    libTimerRemove(&timer->event);
+  }
+  else {
+    timer->state = osTimerRunning;
+    timer->load  = ticks;
+  }
+
+  libTimerInsert(&timer->event, osInfo.kernel.tick + ticks, TimerHandler, timer);
+
+  return (osOK);
 }
 
 static osStatus_t TimerStop(osTimerId_t timer_id)
 {
+  osTimer_t *timer = timer_id;
 
+  /* Check parameters */
+  if ((timer == NULL) || (timer->id != ID_TIMER)) {
+    return (osErrorParameter);
+  }
+
+  /* Check object state */
+  if (timer->state != osTimerRunning) {
+    return (osErrorResource);
+  }
+
+  timer->state = osTimerStopped;
+
+  libTimerRemove(&timer->event);
+
+  return (osOK);
 }
 
 static uint32_t TimerIsRunning(osTimerId_t timer_id)
@@ -318,7 +199,7 @@ static uint32_t TimerIsRunning(osTimerId_t timer_id)
     is_running = 1U;
   }
   else {
-    is_running = 0;
+    is_running = 0U;
   }
 
   return (is_running);
@@ -326,7 +207,56 @@ static uint32_t TimerIsRunning(osTimerId_t timer_id)
 
 static osStatus_t TimerDelete(osTimerId_t timer_id)
 {
+  osTimer_t *timer = timer_id;
 
+  /* Check parameters */
+  if ((timer == NULL) || (timer->id != ID_TIMER)) {
+    return (osErrorParameter);
+  }
+
+  /* Check object state */
+  if (timer->state == osTimerRunning) {
+    libTimerRemove(&timer->event);
+  }
+
+  /* Mark object as inactive and invalid */
+  timer->state = osTimerInactive;
+  timer->id    = ID_INVALID;
+
+  return (osOK);
+}
+
+/*******************************************************************************
+ *  Library functions
+ ******************************************************************************/
+
+void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg)
+{
+  queue_t *que;
+  event_t *timer;
+  queue_t *timer_queue = &osInfo.timer_queue;
+
+  event->finfo.func = func;
+  event->finfo.arg  = arg;
+  event->time = time;
+
+  for (que = timer_queue->next; que != timer_queue; que = que->next) {
+    timer = GetTimerByQueue(que);
+    if (time_before(event->time, timer->time)) {
+      break;
+    }
+  }
+
+  QueueAddTail(que, &event->timer_que);
+}
+
+/**
+ * @fn          void TimerDelete(timer_t *event)
+ * @brief
+ */
+void libTimerRemove(event_t *event)
+{
+  QueueRemoveEntry(&event->timer_que);
 }
 
 /*******************************************************************************
@@ -370,7 +300,7 @@ const char *osTimerGetName(osTimerId_t timer_id)
     name = NULL;
   }
   else {
-    name = svc_1((uint32_t)timer_id, (uint32_t)TimerGetName);
+    name = (const char *)svc_1((uint32_t)timer_id, (uint32_t)TimerGetName);
   }
 
   return (name);
@@ -451,7 +381,7 @@ osStatus_t osTimerDelete(osTimerId_t timer_id)
     status = osErrorISR;
   }
   else {
-    status = (osStatus_t)svc_1((uint32_t)timer_id, (uint32_t)TimerRemove);
+    status = (osStatus_t)svc_1((uint32_t)timer_id, (uint32_t)TimerDelete);
   }
 
   return (status);

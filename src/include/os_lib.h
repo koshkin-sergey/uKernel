@@ -60,7 +60,7 @@
 #define GetThreadByQueue(que)       container_of(que, osThread_t, task_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
-#define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
+#define GetTimerByQueue(que)        container_of(que, event_t, timer_que)
 #define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
 #define NUM_PRIORITY                (32U)
@@ -230,13 +230,13 @@ queue_t* QueueRemoveTail(queue_t *que);
  * @param callback
  * @param arg
  */
-void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
+void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg);
 
 /**
  * @fn          void TimerDelete(timer_t *event)
  * @brief
  */
-void TimerRemove(timer_t *event);
+void libTimerRemove(event_t *event);
 
 /**
  * @brief       Release Mutexes when owner Task terminates.

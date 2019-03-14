@@ -202,7 +202,7 @@ typedef struct timer_s {
   queue_t                   timer_que;  ///< Timer event queue
   uint32_t                       time;  ///< Event time
   osTimerFinfo_t                finfo;  ///< Timer Function Info
-} timer_t;
+} event_t;
 
 typedef struct winfo_msgque_s {
   uint32_t  msg;
@@ -267,7 +267,7 @@ typedef struct osThread_s {
   uint8_t                       state;  ///< Task state
   const char                    *name;  ///< Object Name
   winfo_t                       winfo;  ///< Wait information
-  timer_t                  wait_timer;  ///< Wait timer
+  event_t                  wait_timer;  ///< Wait timer
 } osThread_t;
 
 /* Semaphore Control Block */
@@ -380,56 +380,10 @@ typedef struct osTimer_s {
   uint8_t                       flags;  ///< Object Flags
   uint8_t                        type;  ///< Timer Type (Periodic/One-shot)
   const char                    *name;  ///< Object Name
-  timer_t                       timer;  ///< Timer event block
   uint32_t                       load;  ///< Timer Load value
+  osTimerFinfo_t                finfo;  ///< Timer Function Info
+  event_t                       event;  ///< Timer event block
 } osTimer_t;
-
-/* - Alarm Timer -------------------------------------------------------------*/
-
-typedef enum {
-  TIMER_STOP            = 0x00,
-  TIMER_START           = 0x01,
-  timer_state_reserved  = 0x7fffffff
-} timer_state_t;
-
-typedef struct osAlarm_s {
-  uint8_t                          id;  ///< Object Identifier
-  uint8_t              reserved_state;  ///< Object State (not used)
-  uint8_t                       flags;  ///< Object Flags
-  uint8_t                        attr;  ///< Object Attributes
-  void                         *exinf;  ///< Extended information
-  CBACK                       handler;  ///< Alarm handler address
-  timer_state_t                 state;  ///< Timer state
-  timer_t                       timer;  ///< Timer event block
-} osAlarm_t;
-
-/* Cyclic attributes */
-typedef enum {
-  CYCLIC_ATTR_NO        = 0x00,
-  CYCLIC_ATTR_START     = 0x01,
-  CYCLIC_ATTR_PHS       = 0x02,
-  cyclic_attr_reserved  = 0x7FFFFFFF  ///< Prevents enum down-size compiler optimization.
-} cyclic_attr_t;
-
-typedef struct {
-  uint32_t cyc_time;
-  uint32_t cyc_phs;
-  cyclic_attr_t cyc_attr;
-} cyclic_param_t;
-
-/* - Cyclic Timer ------------------------------------------------------------*/
-typedef struct osCyclic_s {
-  uint8_t                          id;  ///< Object Identifier
-  uint8_t              reserved_state;  ///< Object State (not used)
-  uint8_t                       flags;  ///< Object Flags
-  uint8_t               reserved_attr;  ///< Object Attributes
-  void                         *exinf;  ///< Extended information
-  CBACK                       handler;  ///< Cyclic handler address
-  timer_state_t                 state;  ///< Timer state
-  cyclic_attr_t                  attr;  ///< Cyclic handler attributes
-  uint32_t                       time;  ///< Cyclic time
-  timer_t                       timer;  ///< Timer event block
-} osCyclic_t;
 
 #ifndef TZ_MODULEID_T
 #define TZ_MODULEID_T
@@ -602,6 +556,57 @@ uint32_t osKernelGetTickFreq(void);
 
 void osTimerHandle(void);
 
+/**
+ * @fn          osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
+ * @brief       Create and Initialize a timer.
+ * @param[in]   func      function pointer to callback function.
+ * @param[in]   type      \ref osTimerOnce for one-shot or \ref osTimerPeriodic for periodic behavior.
+ * @param[in]   argument  argument to the timer callback function.
+ * @param[in]   attr      timer attributes; NULL: default values.
+ * @return      timer ID for reference by other functions or NULL in case of error.
+ */
+osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr);
+
+/**
+ * @fn          const char *osTimerGetName(osTimerId_t timer_id)
+ * @brief       Get name of a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      name as null-terminated string or NULL in case of an error.
+ */
+const char *osTimerGetName(osTimerId_t timer_id);
+
+/**
+ * @fn          osStatus_t osTimerStart(osTimerId_t timer_id, uint32_t ticks)
+ * @brief       Start or restart a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @param[in]   ticks     \ref CMSIS_RTOS_TimeOutValue "time ticks" value of the timer.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osTimerStart(osTimerId_t timer_id, uint32_t ticks);
+
+/**
+ * @fn          osStatus_t osTimerStop(osTimerId_t timer_id)
+ * @brief       Stop a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osTimerStop(osTimerId_t timer_id);
+
+/**
+ * @fn          uint32_t osTimerIsRunning(osTimerId_t timer_id)
+ * @brief       Check if a timer is running.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      0 not running or an error occurred, 1 running.
+ */
+uint32_t osTimerIsRunning(osTimerId_t timer_id);
+
+/**
+ * @fn          osStatus_t osTimerDelete(osTimerId_t timer_id)
+ * @brief       Delete a timer.
+ * @param[in]   timer_id  timer ID obtained by \ref osTimerNew.
+ * @return      status code that indicates the execution status of the function.
+ */
+osStatus_t osTimerDelete(osTimerId_t timer_id);
 
 /*******************************************************************************
  *  Thread Management
