@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+; * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
 ; * All rights reserved
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -70,6 +70,19 @@ SVC_Handler     PROC
                 STM       R12,{R0-R1}         ; Store return values
 SVC_Exit
                 BX        LR                  ; Exit from handler
+
+                ALIGN
+                ENDP
+
+
+SysTick_Handler PROC
+                EXPORT   SysTick_Handler
+                IMPORT   osTick_Handler
+
+                PUSH     {R0,LR}                ; Save EXC_RETURN
+                BL       osTick_Handler         ; Call osTick_Handler
+                POP      {R0,LR}                ; Restore EXC_RETURN
+                BX       LR                     ; Exit from handler
 
                 ALIGN
                 ENDP

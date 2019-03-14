@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+ * Copyright (C) 2018-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -32,7 +32,7 @@
         .cantunwind
 PendSV_Handler:
 
-        LDR       R3,=osInfo         // in R3 - =run_task
+        LDR       R3,=osInfo          // in R3 - =run_task
         LDM       R3,{R1,R2}          // in R1 - current run task, in R2 - next run task
         CMP       R1,R2               // Check if thread switch is required
         BEQ       Context_Exit        // Exit when threads are the same
@@ -87,6 +87,22 @@ SVC_Exit:
 
         .fnend
         .size    SVC_Handler, .-SVC_Handler
+
+
+        .thumb_func
+        .type    SysTick_Handler, %function
+        .global  SysTick_Handler
+        .fnstart
+        .cantunwind
+SysTick_Handler:
+
+        PUSH     {R0,LR}                // Save EXC_RETURN
+        BL       osTick_Handler         // Call osTick_Handler
+        POP      {R0,LR}                // Restore EXC_RETURN
+        BX       LR                     // Exit from handler
+
+        .fnend
+        .size    SysTick_Handler, .-SysTick_Handler
 
 
         .end

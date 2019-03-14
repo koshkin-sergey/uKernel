@@ -614,7 +614,9 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
 
 void libThreadTimerResume(void)
 {
+  BEGIN_CRITICAL_SECTION
   ThreadResume(osInfo.thread.timer);
+  END_CRITICAL_SECTION
 }
 
 osThread_t *libThreadHighestPrioGet(void)

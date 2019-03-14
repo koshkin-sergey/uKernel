@@ -59,16 +59,12 @@
  *  function implementations (scope: module-local)
  ******************************************************************************/
 
-void osTimerHandle(void)
+void osTick_Handler(void)
 {
-  BEGIN_CRITICAL_SECTION
-
   ++osInfo.kernel.tick;
   if (osInfo.kernel.state == osKernelRunning) {
     libThreadTimerResume();
   }
-
-  END_CRITICAL_SECTION
 }
 
 static osStatus_t KernelInitialize(void)

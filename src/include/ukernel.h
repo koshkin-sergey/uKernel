@@ -554,8 +554,6 @@ uint32_t osKernelGetTickFreq(void);
  *  Timer Management
  ******************************************************************************/
 
-void osTimerHandle(void);
-
 /**
  * @fn          osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, const osTimerAttr_t *attr)
  * @brief       Create and Initialize a timer.

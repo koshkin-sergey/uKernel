@@ -1,5 +1,5 @@
 ;/*
-; * Copyright (C) 2017-2018 Sergey Koshkin <koshkin.sergey@gmail.com>
+; * Copyright (C) 2017-2019 Sergey Koshkin <koshkin.sergey@gmail.com>
 ; * All rights reserved
 ; *
 ; * Licensed under the Apache License, Version 2.0 (the License); you may
@@ -21,8 +21,8 @@
 
                 PRESERVE8
 
-                SECTION   .text:CODE:NOROOT(2)
                 THUMB
+                SECTION   .text:CODE:NOROOT(2)
 
 PendSV_Handler
                 EXPORT    PendSV_Handler
@@ -69,5 +69,16 @@ SVC_Handler
                 STM       R12,{R0-R1}         ; Store return values
 SVC_Exit
                 BX        LR                  ; Exit from handler
+
+
+SysTick_Handler
+                EXPORT   SysTick_Handler
+                IMPORT   osTick_Handler
+
+                PUSH     {R0,LR}                ; Save EXC_RETURN
+                BL       osTick_Handler         ; Call osTick_Handler
+                POP      {R0,LR}                ; Restore EXC_RETURN
+                BX       LR                     ; Exit from handler
+
 
                 END

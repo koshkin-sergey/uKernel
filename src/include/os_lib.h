@@ -274,4 +274,10 @@ void *libMemoryPoolAlloc(osMemoryPoolInfo_t *mp_info);
  */
 osStatus_t libMemoryPoolFree(osMemoryPoolInfo_t *mp_info, void *block);
 
+/*******************************************************************************
+ *  System Library functions
+ ******************************************************************************/
+
+extern void osTick_Handler(void);
+
 #endif /* _KNL_LIB_H_ */
