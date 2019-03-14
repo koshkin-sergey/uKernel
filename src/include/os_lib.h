@@ -41,11 +41,9 @@
 #define ID_THREAD                   0x47
 #define ID_SEMAPHORE                0x6F
 #define ID_EVENT_FLAGS              0x5E
-#define ID_DATAQUEUE                0x0C
 #define ID_MEMORYPOOL               0x26
 #define ID_MUTEX                    0x17
-#define ID_ALARM                    0x7A
-#define ID_CYCLIC                   0x2B
+#define ID_TIMER                    0x7A
 #define ID_MESSAGE_QUEUE            0x1C
 #define ID_MESSAGE                  0x1D
 #define ID_DATA_QUEUE               0x1E
@@ -62,7 +60,7 @@
 #define GetThreadByQueue(que)       container_of(que, osThread_t, task_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
 #define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
-#define GetTimerByQueue(que)        container_of(que, timer_t, timer_que)
+#define GetTimerByQueue(que)        container_of(que, event_t, timer_que)
 #define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
 #define NUM_PRIORITY                (32U)
@@ -232,13 +230,13 @@ queue_t* QueueRemoveTail(queue_t *que);
  * @param callback
  * @param arg
  */
-void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
+void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg);
 
 /**
  * @fn          void TimerDelete(timer_t *event)
  * @brief
  */
-void TimerDelete(timer_t *event);
+void libTimerRemove(event_t *event);
 
 /**
  * @brief       Release Mutexes when owner Task terminates.

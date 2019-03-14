@@ -31,32 +31,12 @@
 #include "os_lib.h"
 
 /*******************************************************************************
- *  external declarations
+ *  Helper functions
  ******************************************************************************/
 
-/*******************************************************************************
- *  defines and macros (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  typedefs and structures (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  global variable definitions  (scope: module-exported)
- ******************************************************************************/
-
-/*******************************************************************************
- *  global variable definitions (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  function implementations (scope: module-local)
- ******************************************************************************/
-
-static timer_t* GetTimer(void)
+static event_t* GetTimer(void)
 {
-  timer_t *timer = NULL;
+  event_t *timer = NULL;
   queue_t *timer_queue = &osInfo.timer_queue;
 
   BEGIN_CRITICAL_SECTION
@@ -66,7 +46,7 @@ static timer_t* GetTimer(void)
     if (time_after(timer->time, osInfo.kernel.tick))
       timer = NULL;
     else
-      TimerDelete(timer);
+      libTimerRemove(timer);
   }
 
   END_CRITICAL_SECTION
@@ -76,12 +56,12 @@ static timer_t* GetTimer(void)
 
 static void TimerThread(void *argument)
 {
-  timer_t *timer;
+  event_t *timer;
   (void)   argument;
 
   for (;;) {
     while ((timer = GetTimer()) != NULL) {
-      (*timer->callback)(timer->arg);
+      (*timer->finfo.func)(timer->finfo.arg);
     }
 
     osThreadSuspend(osInfo.thread.timer);
@@ -152,14 +132,20 @@ static void ThreadReadyDel(osThread_t *thread)
  * @param[out]  thread
  */
 static
-void ThreadWaitExit_Handler(osThread_t *thread)
+void ThreadWaitExit_Handler(void *argument)
 {
+  osThread_t *thread = (osThread_t *)argument;
+
   BEGIN_CRITICAL_SECTION
 
   libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_YES);
 
   END_CRITICAL_SECTION
 }
+
+/*******************************************************************************
+ *  Service Calls
+ ******************************************************************************/
 
 static osThreadId_t ThreadNew(osThreadFunc_t func, void *argument, const osThreadAttr_t *attr)
 {
@@ -590,7 +576,7 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 
   /* Add to the timers queue */
   if (timeout != osWaitForever) {
-    TimerInsert(&thread->wait_timer, osInfo.kernel.tick + timeout, (CBACK)ThreadWaitExit_Handler, thread);
+    libTimerInsert(&thread->wait_timer, osInfo.kernel.tick + timeout, ThreadWaitExit_Handler, thread);
   }
 
   thread = libThreadHighestPrioGet();
