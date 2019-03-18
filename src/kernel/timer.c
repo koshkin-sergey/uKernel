@@ -31,10 +31,6 @@
 #include "os_lib.h"
 
 /*******************************************************************************
- *  external declarations
- ******************************************************************************/
-
-/*******************************************************************************
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
@@ -44,57 +40,32 @@
 #define osTimerRunning       0x02U   ///< Timer Running
 
 /*******************************************************************************
- *  typedefs and structures (scope: module-local)
+ *  Helper functions
  ******************************************************************************/
 
-/*******************************************************************************
- *  global variable definitions  (scope: module-exported)
- ******************************************************************************/
-
-/*******************************************************************************
- *  global variable definitions (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  function prototypes (scope: module-local)
- ******************************************************************************/
-
-/*******************************************************************************
- *  function implementations (scope: module-local)
- ******************************************************************************/
-
-static uint32_t TimerNextTime(osTimer_t *timer)
+static osTimerFinfo_t *TimerGetFinfo(void)
 {
-  uint32_t time, ticks;
-  uint32_t n;
+  osTimer_t      *timer;
+  osTimerFinfo_t *timer_finfo = NULL;
+  queue_t        *timer_queue = &osInfo.timer_queue;
 
-  time = timer->event.time + timer->load;
-  ticks = osInfo.kernel.tick;
-
-  if (time_before_eq(time, ticks)) {
-    time = ticks - timer->event.time;
-    n = time / timer->load;
-    n++;
-    time = n * timer->load;
-    time = timer->event.time + time;
+  if (!isQueueEmpty(timer_queue)) {
+    timer = GetTimerByQueue(timer_queue->next);
+    if (time_after(timer->time, osInfo.kernel.tick)) {
+      timer_finfo = NULL;
+    }
+    else {
+      libTimerRemove(timer);
+      if (timer->type == osTimerPeriodic) {
+        libTimerInsert(timer, timer->load);
+      }
+      else {
+        timer->state = osTimerStopped;
+      }
+    }
   }
 
-  return (time);
-}
-
-static void TimerHandler(void *argument)
-{
-  osTimer_t      *timer = (osTimer_t *)argument;
-  osTimerFinfo_t *finfo = &timer->finfo;
-
-  if (timer->type == osTimerOnce) {
-    timer->state = osTimerStopped;
-  }
-  else {
-    svc_4((uint32_t)&timer->event, (uint32_t)TimerNextTime(timer), (uint32_t)TimerHandler, (uint32_t)timer, (uint32_t)libTimerInsert);
-  }
-
-  finfo->func(finfo->arg);
+  return (timer_finfo);
 }
 
 /*******************************************************************************
@@ -124,8 +95,10 @@ static osTimerId_t TimerNew(osTimerFunc_t func, osTimerType_t type, void *argume
   timer->type       = (uint8_t)type;
   timer->name       = attr->name;
   timer->load       = 0U;
+  timer->time       = 0U;
   timer->finfo.func = func;
   timer->finfo.arg  = argument;
+  QueueReset(&timer->timer_que);
 
   return (timer);
 }
@@ -152,14 +125,19 @@ static osStatus_t TimerStart(osTimerId_t timer_id, uint32_t ticks)
   }
 
   if (timer->state == osTimerRunning) {
-    libTimerRemove(&timer->event);
+    libTimerRemove(timer);
   }
   else {
-    timer->state = osTimerRunning;
-    timer->load  = ticks;
+    if (osInfo.timer_semaphore == NULL) {
+      return (osErrorResource);
+    }
+    else {
+      timer->state = osTimerRunning;
+      timer->load  = ticks;
+    }
   }
 
-  libTimerInsert(&timer->event, osInfo.kernel.tick + ticks, TimerHandler, timer);
+  libTimerInsert(timer, ticks);
 
   return (osOK);
 }
@@ -180,7 +158,7 @@ static osStatus_t TimerStop(osTimerId_t timer_id)
 
   timer->state = osTimerStopped;
 
-  libTimerRemove(&timer->event);
+  libTimerRemove(timer);
 
   return (osOK);
 }
@@ -216,7 +194,7 @@ static osStatus_t TimerDelete(osTimerId_t timer_id)
 
   /* Check object state */
   if (timer->state == osTimerRunning) {
-    libTimerRemove(&timer->event);
+    libTimerRemove(timer);
   }
 
   /* Mark object as inactive and invalid */
@@ -230,42 +208,45 @@ static osStatus_t TimerDelete(osTimerId_t timer_id)
  *  Library functions
  ******************************************************************************/
 
-void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg)
+void libTimerInsert(osTimer_t *timer, uint32_t time)
 {
   queue_t *que;
-  event_t *timer;
   queue_t *timer_queue;
 
-  BEGIN_CRITICAL_SECTION
-
   timer_queue = &osInfo.timer_queue;
-  event->finfo.func = func;
-  event->finfo.arg  = arg;
-  event->time = time;
+  timer->time = time + osInfo.kernel.tick;
 
   for (que = timer_queue->next; que != timer_queue; que = que->next) {
-    timer = GetTimerByQueue(que);
-    if (time_before(event->time, timer->time)) {
+    if (time_before(timer->time, GetTimerByQueue(que)->time)) {
       break;
     }
   }
 
-  QueueAddTail(que, &event->timer_que);
-
-  END_CRITICAL_SECTION
+  QueueAddTail(que, &timer->timer_que);
 }
 
-/**
- * @fn          void TimerDelete(timer_t *event)
- * @brief
- */
-void libTimerRemove(event_t *event)
+void libTimerRemove(osTimer_t *timer)
 {
-  BEGIN_CRITICAL_SECTION
+  QueueRemoveEntry(&timer->timer_que);
+}
 
-  QueueRemoveEntry(&event->timer_que);
+void libTimerThread(void *argument)
+{
+  (void)          argument;
+  osTimerFinfo_t *timer_finfo;
 
-  END_CRITICAL_SECTION
+  osInfo.timer_semaphore = osSemaphoreNew(1U, 0U, osConfig.timer_semaphore_attr);
+  if (osInfo.timer_semaphore == NULL) {
+    return;
+  }
+
+  for (;;) {
+    osSemaphoreAcquire(osInfo.timer_semaphore, osWaitForever);
+
+    while ((timer_finfo = (osTimerFinfo_t *)svc_0((uint32_t)TimerGetFinfo)) != NULL) {
+      (timer_finfo->func)(timer_finfo->arg);
+    }
+  }
 }
 
 /*******************************************************************************

@@ -34,42 +34,7 @@
  *  Helper functions
  ******************************************************************************/
 
-static event_t* GetTimer(void)
-{
-  event_t *timer = NULL;
-  queue_t *timer_queue = &osInfo.timer_queue;
-
-  BEGIN_CRITICAL_SECTION
-
-  if (!isQueueEmpty(timer_queue)) {
-    timer = GetTimerByQueue(timer_queue->next);
-    if (time_after(timer->time, osInfo.kernel.tick))
-      timer = NULL;
-    else
-      libTimerRemove(timer);
-  }
-
-  END_CRITICAL_SECTION
-
-  return timer;
-}
-
-static void TimerThread(void *argument)
-{
-  event_t *timer;
-  (void)   argument;
-
-  for (;;) {
-    while ((timer = (event_t *)svc_0((uint32_t)GetTimer)) != NULL) {
-      (*timer->finfo.func)(timer->finfo.arg);
-    }
-
-    osThreadSuspend(osInfo.thread.timer);
-  }
-}
-
-static
-void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
+static void ThreadStackInit(uint32_t func_addr, void *func_param, osThread_t *thread)
 {
   uint32_t *stk = (uint32_t *)((uint32_t)thread->stk_mem + thread->stk_size);
 
@@ -127,11 +92,6 @@ static void ThreadReadyDel(osThread_t *thread)
   }
 }
 
-static void ThreadWaitExit_Handler(void *argument)
-{
-  svc_3((uint32_t)argument, (uint32_t)osErrorTimeout, (uint32_t)DISPATCH_YES, (uint32_t)libThreadWaitExit);
-}
-
 /*******************************************************************************
  *  Service Calls
  ******************************************************************************/
@@ -169,15 +129,16 @@ static osThreadId_t ThreadNew(osThreadFunc_t func, void *argument, const osThrea
   }
 
   /* Init thread control block */
-  thread->stk_mem = stack_mem;
-  thread->stk_size = stack_size;
+  thread->stk_mem       = stack_mem;
+  thread->stk_size      = stack_size;
   thread->base_priority = (int8_t)priority;
-  thread->priority = (int8_t)priority;
-  thread->name = attr->name;
-  thread->id = ID_THREAD;
+  thread->priority      = (int8_t)priority;
+  thread->id            = ID_THREAD;
+  thread->name          = attr->name;
+  thread->delay         = 0U;
 
   QueueReset(&thread->task_que);
-  QueueReset(&thread->wait_timer.timer_que);
+  QueueReset(&thread->delay_que);
   QueueReset(&thread->mutex_que);
 
   /* Fill all thread stack space by FILL_STACK_VAL */
@@ -363,8 +324,8 @@ osStatus_t ThreadSuspend(osThreadId_t thread_id)
       break;
 
     case ThreadStateBlocked:
-      /* Remove the thread from timer queue */
-      QueueRemoveEntry(&thread->wait_timer.timer_que);
+      /* Remove the thread from delay queue */
+      QueueRemoveEntry(&thread->delay_que);
       /* Remove the thread from wait queue */
       QueueRemoveEntry(&thread->task_que);
       break;
@@ -446,8 +407,8 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
       break;
 
     case ThreadStateBlocked:
-      /* Remove the thread from timer queue */
-      QueueRemoveEntry(&thread->wait_timer.timer_que);
+      /* Remove the thread from delay queue */
+      QueueRemoveEntry(&thread->delay_que);
       /* Remove the thread from wait queue */
       QueueRemoveEntry(&thread->task_que);
       break;
@@ -512,7 +473,7 @@ bool libThreadStartup(void)
 
   /* Create Timer Thread */
   if (osInfo.thread.timer == NULL) {
-    osInfo.thread.timer = ThreadNew(TimerThread, NULL, osConfig.timer_thread_attr);
+    osInfo.thread.timer = ThreadNew(libTimerThread, NULL, osConfig.timer_thread_attr);
     if (osInfo.thread.timer == NULL) {
       ret = false;
     }
@@ -532,7 +493,8 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch
 
   thread->winfo.ret_val = ret_val;
 
-  QueueRemoveEntry(&thread->wait_timer.timer_que);
+  /* Remove the thread from delay queue */
+  QueueRemoveEntry(&thread->delay_que);
   ThreadReadyAdd(thread);
   if (dispatch != DISPATCH_NO) {
     libThreadDispatch(thread);
@@ -550,6 +512,7 @@ void libThreadWaitExit(osThread_t *thread, uint32_t ret_val, dispatch_t dispatch
 bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 {
   queue_t *que;
+  queue_t *delay_queue;
 
   if (osInfo.kernel.state != osKernelRunning) {
     return (false);
@@ -559,10 +522,9 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 
   thread->state = ThreadStateBlocked;
 
-  /* Add to the wait queue - FIFO */
-  que = wait_que;
-  if (que != NULL) {
-    for (que = que->next; que != wait_que; que = que->next) {
+  /* Add to the wait queue */
+  if (wait_que != NULL) {
+    for (que = wait_que->next; que != wait_que; que = que->next) {
       if (thread->priority > GetThreadByQueue(que)->priority) {
         break;
       }
@@ -570,9 +532,17 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
     QueueAddTail(que, &thread->task_que);
   }
 
-  /* Add to the timers queue */
+  /* Add to the delay queue */
   if (timeout != osWaitForever) {
-    libTimerInsert(&thread->wait_timer, osInfo.kernel.tick + timeout, ThreadWaitExit_Handler, thread);
+    thread->delay = osInfo.kernel.tick + timeout;
+    delay_queue = &osInfo.delay_queue;
+    for (que = delay_queue->next; que != delay_queue; que = que->next) {
+      if (time_before(thread->delay, GetThreadByQueue(que)->delay)) {
+        break;
+      }
+    }
+
+    QueueAddTail(que, &thread->delay_que);
   }
 
   thread = libThreadHighestPrioGet();
@@ -594,6 +564,25 @@ void libThreadWaitDelete(queue_t *wait_que)
 }
 
 /**
+ * @brief       Process Thread Delay Tick (executed each System Tick).
+ */
+void libThreadDelayTick(void)
+{
+  osThread_t *thread;
+  queue_t *delay_queue = &osInfo.delay_queue;
+
+  while (!isQueueEmpty(delay_queue)) {
+    thread = GetThreadByDelayQueue(delay_queue->next);
+    if (time_after(thread->delay, osInfo.kernel.tick)) {
+      break;
+    }
+    else {
+      libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_NO);
+    }
+  }
+}
+
+/**
  * @brief       Change priority of a thread.
  * @param[in]   thread    thread object.
  * @param[in]   priority  new priority value for the thread.
@@ -610,13 +599,6 @@ void libThreadSetPriority(osThread_t *thread, int8_t priority)
       ThreadReadyAdd(thread);
     }
   }
-}
-
-void libThreadTimerResume(void)
-{
-  BEGIN_CRITICAL_SECTION
-  ThreadResume(osInfo.thread.timer);
-  END_CRITICAL_SECTION
 }
 
 osThread_t *libThreadHighestPrioGet(void)

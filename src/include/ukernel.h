@@ -197,13 +197,6 @@ typedef struct osTimerFinfo_s {
   void                           *arg;  ///< Function Argument
 } osTimerFinfo_t;
 
-/* Timer Event Control Block */
-typedef struct timer_s {
-  queue_t                   timer_que;  ///< Timer event queue
-  uint32_t                       time;  ///< Event time
-  osTimerFinfo_t                finfo;  ///< Timer Function Info
-} event_t;
-
 typedef struct winfo_msgque_s {
   uint32_t  msg;
   uint32_t  msg_prio;
@@ -267,7 +260,8 @@ typedef struct osThread_s {
   uint8_t                       state;  ///< Task state
   const char                    *name;  ///< Object Name
   winfo_t                       winfo;  ///< Wait information
-  event_t                  wait_timer;  ///< Wait timer
+  queue_t                   delay_que;  ///< Queue is used to include thread id delay list
+  uint32_t                      delay;  ///< Delay Time
 } osThread_t;
 
 /* Semaphore Control Block */
@@ -381,8 +375,9 @@ typedef struct osTimer_s {
   uint8_t                        type;  ///< Timer Type (Periodic/One-shot)
   const char                    *name;  ///< Object Name
   uint32_t                       load;  ///< Timer Load value
+  uint32_t                       time;  ///< Event time
+  queue_t                   timer_que;  ///< Timer event queue
   osTimerFinfo_t                finfo;  ///< Timer Function Info
-  event_t                       event;  ///< Timer event block
 } osTimer_t;
 
 #ifndef TZ_MODULEID_T

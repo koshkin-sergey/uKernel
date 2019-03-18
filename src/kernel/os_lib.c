@@ -78,6 +78,17 @@ static const osThreadAttr_t os_timer_thread_attr = {
   0U
 };
 
+/* Timer Semaphore Control Block */
+static osSemaphore_t os_timer_semaphore_cb __attribute__((section(".bss.os.semaphore.cb")));
+
+/* Timer Semaphore Attributes */
+static const osSemaphoreAttr_t os_timer_semaphore_attr = {
+  NULL,
+  0U,
+  &os_timer_semaphore_cb,
+  (uint32_t)sizeof(os_timer_semaphore_cb)
+};
+
 const osConfig_t osConfig __USED __attribute__((section(".rodata"))) = {
   0U     // Flags
 #if (OS_PRIVILEGE_MODE != 0)
@@ -99,6 +110,7 @@ const osConfig_t osConfig __USED __attribute__((section(".rodata"))) = {
   (uint32_t)MAX_API_INT_PRIO,
   &os_idle_thread_attr,
   &os_timer_thread_attr,
+  &os_timer_semaphore_attr
 };
 
 /* ----------------------------- End of file ---------------------------------*/

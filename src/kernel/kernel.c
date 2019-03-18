@@ -62,8 +62,17 @@
 void osTick_Handler(void)
 {
   ++osInfo.kernel.tick;
+
   if (osInfo.kernel.state == osKernelRunning) {
-    libThreadTimerResume();
+    /* Process Timers */
+    if ((osInfo.timer_semaphore != NULL) && (!isQueueEmpty(&osInfo.timer_queue))) {
+      osSemaphoreRelease(osInfo.timer_semaphore);
+    }
+
+    /* Process Thread Delays */
+    libThreadDelayTick();
+
+    libThreadDispatch(NULL);
   }
 }
 
@@ -85,6 +94,7 @@ static osStatus_t KernelInitialize(void)
   }
 
   QueueReset(&osInfo.timer_queue);
+  QueueReset(&osInfo.delay_queue);
 
   osInfo.kernel.state = osKernelReady;
 

@@ -58,9 +58,9 @@
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
 #define GetThreadByQueue(que)       container_of(que, osThread_t, task_que)
+#define GetThreadByDelayQueue(que)  container_of(que, osThread_t, delay_que)
 #define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
-#define GetMutexByWaitQueque(que)   container_of(que, osMutex_t, wait_que)
-#define GetTimerByQueue(que)        container_of(que, event_t, timer_que)
+#define GetTimerByQueue(que)        container_of(que, osTimer_t, timer_que)
 #define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
 #define NUM_PRIORITY                (32U)
@@ -82,8 +82,8 @@ typedef struct osInfo_s {
       osThread_t                         *curr;   /// Task that is running now
       osThread_t                         *next;   /// Task to be run after switch context
     } run;
-    osThreadId_t                         *idle;
-    osThreadId_t                        *timer;
+    osThreadId_t                          idle;
+    osThreadId_t                         timer;
   } thread;
   struct {
     osKernelState_t                      state;   ///< State
@@ -93,6 +93,8 @@ typedef struct osInfo_s {
   uint32_t                    ready_to_run_bmp;
   queue_t             ready_list[NUM_PRIORITY];   ///< all ready to run(RUNNABLE) tasks
   queue_t                          timer_queue;
+  queue_t                          delay_queue;
+  osSemaphoreId_t              timer_semaphore;
 } osInfo_t;
 
 /* OS Configuration structure */
@@ -105,6 +107,8 @@ typedef struct osConfig_s {
   osThreadAttr_t           *idle_thread_attr;   ///< Idle Thread Attributes
   const
   osThreadAttr_t          *timer_thread_attr;   ///< Timer Thread Attributes
+  const
+  osSemaphoreAttr_t    *timer_semaphore_attr;   ///< Timer Semaphore Attributes
 } osConfig_t;
 
 typedef enum {
@@ -153,13 +157,16 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 void libThreadWaitDelete(queue_t *que);
 
 /**
+ * @brief       Process Thread Delay Tick (executed each System Tick).
+ */
+void libThreadDelayTick(void);
+
+/**
  * @brief       Change priority of a thread.
  * @param[in]   thread    thread object.
  * @param[in]   priority  new priority value for the thread.
  */
 void libThreadSetPriority(osThread_t *thread, int8_t priority);
-
-void libThreadTimerResume(void);
 
 osThread_t *libThreadHighestPrioGet(void);
 
@@ -222,21 +229,9 @@ queue_t* QueueRemoveTail(queue_t *que);
 
 /* Timer */
 
-/**
- * @fn          void TimerInsert(timer_t *event, uint32_t time, CBACK callback, void *arg);
- * @brief
- * @param event
- * @param time
- * @param callback
- * @param arg
- */
-void libTimerInsert(event_t *event, uint32_t time, osTimerFunc_t func, void *arg);
-
-/**
- * @fn          void TimerDelete(timer_t *event)
- * @brief
- */
-void libTimerRemove(event_t *event);
+void libTimerInsert(osTimer_t *timer, uint32_t time);
+void libTimerRemove(osTimer_t *timer);
+void libTimerThread(void *argument);
 
 /**
  * @brief       Release Mutexes when owner Task terminates.
