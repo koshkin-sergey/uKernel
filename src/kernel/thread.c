@@ -537,7 +537,7 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
     thread->delay = osInfo.kernel.tick + timeout;
     delay_queue = &osInfo.delay_queue;
     for (que = delay_queue->next; que != delay_queue; que = que->next) {
-      if (time_before(thread->delay, GetThreadByQueue(que)->delay)) {
+      if (time_before(thread->delay, GetThreadByDelayQueue(que)->delay)) {
         break;
       }
     }

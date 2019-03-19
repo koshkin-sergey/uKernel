@@ -56,6 +56,7 @@ static osTimerFinfo_t *TimerGetFinfo(void)
     }
     else {
       libTimerRemove(timer);
+      timer_finfo = &timer->finfo;
       if (timer->type == osTimerPeriodic) {
         libTimerInsert(timer, timer->load);
       }
