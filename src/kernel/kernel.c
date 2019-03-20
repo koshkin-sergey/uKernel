@@ -61,11 +61,20 @@
 
 void osTick_Handler(void)
 {
+  osTimer_t *timer;
+  queue_t   *timer_queue;
+
   ++osInfo.kernel.tick;
 
   /* Process Timers */
-  if ((osInfo.timer_semaphore != NULL) && (!isQueueEmpty(&osInfo.timer_queue))) {
-    osSemaphoreRelease(osInfo.timer_semaphore);
+  if (osInfo.timer_semaphore != NULL) {
+    timer_queue = &osInfo.timer_queue;
+    if (!isQueueEmpty(timer_queue)) {
+      timer = GetTimerByQueue(timer_queue->next);
+      if (time_before_eq(timer->time, osInfo.kernel.tick)) {
+        osSemaphoreRelease(osInfo.timer_semaphore);
+      }
+    }
   }
 
   BEGIN_CRITICAL_SECTION
