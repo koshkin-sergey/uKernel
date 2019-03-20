@@ -59,7 +59,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="kernel/ARM/|kernel/IAR/" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="RTOS"/>
+						<entry excluding="kernel/GCC/irq_cm0.S|kernel/ARM/|kernel/IAR/" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="RTOS"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
