@@ -2,8 +2,8 @@
  * Copyright (C) 2019 Sergey Koshkin <koshkin.sergey@gmail.com>
  * All rights reserved
  *
- * File Name  :	stm32f4_example_event_flags.c
- * Description:	stm32f4_example_event_flags
+ * File Name  :	stm32f4_example_timers.c
+ * Description:	stm32f4_example_timers
  */
 
 /*******************************************************************************
@@ -23,7 +23,7 @@
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
-#define TEST_FLAG           (1UL)
+#define TIMEOUT             (250UL)
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -91,23 +91,24 @@ static const osTimerAttr_t timer2_attr = {
 
 static void threadA_func(void *param)
 {
-  osTimerStart(timer1, 200);
+  osTimerStart(timer1, TIMEOUT);
 
   for (;;) {
-    osDelay(100);
+    osDelay(TIMEOUT/2UL);
     GPIOD->ODR ^= (1UL << 12U);
-    osDelay(100);
+    osDelay(TIMEOUT/2UL);
   }
 }
 
 static void threadB_func(void *param)
 {
-  osTimerStart(timer2, 200);
+  osDelay(TIMEOUT);
+  osTimerStart(timer2, TIMEOUT);
 
   for (;;) {
-    osDelay(100);
+    osDelay(TIMEOUT/2UL);
     GPIOD->ODR ^= (1UL << 14U);
-    osDelay(100);
+    osDelay(TIMEOUT/2UL);
   }
 }
 
