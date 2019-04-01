@@ -21,8 +21,8 @@
 
                 PRESERVE8
 
-                THUMB
                 SECTION   .text:CODE:NOROOT(2)
+                THUMB
 
 PendSV_Handler
                 EXPORT    PendSV_Handler
