@@ -1,13 +1,12 @@
 *.o
 *.d
-tnkernel.lib
 *.launch
 *.axf
-bin
 *.bin
-obj
-lst
-*.uvgui.*
-*.bak
-*.uvopt
-*.dep
+
+# MDK_ARM Project Files
+*.uvguix.*
+*.scvd
+DebugConfig/
+Listings/
+Objects/
