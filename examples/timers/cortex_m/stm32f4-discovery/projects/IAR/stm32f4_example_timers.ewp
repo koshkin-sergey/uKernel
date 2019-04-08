@@ -2104,9 +2104,6 @@
             <name>$PROJ_DIR$\..\..\..\..\..\..\src\kernel\os_lib.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\..\..\..\src\kernel\que.c</name>
-        </file>
-        <file>
             <name>$PROJ_DIR$\..\..\..\..\..\..\src\Config\RTOS_Config.c</name>
         </file>
         <file>
