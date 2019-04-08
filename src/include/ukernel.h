@@ -79,8 +79,8 @@ extern "C"
 #define osFlagsNoClear                0x00000002U ///< Do not clear flags which have been specified to wait for.
 
 /* Thread attributes (attr_bits in \ref osThreadAttr_t) */
-#define osThreadDetached      0x00000000U ///< Thread created in detached mode (default)
-#define osThreadJoinable      0x00000001U ///< Thread created in joinable mode
+#define osThreadDetached              0x00000000U ///< Thread created in detached mode (default)
+#define osThreadJoinable              0x00000001U ///< Thread created in joinable mode
 
 /* Mutex attributes */
 #define osMutexPrioInherit            (1UL<<0)  ///< Priority inherit protocol.
@@ -95,6 +95,27 @@ extern "C"
 
 #define time_after_eq(a,b)            ((int32_t)(a) - (int32_t)(b) >= 0)
 #define time_before_eq(a,b)           time_after_eq(b,a)
+
+/* Control Block sizes */
+#define osThreadCbSize                sizeof(osThread_t)
+#define osTimerCbSize                 sizeof(osTimer_t)
+#define osEventFlagsCbSize            sizeof(osEventFlags_t)
+#define osMutexCbSize                 sizeof(osMutex_t)
+#define osSemaphoreCbSize             sizeof(osSemaphore_t)
+#define osMemoryPoolCbSize            sizeof(osMemoryPool_t)
+#define osMessageQueueCbSize          sizeof(osMessageQueue_t)
+
+/// Memory size in bytes for Memory Pool storage.
+/// \param         block_count   maximum number of memory blocks in memory pool.
+/// \param         block_size    memory block size in bytes.
+#define osMemoryPoolMemSize(block_count, block_size) \
+  (4*(block_count)*(((block_size)+3)/4))
+
+/// Memory size in bytes for Message Queue storage.
+/// \param         msg_count     maximum number of messages in queue.
+/// \param         msg_size      maximum message size in bytes.
+#define osMessageQueueMemSize(msg_count, msg_size) \
+  (4*(msg_count)*(3+(((msg_size)+3)/4)))
 
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
@@ -250,7 +271,7 @@ typedef void *osMemoryPoolId_t;
 /* Thread Control Block */
 typedef struct osThread_s {
   uint32_t                        stk;  ///< Address of thread's top of stack
-  queue_t                    task_que;  ///< Queue is used to include thread in ready/wait lists
+  queue_t                  thread_que;  ///< Queue is used to include thread in ready/wait lists
   queue_t                   mutex_que;  ///< List of all mutexes that tack locked
   void                       *stk_mem;  ///< Base address of thread's stack space
   uint32_t                   stk_size;  ///< Task's stack size (in bytes)

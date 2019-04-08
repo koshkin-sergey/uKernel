@@ -57,9 +57,9 @@
 
 #define container_of(ptr, type, member) ((type *)((uint8_t *)(ptr) - offsetof(type, member)))
 
-#define GetThreadByQueue(que)       container_of(que, osThread_t, task_que)
+#define GetThreadByQueue(que)       container_of(que, osThread_t, thread_que)
 #define GetThreadByDelayQueue(que)  container_of(que, osThread_t, delay_que)
-#define GetMutexByMutexQueque(que)  container_of(que, osMutex_t, mutex_que)
+#define GetMutexByQueque(que)       container_of(que, osMutex_t, mutex_que)
 #define GetTimerByQueue(que)        container_of(que, osTimer_t, timer_que)
 #define GetMessageByQueue(que)      container_of(que, osMessage_t, msg_que)
 
@@ -178,54 +178,75 @@ void libThreadSwitch(osThread_t *thread);
  */
 void libThreadDispatch(osThread_t *thread);
 
-__STATIC_INLINE
+__STATIC_FORCEINLINE
 osThread_t *ThreadGetRunning(void)
 {
   return osInfo.thread.run.curr;
 }
 
+
 /* Queue */
-void QueueReset(queue_t *que);
-bool isQueueEmpty(queue_t *que);
+
+__STATIC_FORCEINLINE
+void QueueReset(queue_t *que)
+{
+  que->prev = que->next = que;
+}
+
+__STATIC_FORCEINLINE
+bool isQueueEmpty(queue_t *que)
+{
+  return ((que->next == que) ? true : false);
+}
 
 /**
- * @fn          void QueueAddHead(queue_t *que, queue_t *entry)
- * @brief       Inserts an entry at the head of the queue.
+ * @fn          void QueueAppend(queue_t *que, queue_t *entry)
+ * @brief       Appends an entry at the tail of the queue.
  * @param[out]  que     Pointer to the queue
  * @param[out]  entry   Pointer to an entry
  */
-void QueueAddHead(queue_t *que, queue_t *entry);
+__STATIC_FORCEINLINE
+void QueueAppend(queue_t *que, queue_t *entry)
+{
+  entry->next = que;
+  entry->prev = que->prev;
+  entry->prev->next = entry;
+  que->prev = entry;
+}
 
 /**
- * @fn          void QueueAddTail(queue_t *que, queue_t *entry)
- * @brief       Inserts an entry at the tail of the queue.
- * @param[out]  que     Pointer to the queue
- * @param[out]  entry   Pointer to an entry
+ * @fn          queue_t* QueueExtract(queue_t *que)
+ * @brief       Removes and return an entry at the head of the queue.
+ * @param[out]  que   Pointer to the queue
+ * @return      Returns a pointer to an entry at the head of the queue
  */
-void QueueAddTail(queue_t *que, queue_t *entry);
+__STATIC_FORCEINLINE
+queue_t* QueueExtract(queue_t *que)
+{
+  queue_t *entry = que->next;
+
+  entry->next->prev = que;
+  que->next = entry->next;
+  QueueReset(entry);
+
+  return (entry);
+}
 
 /**
  * @fn          void QueueRemoveEntry(queue_t *entry)
  * @brief       Removes an entry from the queue.
  * @param[out]  entry   Pointer to an entry of the queue
  */
-void QueueRemoveEntry(queue_t *entry);
+__STATIC_FORCEINLINE
+void QueueRemoveEntry(queue_t *entry)
+{
+  if (!isQueueEmpty(entry)) {
+    entry->prev->next = entry->next;
+    entry->next->prev = entry->prev;
+    QueueReset(entry);
+  }
+}
 
-/**
- * @fn          queue_t* QueueRemoveHead(queue_t *que)
- * @brief       Remove and return an entry at the head of the queue.
- * @param[out]  que   Pointer to the queue
- * @return      Returns a pointer to an entry at the head of the queue
- */
-queue_t* QueueRemoveHead(queue_t *que);
-
-/**
- * @fn          queue_t* QueueRemoveTail(queue_t *que)
- * @brief       Remove and return an entry at the tail of the queue.
- * @param[out]  que   Pointer to the queue
- * @return      Returns a pointer to an entry at the tail of the queue
- */
-queue_t* QueueRemoveTail(queue_t *que);
 
 /* Timer */
 

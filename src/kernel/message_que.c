@@ -81,7 +81,7 @@ static osMessage_t *MessagePut(osMessageQueue_t *mq, const void *msg_ptr, uint8_
         }
       }
     }
-    QueueAddTail(que, &msg->msg_que);
+    QueueAppend(que, &msg->msg_que);
     mq->msg_count++;
   }
 
@@ -96,7 +96,7 @@ static osMessage_t *MessageGet(osMessageQueue_t *mq, void *msg_ptr, uint8_t *msg
   que = &mq->msg_queue;
 
   if (!isQueueEmpty(que)) {
-    msg = GetMessageByQueue(QueueRemoveHead(que));
+    msg = GetMessageByQueue(QueueExtract(que));
     /* Copy Message */
     memcpy(msg_ptr, &msg[1], mq->msg_size);
     if (msg_prio != NULL) {
@@ -182,7 +182,7 @@ static osStatus_t MessageQueuePut(osMessageQueueId_t mq_id, const void *msg_ptr,
   /* Check if Thread is waiting to receive a Message */
   if (!isQueueEmpty(&mq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    thread = GetThreadByQueue(QueueRemoveHead(&mq->wait_get_queue));
+    thread = GetThreadByQueue(mq->wait_get_queue.next);
     libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
     winfo = &thread->winfo.msgque;
     memcpy((void *)winfo->msg, msg_ptr, mq->msg_size);

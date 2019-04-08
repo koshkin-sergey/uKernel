@@ -156,7 +156,7 @@ static osStatus_t SemaphoreRelease(osSemaphoreId_t semaphore_id)
   /* Check if Thread is waiting for a token */
   if (!isQueueEmpty(&sem->wait_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(&sem->wait_queue)), (uint32_t)osOK, DISPATCH_YES);
+    libThreadWaitExit(GetThreadByQueue(sem->wait_queue.next), (uint32_t)osOK, DISPATCH_YES);
     status = osOK;
   }
   else {

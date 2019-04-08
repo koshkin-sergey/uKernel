@@ -223,7 +223,7 @@ void libTimerInsert(osTimer_t *timer, uint32_t time)
     }
   }
 
-  QueueAddTail(que, &timer->timer_que);
+  QueueAppend(que, &timer->timer_que);
 }
 
 void libTimerRemove(osTimer_t *timer)

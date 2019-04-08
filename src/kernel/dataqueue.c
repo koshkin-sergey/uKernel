@@ -160,7 +160,7 @@ static osStatus_t DataQueuePut(osDataQueueId_t dq_id, const void *data_ptr, uint
   /* Check if Thread is waiting to receive a data */
   if (!isQueueEmpty(&dq->wait_get_queue)) {
     /* Wakeup waiting Thread with highest Priority */
-    thread = GetThreadByQueue(QueueRemoveHead(&dq->wait_get_queue));
+    thread = GetThreadByQueue(dq->wait_get_queue.next);
     libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_YES);
     memcpy((void *)thread->winfo.dataque.data_ptr, data_ptr, dq->data_size);
     status = osOK;

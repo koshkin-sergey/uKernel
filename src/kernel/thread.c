@@ -67,11 +67,11 @@ static void ThreadReadyAdd(osThread_t *thread)
   int8_t priority = thread->priority - 1U;
 
   /* Remove the thread from any queue */
-  QueueRemoveEntry(&thread->task_que);
+  QueueRemoveEntry(&thread->thread_que);
 
   thread->state = ThreadStateReady;
   /* Add the thread to the end of ready queue */
-  QueueAddTail(&osInfo.ready_list[priority], &thread->task_que);
+  QueueAppend(&osInfo.ready_list[priority], &thread->thread_que);
   osInfo.ready_to_run_bmp |= (1UL << priority);
 }
 
@@ -84,7 +84,7 @@ static void ThreadReadyDel(osThread_t *thread)
   int8_t priority = thread->priority - 1U;
 
   /* Remove the thread from ready queue */
-  QueueRemoveEntry(&thread->task_que);
+  QueueRemoveEntry(&thread->thread_que);
 
   if (isQueueEmpty(&osInfo.ready_list[priority])) {
     /* No ready threads for the current priority */
@@ -137,7 +137,7 @@ static osThreadId_t ThreadNew(osThreadFunc_t func, void *argument, const osThrea
   thread->name          = attr->name;
   thread->delay         = 0U;
 
-  QueueReset(&thread->task_que);
+  QueueReset(&thread->thread_que);
   QueueReset(&thread->delay_que);
   QueueReset(&thread->mutex_que);
 
@@ -279,7 +279,7 @@ static osStatus_t ThreadYield(void)
     que = &osInfo.ready_list[thread_running->priority - 1U];
 
     /* Remove the running thread from ready queue */
-    QueueRemoveEntry(&thread_running->task_que);
+    QueueRemoveEntry(&thread_running->thread_que);
 
     if (!isQueueEmpty(que)) {
       thread_running->state = ThreadStateReady;
@@ -287,7 +287,7 @@ static osStatus_t ThreadYield(void)
     }
 
     /* Add the running thread to the end of ready queue */
-    QueueAddTail(que, &thread_running->task_que);
+    QueueAppend(que, &thread_running->thread_que);
   }
 
   return (osOK);
@@ -327,7 +327,7 @@ osStatus_t ThreadSuspend(osThreadId_t thread_id)
       /* Remove the thread from delay queue */
       QueueRemoveEntry(&thread->delay_que);
       /* Remove the thread from wait queue */
-      QueueRemoveEntry(&thread->task_que);
+      QueueRemoveEntry(&thread->thread_que);
       break;
 
     case ThreadStateTerminated:
@@ -410,7 +410,7 @@ static osStatus_t ThreadTerminate(osThreadId_t thread_id)
       /* Remove the thread from delay queue */
       QueueRemoveEntry(&thread->delay_que);
       /* Remove the thread from wait queue */
-      QueueRemoveEntry(&thread->task_que);
+      QueueRemoveEntry(&thread->thread_que);
       break;
 
     case ThreadStateInactive:
@@ -529,7 +529,7 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
         break;
       }
     }
-    QueueAddTail(que, &thread->task_que);
+    QueueAppend(que, &thread->thread_que);
   }
 
   /* Add to the delay queue */
@@ -542,7 +542,7 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
       }
     }
 
-    QueueAddTail(que, &thread->delay_que);
+    QueueAppend(que, &thread->delay_que);
   }
 
   thread = libThreadHighestPrioGet();
@@ -558,7 +558,7 @@ bool libThreadWaitEnter(osThread_t *thread, queue_t *wait_que, uint32_t timeout)
 void libThreadWaitDelete(queue_t *wait_que)
 {
   while (!isQueueEmpty(wait_que)) {
-    libThreadWaitExit(GetThreadByQueue(QueueRemoveHead(wait_que)), (uint32_t)osErrorResource, DISPATCH_NO);
+    libThreadWaitExit(GetThreadByQueue(wait_que->next), (uint32_t)osErrorResource, DISPATCH_NO);
   }
   libThreadDispatch(NULL);
 }

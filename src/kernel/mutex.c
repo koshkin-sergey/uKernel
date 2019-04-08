@@ -72,7 +72,7 @@ static void RestoreThreadPriority(osThread_t *thread)
   if (!isQueueEmpty(&thread->mutex_que)) {
     que = thread->mutex_que.next;
     while (que != &thread->mutex_que) {
-      mutex = GetMutexByMutexQueque(que);
+      mutex = GetMutexByQueque(que);
       if (!isQueueEmpty(&mutex->wait_que)) {
         wthread = GetThreadByQueue(mutex->wait_que.next);
         if (wthread->priority > priority) {
@@ -148,7 +148,7 @@ static osStatus_t MutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
     /* Acquire Mutex */
     mutex->holder = running_thread;
     mutex->cnt = 1U;
-    QueueAddTail(&running_thread->mutex_que, &mutex->mutex_que);
+    QueueAppend(&running_thread->mutex_que, &mutex->mutex_que);
     status = osOK;
   }
   else {
@@ -232,11 +232,11 @@ static osStatus_t MutexRelease(osMutexId_t mutex_id)
     /* Check if Thread is waiting for a Mutex */
     if (!isQueueEmpty(&mutex->wait_que)) {
       /* Wakeup waiting Thread with highest Priority */
-      thread = GetThreadByQueue(QueueRemoveHead(&mutex->wait_que));
+      thread = GetThreadByQueue(mutex->wait_que.next);
       libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_NO);
       mutex->holder = thread;
       mutex->cnt = 1U;
-      QueueAddTail(&thread->mutex_que, &mutex->mutex_que);
+      QueueAppend(&thread->mutex_que, &mutex->mutex_que);
     }
 
     libThreadDispatch(NULL);
@@ -306,18 +306,18 @@ void libMutexOwnerRelease(queue_t *que)
   osThread_t *thread;
 
   while (!isQueueEmpty(que)) {
-    mutex = GetMutexByMutexQueque(QueueRemoveHead(que));
+    mutex = GetMutexByQueque(QueueExtract(que));
     if ((mutex->attr & osMutexRobust) != 0U) {
       mutex->holder = NULL;
       mutex->cnt = 0U;
       /* Check if Thread is waiting for a Mutex */
       if (!isQueueEmpty(&mutex->wait_que)) {
         /* Wakeup waiting Thread with highest Priority */
-        thread = GetThreadByQueue(QueueRemoveHead(&mutex->wait_que));
+        thread = GetThreadByQueue(mutex->wait_que.next);
         libThreadWaitExit(thread, (uint32_t)osOK, DISPATCH_NO);
         mutex->holder = thread;
         mutex->cnt = 1U;
-        QueueAddTail(&thread->mutex_que, &mutex->mutex_que);
+        QueueAppend(&thread->mutex_que, &mutex->mutex_que);
       }
     }
   }
