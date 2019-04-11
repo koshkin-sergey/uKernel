@@ -110,14 +110,11 @@
 // ======================
 
 //   <o>Timer Thread Priority
-//      <4=> Low
-//      <8=> Below Normal  <12=> Normal  <16=> Above Normal
-//     <20=> High
-//     <24=> Realtime
+//      <2=> Low <7=> Below Normal  <12=> Normal  <17=> Above Normal <22=> High <27=> Realtime
 //   <i> Defines priority for timer thread
 //   <i> Default: High
 #ifndef OS_TIMER_THREAD_PRIO
-#define OS_TIMER_THREAD_PRIO        24
+#define OS_TIMER_THREAD_PRIO        22
 #endif
 
 //   <o>Timer Thread Stack size [bytes] <0-1073741824:8>
