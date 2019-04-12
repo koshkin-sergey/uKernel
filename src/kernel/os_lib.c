@@ -113,4 +113,9 @@ const osConfig_t osConfig __USED __attribute__((section(".rodata"))) = {
   &os_timer_semaphore_attr
 };
 
+/* Non weak reference to library irq module */
+extern       uint8_t  irqLib;
+extern const uint8_t *irqLibRef;
+       const uint8_t *irqLibRef = &irqLib;
+
 /* ----------------------------- End of file ---------------------------------*/

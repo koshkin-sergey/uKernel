@@ -20,13 +20,19 @@
                 PRESERVE8
                 THUMB
 
+
+                AREA      |.constdata|, DATA, READONLY
+                EXPORT    irqLib
+irqLib          DCB       0                   ; Non weak library reference
+
+
                 AREA      |.text|, CODE, READONLY
 
 PendSV_Handler  PROC
                 EXPORT    PendSV_Handler
                 IMPORT    osInfo
 
-                LDR       R3,=osInfo         ; in R3 - =run_task
+                LDR       R3,=osInfo          ; in R3 - =run_task
                 LDM       R3,{R1,R2}          ; in R1 - current run task, in R2 - next run task
                 CMP       R1,R2               ; Check if thread switch is required
                 BEQ       Context_Exit        ; Exit when threads are the same
@@ -76,13 +82,13 @@ SVC_Exit
 
 
 SysTick_Handler PROC
-                EXPORT   SysTick_Handler
-                IMPORT   osTick_Handler
+                EXPORT    SysTick_Handler
+                IMPORT    osTick_Handler
 
-                PUSH     {R0,LR}                ; Save EXC_RETURN
-                BL       osTick_Handler         ; Call osTick_Handler
-                POP      {R0,LR}                ; Restore EXC_RETURN
-                BX       LR                     ; Exit from handler
+                PUSH      {R0,LR}             ; Save EXC_RETURN
+                BL        osTick_Handler      ; Call osTick_Handler
+                POP       {R0,LR}             ; Restore EXC_RETURN
+                BX        LR                  ; Exit from handler
 
                 ALIGN
                 ENDP

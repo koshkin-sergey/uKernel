@@ -21,6 +21,12 @@
         .syntax  unified
         .fpu     softvfp
 
+        .section ".rodata"
+        .global  irqLib               // Non weak library reference
+irqLib:
+        .byte    0
+
+
         .thumb
         .section ".text"
         .align   2

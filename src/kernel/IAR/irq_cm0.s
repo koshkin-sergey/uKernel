@@ -20,6 +20,12 @@
                 NAME      irq_cm0.s
 
                 PRESERVE8
+                SECTION   .rodata:DATA:NOROOT(2)
+
+
+                EXPORT    irqLib
+irqLib          DCB       0                   ; Non weak library reference
+
 
                 SECTION   .text:CODE:NOROOT(2)
                 THUMB
@@ -94,14 +100,14 @@ SVC_MSP
 
 
 SysTick_Handler
-                EXPORT   SysTick_Handler
-                IMPORT   osTick_Handler
+                EXPORT    SysTick_Handler
+                IMPORT    osTick_Handler
 
-                PUSH     {R0,LR}                ; Save EXC_RETURN
-                BL       osTick_Handler         ; Call osTick_Handler
-                POP      {R0,R1}                ; Restore EXC_RETURN
-                MOV      LR,R1                  ; Set EXC_RETURN
-                BX       LR                     ; Exit from handler
+                PUSH      {R0,LR}             ; Save EXC_RETURN
+                BL        osTick_Handler      ; Call osTick_Handler
+                POP       {R0,R1}             ; Restore EXC_RETURN
+                MOV       LR,R1               ; Set EXC_RETURN
+                BX        LR                  ; Exit from handler
 
 
                 END
