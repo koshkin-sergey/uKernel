@@ -80,8 +80,9 @@ void osTick_Handler(void)
   BEGIN_CRITICAL_SECTION
 
   /* Process Thread Delays */
-  libThreadDelayTick();
-  libThreadDispatch(NULL);
+  if (libThreadDelayTick() == true) {
+    libThreadDispatch(NULL);
+  }
 
   END_CRITICAL_SECTION
 }

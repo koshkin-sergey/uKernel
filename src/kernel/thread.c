@@ -566,10 +566,11 @@ void libThreadWaitDelete(queue_t *wait_que)
 /**
  * @brief       Process Thread Delay Tick (executed each System Tick).
  */
-void libThreadDelayTick(void)
+bool libThreadDelayTick(void)
 {
   osThread_t *thread;
-  queue_t *delay_queue = &osInfo.delay_queue;
+  bool        result = false;
+  queue_t    *delay_queue = &osInfo.delay_queue;
 
   while (!isQueueEmpty(delay_queue)) {
     thread = GetThreadByDelayQueue(delay_queue->next);
@@ -578,8 +579,11 @@ void libThreadDelayTick(void)
     }
     else {
       libThreadWaitExit(thread, (uint32_t)osErrorTimeout, DISPATCH_NO);
+      result = true;
     }
   }
+
+  return (result);
 }
 
 /**

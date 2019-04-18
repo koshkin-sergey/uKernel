@@ -159,7 +159,7 @@ void libThreadWaitDelete(queue_t *que);
 /**
  * @brief       Process Thread Delay Tick (executed each System Tick).
  */
-void libThreadDelayTick(void);
+bool libThreadDelayTick(void);
 
 /**
  * @brief       Change priority of a thread.
