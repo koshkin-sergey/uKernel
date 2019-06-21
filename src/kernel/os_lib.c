@@ -18,7 +18,6 @@
  * Title:   OS Library Configuration
  */
 
-#include "cmsis_compiler.h"
 #include "os_lib.h"
 #include "RTOS_Config.h"
 

@@ -102,30 +102,6 @@
   #define END_CRITICAL_SECTION
 #endif
 
-#ifndef __STATIC_INLINE
-  #define __STATIC_INLINE
-#endif
-
-#ifndef __STATIC_FORCEINLINE
-  #define __STATIC_FORCEINLINE
-#endif
-
-#ifndef __ASM
-  #define __ASM
-#endif
-
-#ifndef __NO_RETURN
-  #define __NO_RETURN
-#endif
-
-#ifndef __WEAK
-  #define __WEAK
-#endif
-
-#ifndef   __USED
-  #define __USED
-#endif
-
 /*******************************************************************************
  *  typedefs and structures (scope: module-local)
  ******************************************************************************/
@@ -240,6 +216,8 @@ uint32_t SystemIsrInit(void)
   SCB->SHP[1] |= 0x00FF0000U;
   n = SCB->SHP[1];
   SCB->SHP[0] |= (n << (8+1)) & 0xFC000000U;
+  return (0U);
+#else
   return (0U);
 #endif
 }

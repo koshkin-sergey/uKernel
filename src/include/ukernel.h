@@ -24,10 +24,8 @@
  *  includes
  ******************************************************************************/
 
-#include <stdint.h>
+#include <cmsis_compiler.h>
 #include <stddef.h>
-#include <stdarg.h>
-#include <stdbool.h>
 
 #ifdef  __cplusplus
 extern "C"
@@ -38,6 +36,7 @@ extern "C"
  *  defines and macros (scope: module-local)
  ******************************************************************************/
 
+/* -------  Start of section using anonymous unions and disabling warnings  ------- */
 #if   defined (__CC_ARM)
   #pragma push
   #pragma anon_unions
@@ -57,20 +56,6 @@ extern "C"
   /* anonymous unions are enabled by default */
 #else
   #warning Not supported compiler type
-#endif
-
-#ifndef __NO_RETURN
-#if   defined(__CC_ARM)
-#define __NO_RETURN __declspec(noreturn)
-#elif defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
-#define __NO_RETURN __attribute__((__noreturn__))
-#elif defined(__GNUC__)
-#define __NO_RETURN __attribute__((__noreturn__))
-#elif defined(__ICCARM__)
-#define __NO_RETURN __noreturn
-#else
-#define __NO_RETURN
-#endif
 #endif
 
 /* Flags options (\ref osEventFlagsWait) */
@@ -1209,7 +1194,7 @@ osThreadId_t osMutexGetOwner(osMutexId_t mutex_id);
  */
 osStatus_t osMutexDelete(osMutexId_t mutex_id);
 
-
+/* --------  End of section using anonymous unions and disabling warnings  -------- */
 #if   defined (__CC_ARM)
   #pragma pop
 #elif defined (__ICCARM__)

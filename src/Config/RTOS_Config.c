@@ -18,7 +18,6 @@
  * Title:   uKernel Configuration
  */
 
-#include "cmsis_compiler.h"
 #include "ukernel.h"
 
 /* OS Idle Thread */
